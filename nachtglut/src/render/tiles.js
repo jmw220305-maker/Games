@@ -269,7 +269,6 @@ function paintHazard(buf, glow, S, t, tx, ty, seed, base) {
     if (targets.length < 2) targets.push([ox + 3 + ((h >>> 13) % 10), oy + 3 + ((h >>> 17) % 4)], [ox + 3 + ((h >>> 19) % 10), oy + 10 + ((h >>> 23) % 3)]);
     const hot = S.hz, hotL = lt(S.hz, 0.55), dim = dk(S.hz, 0.45);
     const crackPx = [];
-    for (const [ex, ey] of targets) jag({ w: buf.w, h: buf.h, d: { set: 0 } }, 0, 0, 0, 0, 0, 0); // no-op keeps signature stable
     for (let k = 0; k < targets.length; k++) {
       const [ex, ey] = targets[k];
       lineJag(cx, cy, ex, ey, h + k * 13, (x, y) => {

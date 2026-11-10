@@ -214,7 +214,7 @@ export class Lighting {
   }
 
   /** Collect every light of the frame. */
-  gather(world, camX, camY, vw, vh, time) {
+  gather(world, fx, camX, camY, vw, vh, time) {
     this.n = 0;
     this.vx = camX; this.vy = camY; this.vw = vw; this.vh = vh;
     const p = world.player;
@@ -226,7 +226,7 @@ export class Lighting {
       this.add(p.x, p.y - 2, r, PLAYER_LIGHT, 1, 0.16);
     }
     // fx lights (explosions, skills)
-    const fx = world.fx;
+    fx = fx || world.fx;
     if (fx && fx.lightPool) {
       const pool = fx.lightPool;
       for (let i = 0; i < pool.length; i++) {
@@ -331,13 +331,14 @@ export class Lighting {
 
   /**
    * Glow pass + darkness composite. `ctx` is the logical game canvas (any transform; it is reset here).
+   * fx: the Fx instance whose temporary lights are included.
    * darkness: 0..1 alpha of the unlit areas; fog: colour of the darkness.
    */
-  render(ctx, world, camX, camY, vw, vh, time, darkness, fog) {
+  render(ctx, world, fx, camX, camY, vw, vh, time, darkness, fog) {
     if (!this.enabled) return;
     if (!this.canvas || this.w !== vw || this.h !== vh) this.resize(vw, vh);
     if (!this.canvas) return;
-    this.gather(world, camX, camY, vw, vh, time);
+    this.gather(world, fx, camX, camY, vw, vh, time);
     const n = this.n, lx = this.lx, ly = this.ly, lr = this.lr, li = this.li, lg = this.lg, lc = this.lc;
 
     // 1) additive coloured glows on the scene
