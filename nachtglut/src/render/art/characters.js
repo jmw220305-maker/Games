@@ -36,13 +36,14 @@ const W = 18, H = 20;
       '....kdhd..dhdk....',
     ],
     torsoPal: (p) => (p.f % 2 ? hot : pal),
-    legs: { xl: 6, xr: 10, y: 16, leg: '#2a1c1e', boot: '#4f352c', bootHi: '#74503c', far: '#20161a', bootFar: '#3c2823' },
-    extra(b, p, c) {
-      // tiny ember mote drifting up from the lantern
-      if (p.dash) { b.px(2, 12, '#ff8a3c'); b.px(1, 14, '#c9683c'); b.px(3, 10, '#93402c'); return; }
+    legs: { xl: 6, xr: 10, y: 16, leg: '#33211f', boot: '#6b4634', bootHi: '#9a6a48', far: '#2a1b1b', bootFar: '#54372b' },
+    fx(b, p, c) {
+      // tiny ember motes drifting up from the lantern / trailing in a dash
+      if (p.dash) { b.px(1, 12 + (p.f || 0), '#ff8a3c'); b.px(0, 15 - (p.f || 0), '#c9683c'); return; }
       const f = p.f || 0;
-      if (f === 1) b.px(11, 8 + c.by, '#ffb347');
-      if (f === 3) b.px(12, 7 + c.by, '#ff7a2f');
+      if (f === 1) b.px(13, 9 + c.by, '#ffb347');
+      if (f === 2) b.px(14, 7 + c.by, '#ff7a2f');
+      if (f === 3) b.px(14, 5 + c.by, '#a8300f');
     },
   });
 }
@@ -219,13 +220,13 @@ const W = 18, H = 20;
     headPal: (p) => (p.f % 2 ? dim : pal),
     torsoPal: (p) => (p.f % 2 ? dim : pal),
     legs: { xl: 7, xr: 10, y: 16, leg: '#756c66', boot: '#4a423f', bootHi: '#756c66', far: '#5a524e', bootFar: '#3a3331' },
-    extra(b, p, c) {
+    fx(b, p) {
       // ash and embers flaking off the head
       const f = (p.step >= 0 ? p.step : p.f) || 0;
-      const pts = [[6, 1, '#a2978d'], [11, 0, '#ff6a1f'], [8, 0, '#756c66'], [12, 1, '#ffc04d']];
+      const pts = [[5, 2, '#a2978d'], [13, 1, '#ff6a1f'], [3, 4, '#756c66'], [14, 3, '#ffc04d']];
       const q = pts[f % 4];
-      b.px(q[0] - (p.dash ? 3 : 0), q[1] + c.hy, q[2]);
-      if (p.dash) { b.px(2, 9, '#ff6a1f'); b.px(1, 12, '#756c66'); }
+      b.px(q[0] - (p.dash ? 3 : 0), q[1], q[2]);
+      if (p.dash) { b.px(1, 9, '#ff6a1f'); b.px(0, 13, '#756c66'); }
     },
   });
 }

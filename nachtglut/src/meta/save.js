@@ -53,7 +53,7 @@ export function defaultSave() {
     unlocks: { characters: ['bearer'], weapons: [], difficulties: 0 },
     codex: { enemies: {}, relics: {}, weapons: {}, bosses: {}, boons: {} },
     achievements: {},
-    achievementProgress: {},
+    counters: {},
     stats: defaultStats(),
     characterStats: {},
     history: [],
@@ -266,7 +266,7 @@ function sanitize(input) {
     const n = num(t, 0, 0, 1e15, true);
     return n > 0 ? n : undefined;
   });
-  out.achievementProgress = mapOf(raw.achievementProgress, (n) => {
+  out.counters = mapOf(raw.counters, (n) => {
     const v2 = num(n, 0, 0, MAX_COUNT);
     return v2 > 0 ? v2 : undefined;
   });
@@ -318,6 +318,32 @@ export function migrate(raw) {
   } catch {
     return defaultSave();
   }
+}
+
+/**
+ * Make sure a (possibly hand-built or partial) save object has every container the meta modules
+ * write to. Mutates and returns `save`; existing values are left alone.
+ */
+export function ensureSaveShape(save) {
+  if (!isObj(save)) return save;
+  const d = defaultSave();
+  for (const k of Object.keys(d)) {
+    const want = d[k];
+    const have = save[k];
+    if (have === undefined) save[k] = want;
+    else if (Array.isArray(want)) { if (!Array.isArray(have)) save[k] = want; }
+    else if (isObj(want)) { if (!isObj(have)) save[k] = want; }
+    else if (typeof want === 'number') { if (typeof have !== 'number' || !Number.isFinite(have)) save[k] = want; }
+  }
+  for (const k of Object.keys(d.codex)) if (!isObj(save.codex[k])) save.codex[k] = {};
+  for (const k of Object.keys(d.stats)) {
+    if (typeof save.stats[k] !== 'number' || !Number.isFinite(save.stats[k])) save.stats[k] = d.stats[k];
+  }
+  if (!Array.isArray(save.unlocks.characters)) save.unlocks.characters = ['bearer'];
+  if (!Array.isArray(save.unlocks.weapons)) save.unlocks.weapons = [];
+  if (typeof save.unlocks.difficulties !== 'number' || !Number.isFinite(save.unlocks.difficulties)) save.unlocks.difficulties = 0;
+  for (const k of Object.keys(d.settings)) if (save.settings[k] === undefined) save.settings[k] = d.settings[k];
+  return save;
 }
 
 // ---------------------------------------------------------------------------------------------

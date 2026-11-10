@@ -1,6 +1,10 @@
 // Art registry: importing this module registers every sprite definition (DOM-free).
 import { DEFS } from './helpers.js';
 import './characters.js';
+import './enemies_ash.js';
+import './enemies_fungal.js';
+import './enemies_frost.js';
+import './enemies_void.js';
 
 export { DEFS };
 

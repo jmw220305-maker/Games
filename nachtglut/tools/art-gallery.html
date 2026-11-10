@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nachtglut — Art Gallery</title>
+<style>
+  html, body { margin: 0; background: #0d0a0c; color: #cfc6b8; font: 11px/1.3 ui-monospace, Menlo, Consolas, monospace; }
+  h1 { font-size: 16px; margin: 10px 12px 4px; color: #ffb347; }
+  h2 { font-size: 13px; margin: 0 0 6px; color: #ff8a3c; letter-spacing: 1px; text-transform: uppercase; }
+  section { padding: 10px 12px 14px; border-top: 1px solid #2a2024; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-start; }
+  .card { background: #151012; border: 1px solid #2a2024; padding: 4px 6px 6px; }
+  .card .name { color: #e8dccb; margin-bottom: 3px; }
+  .card .name small { color: #7d7268; }
+  .anims { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: flex-end; }
+  .anim span { display: block; color: #8c8076; font-size: 10px; }
+  canvas, img { image-rendering: pixelated; display: block; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .ico { text-align: center; width: 62px; font-size: 9px; color: #8c8076; }
+  .ico img { margin: 0 auto 2px; background: #1b1518; }
+  .rooms { display: flex; flex-wrap: wrap; gap: 12px; }
+  #err { color: #ff5a5a; white-space: pre-wrap; padding: 0 12px; }
+</style>
+</head>
+<body>
+<h1>Nachtglut — Art Gallery</h1>
+<div id="err"></div>
+<div id="root"></div>
+<script type="module">
+import { sprites, SPRITE_KEYS, GLYPH_NAMES } from '../src/render/sprites.js';
+import { BIOMES, FLOOR_ORDER } from '../src/data/biomes.js';
+import { TILE, TS } from '../src/game/constants.js';
+
+const q = new URLSearchParams(location.search);
+const SCALE = +(q.get('scale') || 4);
+const ONLY = q.get('only');
+const SECT = q.get('sec');
+const FREEZE = q.has('t') ? +q.get('t') : null;
+const root = document.getElementById('root');
+const errBox = document.getElementById('err');
+window.addEventListener('error', (e) => { errBox.textContent += (e.message || e) + '\n'; });
+window.addEventListener('unhandledrejection', (e) => { errBox.textContent += (e.reason && e.reason.stack || e.reason) + '\n'; });
+
+let tiles = null;
+try { tiles = await import('../src/render/tiles.js'); } catch (e) { errBox.textContent += 'tiles.js: ' + e.message + '\n'; }
+
+sprites.init();
+
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+const wanted = (key) => !ONLY || ONLY.split(',').some((p) => key.startsWith(p));
+function section(id, title) {
+  if (SECT && !SECT.split(',').includes(id)) return null;
+  const s = el('section'); s.id = 'sec-' + id;
+  s.appendChild(el('h2', '', title));
+  root.appendChild(s);
+  return s;
+}
+
+function animCanvas(key, anim, info, bg, scale, opts = {}) {
+  const a = info.anims[anim];
+  const pad = 2;
+  const cw = info.w + pad * 2, ch = info.h + pad * 2;
+  const c = el('canvas');
+  c.width = cw * a.n * scale; c.height = ch * scale;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.scale(scale, scale);
+  for (let i = 0; i < a.n; i++) {
+    g.fillStyle = bg;
+    g.fillRect(i * cw, 0, cw, ch);
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.fillRect(i * cw + cw - 0.25, 0, 0.25, ch);
+    sprites.draw(g, key, i * cw + cw / 2, ch / 2, { anim, t: (i + 0.5) / a.fps, ...opts });
+  }
+  return c;
+}
+
+function liveCanvas(key, info, bg, scale) {
+  const c = el('canvas');
+  const pad = 2;
+  c.width = (info.w + pad * 2) * scale; c.height = (info.h + pad * 2) * scale;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const names = Object.keys(info.anims);
+  live.push((t) => {
+    g.setTransform(scale, 0, 0, scale, 0, 0);
+    g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
+    const anim = names[Math.floor(t / 2) % names.length];
+    sprites.draw(g, key, (info.w + pad * 2) / 2, (info.h + pad * 2) / 2, { anim, t, flipX: Math.floor(t / (2 * names.length)) % 2 === 1 });
+  });
+  return c;
+}
+const live = [];
+
+function card(key, bg, scale = SCALE, opts) {
+  const info = sprites.info(key);
+  const c = el('div', 'card');
+  const name = el('div', 'name', key + ' ');
+  name.appendChild(el('small', '', info ? `${info.w}×${info.h}` : 'MISSING'));
+  c.appendChild(name);
+  if (!info) {
+    const cv = el('canvas'); cv.width = cv.height = 16 * scale;
+    const g = cv.getContext('2d'); g.scale(scale, scale);
+    sprites.draw(g, key, 8, 8, {});
+    c.appendChild(cv);
+    return c;
+  }
+  const anims = el('div', 'anims');
+  for (const anim of Object.keys(info.anims)) {
+    const a = el('div', 'anim');
+    a.appendChild(el('span', '', `${anim} ${info.anims[anim].n}f@${info.anims[anim].fps}`));
+    a.appendChild(animCanvas(key, anim, info, bg, scale, opts));
+    anims.appendChild(a);
+  }
+  if (!q.has('nolive')) {
+    const a = el('div', 'anim');
+    a.appendChild(el('span', '', 'live'));
+    a.appendChild(liveCanvas(key, info, bg, scale));
+    anims.appendChild(a);
+  }
+  c.appendChild(anims);
+  return c;
+}
+
+function cards(sec, keys, bg, scale, opts) {
+  if (!sec) return;
+  const wrap = el('div', 'cards');
+  for (const k of keys) if (wanted(k)) wrap.appendChild(card(k, bg, scale, opts));
+  sec.appendChild(wrap);
+}
+
+const used = new Set();
+const take = (keys) => { keys.forEach((k) => used.add(k)); return keys; };
+
+// --- characters ---
+cards(section('chars', 'Characters'), take(SPRITE_KEYS.filter((k) => k.startsWith('char_'))), '#3b2f2a', q.has('scale') ? SCALE : 5);
+
+// --- enemies per biome ---
+for (const id of FLOOR_ORDER) {
+  const bio = BIOMES[id];
+  const keys = bio.enemies.map((e) => e.id).filter((k) => BIOMES[id].enemies.find((e) => e.id === k) && !used.has(k));
+  if (id === 'frost') keys.splice(2, 0, 'glacier_slime_small');
+  cards(section('enemies-' + id, `Enemies — ${bio.name} (${id})`), take(keys), bio.palette.floor);
+}
+
+// --- bosses ---
+{
+  const bossBg = { boss_cinder: 'ash', boss_mycel: 'fungal', boss_rime: 'frost', boss_rime_segment: 'frost', boss_umbra: 'void', boss_umbra_twin: 'void', boss_sun: 'core', boss_sun_core: 'core' };
+  const keys = take(SPRITE_KEYS.filter((k) => k.startsWith('boss_')));
+  const expected = Object.keys(bossBg);
+  const all = [...new Set([...expected, ...keys])];
+  all.forEach((k) => used.add(k));
+  const sec = section('bosses', 'Bosses');
+  if (sec) {
+    const wrap = el('div', 'cards');
+    for (const k of all) if (wanted(k)) wrap.appendChild(card(k, BIOMES[bossBg[k] || 'ash'].palette.floor, q.has('scale') ? SCALE : 3));
+    sec.appendChild(wrap);
+  }
+}
+
+// --- props / pickups ---
+cards(section('props', 'Props'), take(SPRITE_KEYS.filter((k) => k.startsWith('prop_'))), '#3b2f2a');
+cards(section('pickups', 'Pickups'), take(SPRITE_KEYS.filter((k) => k.startsWith('pickup_'))), '#2b3d52', q.has('scale') ? SCALE : 6);
+
+// --- projectiles ---
+{
+  const sec = section('proj', 'Projectiles (tintable)');
+  const keys = take(SPRITE_KEYS.filter((k) => k.startsWith('proj_')));
+  if (sec) {
+    const colors = [null, '#ff8a3c', '#8fd8ff', '#9be35a', '#ffe75a', '#b07cff', '#fff3b0', '#e8e2d4', '#ff5a3c'];
+    const scale = 5;
+    for (const k of keys) {
+      if (!wanted(k)) continue;
+      const info = sprites.info(k);
+      const row = el('div', 'row');
+      row.appendChild(el('div', 'ico', `${k} ${info.w}×${info.h}`));
+      const n = Math.max(...Object.values(info.anims).map((a) => a.n));
+      const cell = Math.max(info.w, info.h) + 6;
+      const c = el('canvas');
+      c.width = (colors.length * Math.min(n, 4) + 6) * cell * scale; c.height = cell * scale;
+      const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(scale, scale);
+      g.fillStyle = '#231a36'; g.fillRect(0, 0, c.width, c.height);
+      let x = 0;
+      for (const col of colors) {
+        for (let i = 0; i < Math.min(n, 4); i++) {
+          sprites.draw(g, k, x * cell + cell / 2, cell / 2, { color: col, t: (i + 0.5) / info.anims.idle.fps });
+          x++;
+        }
+      }
+      for (let r = 0; r < 6; r++) {
+        sprites.draw(g, k, x * cell + cell / 2, cell / 2, { color: '#ff8a3c', rot: (r / 6) * Math.PI * 2, scale: r === 5 ? 1.5 : 1 });
+        x++;
+      }
+      row.appendChild(c);
+      sec.appendChild(row);
+    }
+    // beam tiling test
+    if (sprites.has('proj_beam')) {
+      const c = el('canvas'); c.width = 16 * 8 * scale; c.height = 14 * scale;
+      const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(scale, scale);
+      g.fillStyle = '#231a36'; g.fillRect(0, 0, 200, 20);
+      for (let i = 0; i < 8; i++) sprites.draw(g, 'proj_beam', 8 + i * 16, 7, { color: '#8fd8ff' });
+      const row = el('div', 'row'); row.appendChild(el('div', 'ico', 'beam ×8 tiled')); row.appendChild(c); sec.appendChild(row);
+    }
+  }
+}
+
+// --- glyphs ---
+{
+  const sec = section('glyphs', 'Icon glyphs (sprites.icon → <img>)');
+  if (sec) {
+    const colors = ['#ffb347', '#8fd8ff', '#9be35a', '#b07cff', '#e8e2d4', '#ff5a3c', '#c04bd6', '#ffe75a'];
+    for (const px of [48, 32]) {
+      const row = el('div', 'row');
+      GLYPH_NAMES.forEach((g, i) => {
+        const d = el('div', 'ico');
+        const img = new Image(); img.width = px; img.height = px;
+        img.src = sprites.icon({ glyph: g, color: colors[i % colors.length] }, px);
+        d.appendChild(img); d.appendChild(document.createTextNode(g));
+        row.appendChild(d);
+      });
+      sec.appendChild(row);
+    }
+    // glyphs drawn on canvas via sprites.draw('glyph_x') at 1× and 2× on floor colours
+    const c = el('canvas'); c.width = 50 * 20 * 2; c.height = 44 * 2;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(2, 2);
+    g.fillStyle = '#3b2f2a'; g.fillRect(0, 0, 1000, 22);
+    g.fillStyle = '#231a36'; g.fillRect(0, 22, 1000, 22);
+    GLYPH_NAMES.forEach((name, i) => {
+      sprites.draw(g, 'glyph_' + name, 10 + i * 20, 11, { color: colors[i % colors.length] });
+      sprites.draw(g, 'glyph_' + name, 10 + i * 20, 33, {});
+    });
+    sec.appendChild(c);
+    GLYPH_NAMES.forEach((n) => used.add('glyph_' + n));
+    // sprite-key icons
+    const row = el('div', 'row');
+    for (const k of ['char_bearer', 'char_warden', 'prop_chest', 'pickup_heart', 'ash_crawler', 'boss_sun', 'nope_missing']) {
+      const d = el('div', 'ico'); const img = new Image(); img.width = 48; img.height = 48; img.src = sprites.icon(k, 48);
+      d.appendChild(img); d.appendChild(document.createTextNode(k)); row.appendChild(d);
+    }
+    sec.appendChild(row);
+  }
+}
+
+// --- anything not shown yet + fallback ---
+cards(section('misc', 'Other keys / fallback'), SPRITE_KEYS.filter((k) => !used.has(k)).concat(['missing_key_demo']), '#3b2f2a');
+
+// --- flash / flip / alpha test ---
+{
+  const sec = section('fx', 'Draw options: flip, flash, alpha, scale, rot');
+  if (sec) {
+    const c = el('canvas'); c.width = 260 * 4; c.height = 30 * 4;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.scale(4, 4);
+    g.fillStyle = '#3b2f2a'; g.fillRect(0, 0, 260, 30);
+    const k = 'char_bearer';
+    [{}, { flipX: true }, { flash: 0.5 }, { flash: 1 }, { alpha: 0.5 }, { scale: 1.5 }, { rot: 0.5 }, { flipX: true, flash: 0.7, anim: 'walk', t: 0.2 }, { anim: 'bogus' }]
+      .forEach((o, i) => sprites.draw(g, k, 16 + i * 26, 15, o));
+    sec.appendChild(c);
+  }
+}
+
+// --- rooms ---
+function sampleRoom(biomeId, variant) {
+  const w = 20, h = 14;
+  const t = new Uint8Array(w * h);
+  const set = (x, y, v) => { t[y * w + x] = v; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) set(x, y, x === 0 || y === 0 || x === w - 1 || y === h - 1 ? TILE.WALL : TILE.FLOOR);
+  // inner wall block + pillar
+  for (let y = 3; y <= 4; y++) for (let x = 4; x <= 6; x++) set(x, y, TILE.WALL);
+  set(14, 9, TILE.WALL); set(14, 10, TILE.WALL);
+  // notch out of the shape (VOID) in the bottom-right corner
+  for (let y = 11; y < h; y++) for (let x = 16; x < w; x++) set(x, y, TILE.VOID);
+  for (let x = 15; x < w; x++) set(x, 10, TILE.WALL);
+  for (let y = 10; y < h; y++) set(15, y, TILE.WALL);
+  // pits
+  for (let y = 7; y <= 9; y++) for (let x = 3; x <= 6; x++) set(x, y, TILE.PIT);
+  set(7, 8, TILE.PIT);
+  // hazards
+  for (const [x, y] of [[10, 3], [11, 3], [11, 4], [12, 4], [12, 5], [10, 4], [16, 6]]) set(x, y, TILE.HAZARD);
+  // spikes
+  for (const [x, y] of [[9, 8], [10, 8], [9, 9], [10, 9], [16, 3]]) set(x, y, TILE.SPIKES);
+  // ice
+  for (const [x, y] of [[12, 10], [13, 11], [12, 11], [11, 11], [11, 10], [10, 11], [17, 8]]) set(x, y, TILE.ICE);
+  // doors: north, west, south, east
+  set(8, 0, TILE.DOOR); set(9, 0, TILE.DOOR);
+  set(0, 5, TILE.DOOR); set(0, 6, TILE.DOOR);
+  set(9, h - 1, TILE.DOOR); set(10, h - 1, TILE.DOOR);
+  set(w - 1, 6, TILE.DOOR); set(w - 1, 7, TILE.DOOR);
+  return {
+    id: 0, gx: 0, gy: 0, type: 'combat', depth: 1, w, h, tiles: t,
+    doors: { n: { to: 1, tx: 8, ty: 0 }, w: { to: 2, tx: 0, ty: 5 }, s: { to: 3, tx: 9, ty: h - 1 }, e: { to: 4, tx: w - 1, ty: 6 } },
+    spawns: [], props: [], variant, visited: true, seen: true, cleared: false,
+  };
+}
+
+const roomDraws = [];
+{
+  const sec = section('rooms', 'Rooms (renderRoomStatic + drawRoomDynamic) — left: locked, right: unlocked');
+  if (sec && tiles) {
+    const wrap = el('div', 'rooms');
+    for (const id of FLOOR_ORDER) {
+      const bio = BIOMES[id];
+      for (const locked of [true, false]) {
+        const room = sampleRoom(id, locked ? 7 : 1234567);
+        const stat = tiles.renderRoomStatic(room, bio);
+        const S = +(q.get('rs') || 2);
+        const c = el('canvas'); c.width = room.w * TS * S; c.height = room.h * TS * S;
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+        const d = el('div'); d.appendChild(el('div', 'name', `${id} — ${locked ? 'locked' : 'open'}`)); d.appendChild(c);
+        wrap.appendChild(d);
+        roomDraws.push((t) => {
+          g.setTransform(S, 0, 0, S, 0, 0);
+          g.fillStyle = '#000'; g.fillRect(0, 0, room.w * TS, room.h * TS);
+          g.drawImage(stat, 0, 0);
+          tiles.drawRoomDynamic(g, room, bio, t, { locked, view: { x: 0, y: 0, w: room.w * TS, h: room.h * TS } });
+        });
+      }
+    }
+    sec.appendChild(wrap);
+  }
+}
+
+// --- lit scene: enemies in the dark, as in game ---
+{
+  const sec = section('scene', 'In-situ: sprites on tiles with darkness + light');
+  if (sec && tiles) {
+    const wrap = el('div', 'rooms');
+    const chars = ['char_bearer', 'char_shadow', 'char_warden', 'char_weaver', 'char_revenant'];
+    const propKeys = SPRITE_KEYS.filter((k) => k.startsWith('prop_'));
+    FLOOR_ORDER.forEach((id, bi) => {
+      const bio = BIOMES[id];
+      const room = sampleRoom(id, 99 + bi);
+      const stat = tiles.renderRoomStatic(room, bio);
+      const S = 3;
+      const W = room.w * TS, H = room.h * TS;
+      const c = el('canvas'); c.width = W * S; c.height = H * S;
+      const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+      const dark = el('canvas'); dark.width = W; dark.height = H;
+      const dg = dark.getContext('2d');
+      const d = el('div'); d.appendChild(el('div', 'name', `${id} — lit scene`)); d.appendChild(c);
+      wrap.appendChild(d);
+      const ens = bio.enemies.map((e) => e.id).concat(id === 'frost' ? ['glacier_slime_small'] : []);
+      const spots = [[40, 40], [130, 100], [200, 60], [250, 130], [150, 160], [60, 190], [270, 40], [215, 150], [120, 40]];
+      const px = 150, py = 110;
+      roomDraws.push((t) => {
+        g.setTransform(S, 0, 0, S, 0, 0);
+        g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+        g.drawImage(stat, 0, 0);
+        tiles.drawRoomDynamic(g, room, bio, t, { locked: true });
+        const shadow = (x, y, w) => { g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(x, y, w, w * 0.4, 0, 0, 7); g.fill(); };
+        propKeys.slice(bi * 4, bi * 4 + 4).forEach((k, i) => { sprites.draw(g, k, 36 + i * 24, 84, { t }); });
+        ens.forEach((k, i) => {
+          const [x, y] = spots[i % spots.length];
+          const sz = sprites.size(k);
+          shadow(x, y + sz.h / 2 - 1, sz.w * 0.35);
+          sprites.draw(g, k, x, y, { anim: i % 3 === 0 ? 'walk' : 'idle', t, flipX: i % 2 === 1 });
+        });
+        shadow(px, py + 9, 6);
+        sprites.draw(g, chars[bi], px, py, { anim: 'walk', t });
+        sprites.draw(g, 'proj_orb', px + 30, py - 6, { color: '#ffb347', t });
+        sprites.draw(g, 'proj_bolt', px + 50, py + 10, { color: bio.accent, t });
+        // darkness
+        dg.globalCompositeOperation = 'source-over';
+        dg.clearRect(0, 0, W, H);
+        dg.fillStyle = bio.fog; dg.globalAlpha = Math.min(0.92, bio.darkness + 0.2); dg.fillRect(0, 0, W, H); dg.globalAlpha = 1;
+        dg.globalCompositeOperation = 'destination-out';
+        const hole = (x, y, r, a) => { const gr = dg.createRadialGradient(x, y, r * 0.2, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); dg.fillStyle = gr; dg.beginPath(); dg.arc(x, y, r, 0, 7); dg.fill(); };
+        hole(px, py, 110, 1);
+        ens.forEach((k, i) => { const [x, y] = spots[i % spots.length]; hole(x, y, 22, 0.35); });
+        g.drawImage(dark, 0, 0);
+      });
+    });
+    sec.appendChild(wrap);
+  }
+}
+
+function tick(ms) {
+  const t = FREEZE !== null ? FREEZE : ms / 1000;
+  for (const f of live) f(t);
+  for (const f of roomDraws) f(t);
+  if (FREEZE === null) requestAnimationFrame(tick);
+}
+tick(0);
+window.__galleryReady = true;
+</script>
+</body>
+</html>

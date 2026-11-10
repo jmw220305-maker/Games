@@ -10,18 +10,23 @@ import { sprite } from './helpers.js';
  *   torso: rows | (p, c) => rows, tx, ty,   torso map + position
  *   legs: { xl, xr, y, leg, boot, bootHi, far } | null (robes)
  *   under(b, p, c), extra(b, p, c)   hooks drawn behind / in front. c = { by, hy } offsets
+ *   fx(b, p, c)                      drawn after the outline pass (particles, glows: no outline)
  *   anims: overrides for the default animation table
  * }
  * Pose keys: step (0..3 walk phase), breathe (0|1), dash, hurt, atk, cast, + anything custom.
  */
 export function humanoid(key, cfg) {
   const { w, h, pal } = cfg;
-  const draw = (b, p) => {
+  const offsets = (p) => {
     const step = p.step === undefined ? -1 : p.step;
     const contact = step === 0 || step === 2;
     const by = (contact ? 1 : 0) + (p.by || 0);
     const hy = by + (p.breathe ? 1 : 0) + (p.hy || 0);
-    const c = { by, hy, step, contact };
+    return { by, hy, step, contact };
+  };
+  const draw = (b, p) => {
+    const c = offsets(p);
+    const { by, hy, step, contact } = c;
     if (cfg.under) cfg.under(b, p, c);
     const L = cfg.legs;
     if (L) {
@@ -61,5 +66,7 @@ export function humanoid(key, cfg) {
     hurt: [1, { hurt: 1, shear: -0.14 }],
     ...(cfg.anims || {}),
   };
-  return sprite(key, w, h, draw, anims, cfg.opts || {});
+  const opts = { ...(cfg.opts || {}) };
+  if (cfg.fx) opts.post = (b, p) => cfg.fx(b, p, offsets(p));
+  return sprite(key, w, h, draw, anims, opts);
 }
