@@ -15,8 +15,8 @@
   .anims { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: flex-end; }
   .anim span { display: block; color: #8c8076; font-size: 10px; }
   canvas, img { image-rendering: pixelated; display: block; }
-  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
-  .ico { text-align: center; width: 62px; font-size: 9px; color: #8c8076; }
+  .row { display: flex; flex-wrap: wrap; max-width: 1450px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .ico { text-align: center; min-width: 62px; font-size: 9px; color: #8c8076; }
   .ico img { margin: 0 auto 2px; background: #1b1518; }
   .rooms { display: flex; flex-wrap: wrap; gap: 12px; }
   #err { color: #ff5a5a; white-space: pre-wrap; padding: 0 12px; }
@@ -210,7 +210,7 @@ cards(section('pickups', 'Pickups'), take(SPRITE_KEYS.filter((k) => k.startsWith
   const sec = section('glyphs', 'Icon glyphs (sprites.icon → <img>)');
   if (sec) {
     const colors = ['#ffb347', '#8fd8ff', '#9be35a', '#b07cff', '#e8e2d4', '#ff5a3c', '#c04bd6', '#ffe75a'];
-    for (const px of [48, 32]) {
+    for (const px of (q.get('iconpx') ? [+q.get('iconpx')] : [48, 32])) {
       const row = el('div', 'row');
       GLYPH_NAMES.forEach((g, i) => {
         const d = el('div', 'ico');

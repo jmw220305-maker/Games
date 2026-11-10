@@ -48,6 +48,7 @@ export class World {
     this.interactProp = null;
     this.nextUid = 1;
     this.sepT = 0;
+    this.bossDefeated = null;
   }
 
   // -------------------------------------------------------------------------------------------
@@ -65,6 +66,7 @@ export class World {
     this.zones = [];
     this.pickups = [];
     this.boss = null;
+    this.bossDefeated = null;
     this.interactHint = null;
     this.interactProp = null;
     this.fx.clear && this.fx.clear();
@@ -73,8 +75,8 @@ export class World {
     room.seen = true;
     for (const d in room.doors) {
       const n = run.floor.rooms[room.doors[d].to];
-      if (n && !n.secret) n.seen = true;
-      else if (n && n.secret && n.visited) n.seen = true;
+      const secret = n && (n.secret || n.type === 'secret');
+      if (n && (!secret || n.visited)) n.seen = true;
     }
     this.props = instantiateProps(this, room);
     this.rebuildBlocked();
@@ -656,6 +658,7 @@ export class World {
 
   onRevive() {
     const p = this.player;
+    this.run.stats.revives = (this.run.stats.revives || 0) + 1;
     p.iframes = Math.max(p.iframes, 2.2);
     p.statuses = {};
     this.fx.flash('#ffd35a', 0.5);

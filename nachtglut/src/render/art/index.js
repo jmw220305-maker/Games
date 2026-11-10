@@ -5,16 +5,12 @@ import './enemies_ash.js';
 import './enemies_fungal.js';
 import './enemies_frost.js';
 import './enemies_void.js';
+import './bosses.js';
+import './props.js';
+import './projectiles.js';
+import { GLYPH_NAMES } from './glyphs.js';
 
-export { DEFS };
-
-export const GLYPH_NAMES = Object.freeze([
-  'flame', 'ember', 'skull', 'heart', 'shield', 'boot', 'eye', 'sword', 'dagger', 'hammer',
-  'bow', 'staff', 'orb', 'star', 'sun', 'moon', 'snowflake', 'drop', 'bolt', 'leaf',
-  'mushroom', 'bone', 'crown', 'coin', 'key', 'hourglass', 'feather', 'fang', 'claw', 'ring',
-  'gem', 'book', 'potion', 'bomb', 'wing', 'anchor', 'chain', 'mirror', 'mask', 'candle',
-  'lantern', 'compass', 'dice', 'scale', 'thorn', 'spiral', 'cross', 'hand', 'tooth', 'horn',
-]);
+export { DEFS, GLYPH_NAMES };
 
 /** Every registered sprite key (characters, enemies, bosses, props, pickups, projectiles, glyph_*). */
 export const SPRITE_KEYS = Object.freeze([...DEFS.keys()]);
