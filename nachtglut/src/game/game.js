@@ -4,11 +4,15 @@ import { bus } from '../core/events.js';
 import { NULL_FX } from './world.js';
 import { Run } from './run.js';
 import { generateFallbackFloor } from './fallbackgen.js';
+import { WEAPONS } from './registry.js';
 
 /** Neutral meta used when none is injected (tests, sim without src/meta). */
 export const DEFAULT_META = Object.freeze({
   DIFFICULTIES: Object.freeze([Object.freeze({ level: 0, name: 'Erste Glut', desc: 'Der Schacht, wie er ist.', mods: Object.freeze({}) })]),
   getMetaMods() { return []; },
+  unlockedWeapons() { return Object.keys(WEAPONS); },
+  isWeaponUnlocked() { return true; },
+  isCharacterUnlocked() { return true; },
   getRunBonuses() {
     return {
       startSparks: 0, rerolls: 0, revives: 0, relicChoices: 0, startRelics: 0, startRelicRarity: 'common',

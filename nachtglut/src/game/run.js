@@ -56,13 +56,12 @@ export class Run {
       startSparks: 0, rerolls: 0, revives: 0, relicChoices: 0, startRelics: 0, startRelicRarity: 'common',
       shopDiscount: 0, healOnFloor: 0, startShield: 0, reviveHp: 0.3, ...bonuses,
     };
-    this.unlockedWeapons = null;
+    // weapon loot pool (weapon offers only roll from this set)
+    let ids = null;
     if (typeof meta.unlockedWeapons === 'function') {
-      try {
-        const ids = meta.unlockedWeapons(game.save);
-        if (Array.isArray(ids) && ids.length) this.unlockedWeapons = new Set(ids);
-      } catch (err) { console.error('[run] unlockedWeapons failed', err); }
+      try { ids = meta.unlockedWeapons(game.save); } catch (err) { console.error('[run] unlockedWeapons failed', err); }
     }
+    this.unlockedWeapons = new Set(Array.isArray(ids) ? ids : Object.keys(WEAPONS));
 
     this.stats = emptyRunStats();
     this.rerolls = Math.max(0, Math.floor(this.bonuses.rerolls || 0));
@@ -126,6 +125,7 @@ export class Run {
     this.floorIndex = index;
     this.biome = biomeForFloor(index);
     this.world.bossDefeated = null;
+    this.finalBossCleared = false;
     this.victoryT = 0;
     const genOpts = {
       index, biome: this.biome, seed: this.rng.int(0, 0xffffffff),
@@ -193,7 +193,7 @@ export class Run {
     if (this._dynT <= 0) { this._dynT = 0.2; refreshDynamicMods(this); }
 
     // victory: the final boss is down
-    if (!this.ended && w.bossDefeated && this.floorIndex >= TOTAL_FLOORS) {
+    if (!this.ended && (w.bossDefeated || this.finalBossCleared) && this.floorIndex >= TOTAL_FLOORS) {
       this.ended = true;
       this.victory = true;
       this.victoryT = VICTORY_TIME;
@@ -214,6 +214,8 @@ export class Run {
   onRoomClear(room) {
     if (this.roomHits === 0) this.stats.flawlessRooms++;
     this.roomHits = 0;
+    // robust victory even when the final boss def is missing (placeholder enemy without `boss`)
+    if (room && room.type === 'boss' && this.floorIndex >= TOTAL_FLOORS) this.finalBossCleared = true;
   }
 
   onPlayerDeath(source, info = {}) {
