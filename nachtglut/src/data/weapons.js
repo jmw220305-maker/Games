@@ -3,7 +3,7 @@
 // player stats, crits, status chances and relic hooks apply uniformly. DOM-free; no top-level side effects
 // (this module takes part in an import cycle with game/registry.js).
 import { bus } from '../core/events.js';
-import { playerShot, playerVolley, playerDamage, weaponCooldown } from '../game/combat.js';
+import { playerShot, playerVolley, playerDamage } from '../game/combat.js';
 import { runHooks } from '../game/perks.js';
 import { angleDiff, distToSegment } from '../core/math.js';
 
@@ -845,5 +845,3 @@ export const WEAPONS = {
 /** Ids in roster order (ARCHITECTURE §6.3). */
 export const WEAPON_IDS = Object.freeze(Object.keys(WEAPONS));
 
-// keep weaponCooldown referenced for weapons that may want to compute their own pacing
-export { weaponCooldown };

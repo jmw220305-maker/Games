@@ -36,13 +36,73 @@ export function affinity(p, type) {
   return !!(st && p && p.stats && p.stats[st] > 0);
 }
 
-const NON_PROJECTILE = new Set(['iron_hammer', 'soul_siphon', 'glaive_orbit']);
+const NON_PROJECTILE = new Set(['iron_hammer', 'soul_siphon', 'glaive_orbit', 'spark_chain']);
 /** At least one weapon fires regular projectiles (projectile modifiers would do something). */
 export function shootsProjectiles(p) {
   const defs = weaponDefs(p);
   if (!defs.length) return true;
-  return defs.some((d) => !(d.melee || d.beam || NON_PROJECTILE.has(d.id)
-    || (Array.isArray(d.tags) && (d.tags.includes('melee') || d.tags.includes('beam')))));
+  return defs.some((d) => (Array.isArray(d.tags) ? d.tags.includes('projectile') : !(d.melee || d.beam || NON_PROJECTILE.has(d.id))));
+}
+
+// ---------------------------------------------------------------------------------------------
+// onUpdate fallback driver.
+// §6.5 documents `onUpdate(ctx, dt)`, but if the core does not call it, an invisible player-team zone (far outside
+// the room, radius 0) ticks every perk's onUpdate from its `onTick`. As soon as the core drives onUpdate itself
+// (detected through the wrapper below), the driver stops calling hooks, so nothing ever runs twice per frame.
+// ---------------------------------------------------------------------------------------------
+const coreTick = new WeakMap();   // run -> run time of the last core-driven onUpdate
+const drivers = new WeakMap();    // world -> driver zone
+
+function driverTick(w, z, dt) {
+  const run = w.run;
+  if (!run || !run.player) return;
+  const last = coreTick.get(run);
+  if (last != null && Math.abs((run.time || 0) - last) < 0.25) return; // the core calls onUpdate itself
+  const p = run.player;
+  tickList(w, run, p, p.relics, dt);
+  tickList(w, run, p, p.boons, dt);
+}
+
+function tickList(w, run, p, list, dt) {
+  for (let i = 0; i < list.length; i++) {
+    const perk = list[i];
+    const fn = perk.def.hooks && perk.def.hooks.onUpdate;
+    if (!fn) continue;
+    try {
+      (fn._inner || fn)({ w, player: p, run, rng: w.rng, stacks: perk.stacks, state: perk.state, perk }, dt);
+    } catch (err) {
+      if (!perk._tickErr) { perk._tickErr = true; console.error(`[perk] ${perk.def.id}.onUpdate failed`, err); }
+    }
+  }
+}
+
+/** Make sure the current room has a driver zone (called from onGain / onRoomEnter of ticking perks). */
+export function ensureTicker(ctx) {
+  const w = ctx.w;
+  if (!w || !w.room || typeof w.spawnZone !== 'function' || !Array.isArray(w.zones)) return;
+  const z = drivers.get(w);
+  if (z && !z.dead && z.data.room === w.room && w.zones.includes(z)) return;
+  drivers.set(w, w.spawnZone({
+    shape: 'circle', x: -4096, y: -4096, r: 0, delay: 0, duration: 1e12, damage: 0, team: 'player', persist: true,
+    color: 'rgba(0,0,0,0)', onTick: driverTick, data: { relicTicker: true, room: w.room },
+  }));
+}
+
+/**
+ * Wires a perk definition with an onUpdate hook to the driver: wraps onUpdate (marks core-driven calls) and
+ * makes onGain / onRoomEnter ensure a driver zone. Safe to call twice.
+ */
+export function installTicker(def) {
+  const h = def.hooks;
+  if (!h || !h.onUpdate || h.onUpdate._inner) return def;
+  const inner = h.onUpdate;
+  const wrapped = function onUpdate(ctx, dt) { coreTick.set(ctx.run, ctx.run.time || 0); inner(ctx, dt); };
+  wrapped._inner = inner;
+  h.onUpdate = wrapped;
+  const gain = h.onGain, enter = h.onRoomEnter;
+  h.onGain = function onGain(ctx) { if (gain) gain(ctx); ensureTicker(ctx); };
+  h.onRoomEnter = function onRoomEnter(ctx, arg) { if (enter) enter(ctx, arg); ensureTicker(ctx); };
+  return def;
 }
 
 /** Monotonic time for internal cooldowns (run time survives room changes; world time is the fallback). */
@@ -205,9 +265,18 @@ function chain(prev, fn) {
   return function chained(w, p, a) { prev(w, p, a); fn(w, p, a); };
 }
 
-/** Projectile specs that relic shot-modifiers should leave alone (lobs, orbitals, beams, relic shots). */
-function plainShot(spec) {
-  return !spec.arc && spec.speed > 0 && spec.life > 0 && spec.life < 4 && !(spec.data && (spec.data.relic || spec.data.orbital));
+/** Projectile specs that relic shot-modifiers should leave alone (lobs, orbitals, boomerangs, beams, relic shots). */
+function plainShot(spec, p) {
+  if (spec.arc || !(spec.speed > 0) || !(spec.life > 0) || spec.life >= 4) return false;
+  if (spec.data && (spec.data.relic || spec.data.orbital || spec.data.flare)) return false;
+  if (spec.weaponId && p) {
+    const defs = weaponDefs(p);
+    for (let i = 0; i < defs.length; i++) {
+      const d = defs[i];
+      if (d.id === spec.weaponId && Array.isArray(d.tags) && (d.tags.includes('boomerang') || d.tags.includes('orbit'))) return false;
+    }
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -722,7 +791,7 @@ const LIST = [
     requires: shootsProjectiles,
     hooks: {
       onShot(ctx, spec) {
-        if (!plainShot(spec)) return;
+        if (!plainShot(spec, ctx.player)) return;
         const out = spec.life * 0.55;
         spec.life = out * 2.6;
         spec.onUpdate = chain(spec.onUpdate, boomerangUpdate);
@@ -866,7 +935,7 @@ const LIST = [
     requires: shootsProjectiles,
     hooks: {
       onShot(ctx, spec) {
-        if (!plainShot(spec)) return;
+        if (!plainShot(spec, ctx.player)) return;
         spec.onHit = chain(spec.onHit, splitOnHit);
       },
     },
@@ -900,7 +969,7 @@ const LIST = [
     requires: shootsProjectiles,
     hooks: {
       onShot(ctx, spec) {
-        if (!plainShot(spec)) return;
+        if (!plainShot(spec, ctx.player)) return;
         const s = ctx.state;
         s.n = (s.n || 0) + 1;
         if (s.n < 10) return;
@@ -1229,6 +1298,7 @@ function flareExpire(w, p) {
 export const RELICS = {};
 for (const def of LIST) {
   if (def.maxStacks == null) def.maxStacks = 1;
+  installTicker(def);
   RELICS[def.id] = def;
 }
 

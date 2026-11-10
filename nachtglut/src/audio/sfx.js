@@ -199,7 +199,7 @@ export const SFX = {
     k.tone({ f: 120, f1: 50, t: 0.2, dur: 0.3, g: 0.6 });
     [74, 81, 86].forEach((m, i) => k.tone({ f: N(m), t: 0.2 + i * 0.035, dur: 0.4, g: 0.2, fm: [2, 1.2, 0.1] }));
   } },
-  player_hit: { g: 0.5, prio: 2, gap: 0.1, rev: 0.08, fn(k) {
+  player_hit: { g: 0.4, prio: 2, gap: 0.1, rev: 0.08, fn(k) {
     k.noise({ bp: 1700, q: 0.6, dur: 0.11, g: 0.9, drive: 3 });
     k.tone({ type: 'square', f: 170, f1: 55, dur: 0.16, lp: 900, g: 0.7, drive: 2 });
     k.tone({ f: 95, f1: 40, dur: 0.22, g: 0.8 });
@@ -216,7 +216,7 @@ export const SFX = {
     k.noise({ hp: 4000, dur: 0.04, g: 0.35 });
     k.tone({ type: 'triangle', f: 260, f1: 300, a: 0.01, dur: 0.3, g: 0.3 });
   } },
-  player_death: { g: 0.55, prio: 2, gap: 1, rev: 0.35, vary: 0, fn(k) {
+  player_death: { g: 0.45, prio: 2, gap: 1, rev: 0.35, vary: 0, fn(k) {
     k.noise({ bp: 2500, q: 0.8, dur: 0.12, g: 0.7, drive: 3 });
     k.tone({ type: 'sawtooth', f: 392, f1: 49, sweep: 1.7, dur: 1.9, lp: [2200, 200], g: 0.45, vib: [5.5, 25] });
     k.tone({ type: 'sawtooth', f: 370, f1: 46, sweep: 1.7, dur: 1.9, lp: [1800, 180], g: 0.32 });
@@ -226,7 +226,7 @@ export const SFX = {
     k.tone({ f: N(62), t: 1.3, a: 0.05, dur: 1.3, g: 0.3, fm: [2.01, 1.2, 0.3] });
     k.tone({ f: N(57), t: 1.3, a: 0.05, dur: 1.3, g: 0.2 });
   } },
-  levelup: { g: 0.42, prio: 2, gap: 0.3, rev: 0.3, vary: 0, fn(k) {
+  levelup: { g: 0.6, prio: 2, gap: 0.3, rev: 0.3, vary: 0, fn(k) {
     [74, 78, 81, 86].forEach((m, i) => k.tone({ f: N(m), t: i * 0.07, dur: 0.35, g: 0.45, fm: [2, 1.5, 0.08] }));
     k.tone({ type: 'triangle', f: N(86), t: 0.28, a: 0.02, dur: 0.8, g: 0.3 });
     k.tone({ f: N(93), t: 0.28, a: 0.02, dur: 0.7, g: 0.16 });
@@ -246,7 +246,7 @@ export const SFX = {
     k.tone({ f: 100, f1: 38, t: 0.5, dur: 0.25, g: 0.9 });
     k.noise({ color: 'pink', lp: 700, t: 0.5, dur: 0.18, g: 0.7 });
   } },
-  footstep: { g: 0.07, prio: 0, gap: 0.12, rev: 0.05, vary: 0.1, fn(k) {
+  footstep: { g: 0.09, prio: 0, gap: 0.12, rev: 0.05, vary: 0.1, fn(k) {
     k.noise({ color: 'pink', lp: [900, 300], dur: 0.05, g: 0.9 });
     k.tone({ f: 110, f1: 60, dur: 0.04, g: 0.4 });
   } },
@@ -256,14 +256,14 @@ export const SFX = {
     k.noise({ bp: 2200, q: 2, t: 0.07, dur: 0.035, g: 0.7 });
     k.tone({ type: 'triangle', f: 700, f1: 520, t: 0.07, dur: 0.07, g: 0.45 });
   } },
-  weapon_gain: { g: 0.38, gap: 0.2, rev: 0.25, vary: 0, fn(k) {
+  weapon_gain: { g: 0.46, gap: 0.2, rev: 0.25, vary: 0, fn(k) {
     k.tone({ f: 660, dur: 0.5, g: 0.35, fm: [2.76, 2.5, 0.12] });
     k.noise({ hp: [3000, 8000], dur: 0.25, g: 0.22 });
     k.tone({ type: 'triangle', f: N(69), t: 0.08, dur: 0.3, g: 0.4 });
     k.tone({ type: 'triangle', f: N(76), t: 0.2, dur: 0.5, g: 0.45 });
     k.tone({ f: N(88), t: 0.2, dur: 0.4, g: 0.12 });
   } },
-  weapon_upgrade: { g: 0.4, gap: 0.2, rev: 0.25, vary: 0, fn(k) {
+  weapon_upgrade: { g: 0.46, gap: 0.2, rev: 0.25, vary: 0, fn(k) {
     k.tone({ f: 880, dur: 0.6, g: 0.4, fm: [1.41, 3, 0.15] });
     k.tone({ f: 2217, dur: 0.3, g: 0.1 });
     k.noise({ bp: 3000, q: 1, dur: 0.04, g: 0.6 });
@@ -273,7 +273,7 @@ export const SFX = {
   } },
 
   // ---- enemies --------------------------------------------------------------------------------
-  enemy_hit: { g: 0.2, prio: 0, gap: 0.04, rev: 0.04, vary: 0.07, fn(k) {
+  enemy_hit: { g: 0.17, prio: 0, gap: 0.04, rev: 0.04, vary: 0.07, fn(k) {
     k.noise({ bp: 2200, q: 0.7, dur: 0.05, g: 0.9, drive: 2 });
     k.tone({ type: 'square', f: 200, f1: 90, dur: 0.06, lp: 1400, g: 0.5 });
     k.noise({ hp: 5000, dur: 0.012, g: 0.4 });
@@ -317,7 +317,7 @@ export const SFX = {
     k.tone({ type: 'sawtooth', f: 67.5, f1: 157, sweep: 0.32, a: 0.05, dur: 0.38, lp: [300, 1000], g: 0.5 });
     k.noise({ color: 'pink', bp: [400, 1800], q: 0.8, a: 0.2, dur: 0.38, g: 0.4 });
   } },
-  enemy_slam: { g: 0.5, gap: 0.1, rev: 0.2, fn(k) {
+  enemy_slam: { g: 0.36, gap: 0.1, rev: 0.2, fn(k) {
     k.tone({ f: 120, f1: 30, sweep: 0.18, dur: 0.4, g: 1 });
     k.noise({ color: 'brown', lp: [1800, 150], dur: 0.35, g: 0.9, drive: 2 });
     k.noise({ bp: 2500, q: 0.7, dur: 0.03, g: 0.4 });
@@ -353,7 +353,7 @@ export const SFX = {
     k.tone({ type: 'square', f: 880, t: 0.085, dur: 0.07, lp: 2500, g: 0.6 });
     k.tone({ f: 1760, t: 0.085, dur: 0.05, g: 0.15 });
   } },
-  explosion: { g: 0.52, gap: 0.07, rev: 0.25, vary: 0.1, fn(k) {
+  explosion: { g: 0.42, gap: 0.07, rev: 0.25, vary: 0.1, fn(k) {
     k.tone({ f: 150, f1: 27, sweep: 0.3, dur: 0.55, g: 1, drive: 1.5 });
     k.noise({ color: 'brown', lp: [2800, 120], dur: 0.6, g: 1, drive: 3 });
     k.noise({ hp: 2200, dur: 0.03, g: 0.6 });
@@ -389,7 +389,7 @@ export const SFX = {
   } },
 
   // ---- bosses ---------------------------------------------------------------------------------
-  boss_intro: { g: 0.6, prio: 2, gap: 2, rev: 0.4, vary: 0, fn(k) {
+  boss_intro: { g: 0.5, prio: 2, gap: 2, rev: 0.4, vary: 0, fn(k) {
     // ominous swell ...
     k.tone({ type: 'sawtooth', f: 55, a: 2.5, dur: 2.9, lp: [120, 1300, 2.5], g: 0.5 });
     k.tone({ type: 'sawtooth', f: 58.27, a: 2.5, dur: 2.9, lp: [120, 1100, 2.5], g: 0.4 });
@@ -403,7 +403,7 @@ export const SFX = {
     k.tone({ type: 'sawtooth', f: N(45), t: 2.6, a: 0.02, dur: 2.4, lp: [1300, 250], g: 0.35 });
     k.tone({ type: 'sawtooth', f: N(39), t: 2.6, a: 0.02, dur: 2, lp: [1000, 200], g: 0.2 });
   } },
-  boss_phase: { g: 0.55, prio: 2, gap: 0.5, rev: 0.3, vary: 0, fn(k) {
+  boss_phase: { g: 0.45, prio: 2, gap: 0.5, rev: 0.3, vary: 0, fn(k) {
     k.noise({ bp: [300, 3000, 0.3], q: 1, a: 0.28, dur: 0.34, g: 0.5 });
     k.tone({ f: 130, f1: 28, sweep: 0.35, t: 0.3, dur: 0.9, g: 1 });
     k.noise({ color: 'brown', lp: [2600, 160], t: 0.3, dur: 0.9, g: 0.9, drive: 2.5 });
@@ -440,7 +440,7 @@ export const SFX = {
     k.tone({ f: 1250, dur: 0.15, g: 0.12, fm: [1.7, 2, 0.05] });
     k.noise({ bp: 2600, q: 2, t: 0.02, dur: 0.03, g: 0.4 });
   } },
-  room_clear: { g: 0.34, prio: 2, gap: 0.5, rev: 0.35, vary: 0, fn(k) {
+  room_clear: { g: 0.42, prio: 2, gap: 0.5, rev: 0.35, vary: 0, fn(k) {
     [69, 74, 77, 81].forEach((m, i) => k.tone({ f: N(m), t: i * 0.085, dur: i === 3 ? 0.9 : 0.4, g: 0.4, fm: [2, 1.4, 0.1] }));
     k.tone({ type: 'triangle', f: N(62), a: 0.03, dur: 0.9, g: 0.25 });
     k.tone({ type: 'triangle', f: N(69), t: 0.25, a: 0.05, dur: 0.8, g: 0.18 });
@@ -518,14 +518,14 @@ export const SFX = {
     k.tone({ f: 90, f1: 35, t: 1.25, dur: 0.5, g: 0.8 });
     [74, 81, 86, 93].forEach((m, i) => k.tone({ f: N(m), t: 1.25 + i * 0.03, dur: 0.6, g: 0.16, fm: [2, 1, 0.1] }));
   } },
-  relic_gain: { g: 0.42, prio: 2, gap: 0.3, rev: 0.45, vary: 0, fn(k) {
+  relic_gain: { g: 0.6, prio: 2, gap: 0.3, rev: 0.45, vary: 0, fn(k) {
     [74, 77, 81, 84, 86, 89].forEach((m, i) => k.tone({ f: N(m), t: i * 0.06, dur: 0.7, g: 0.3, fm: [3.01, 1.6, 0.1] }));
     k.tone({ type: 'triangle', f: N(62), a: 0.05, dur: 1.4, g: 0.25 });
     k.tone({ type: 'triangle', f: N(69), a: 0.1, dur: 1.4, g: 0.2 });
     k.tone({ f: N(93), t: 0.36, a: 0.02, dur: 1, g: 0.12, vib: [6, 12] });
     k.noise({ hp: 7000, a: 0.3, dur: 1.2, g: 0.08 });
   } },
-  boon_gain: { g: 0.38, prio: 2, gap: 0.3, rev: 0.35, vary: 0, fn(k) {
+  boon_gain: { g: 0.5, prio: 2, gap: 0.3, rev: 0.35, vary: 0, fn(k) {
     [57, 62, 66, 69, 74].forEach((m, i) => k.tone({ type: i < 2 ? 'triangle' : 'sine', f: N(m), t: i * 0.04, a: 0.01, dur: 0.9 - i * 0.05, g: 0.28 }));
     k.tone({ f: N(86), t: 0.2, dur: 0.6, g: 0.15, fm: [2, 1.2, 0.1] });
     k.noise({ hp: 5500, t: 0.1, a: 0.1, dur: 0.6, g: 0.07 });
@@ -578,7 +578,7 @@ export const SFX = {
     k.tone({ f: 988, dur: 0.3, g: 0.5, fm: [2, 0.8, 0.05] });
     k.tone({ f: 1482, t: 0.01, dur: 0.2, g: 0.2 });
   } },
-  achievement: { g: 0.4, prio: 2, gap: 0.5, rev: 0.4, vary: 0, fn(k) {
+  achievement: { g: 0.5, prio: 2, gap: 0.5, rev: 0.4, vary: 0, fn(k) {
     [81, 86, 90].forEach((m, i) => k.tone({ f: N(m), t: i * 0.09, dur: 0.45, g: 0.35, fm: [2, 1.5, 0.08] }));
     k.tone({ f: N(93), t: 0.27, dur: 0.8, g: 0.3, fm: [2, 1.2, 0.12] });
     k.tone({ type: 'triangle', f: N(62), a: 0.02, dur: 0.9, g: 0.3 });

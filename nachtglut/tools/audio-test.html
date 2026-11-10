@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nachtglut Audio Test</title>
+<style>
+  :root { --bg: #0d0907; --panel: #1a1310; --line: #3a2a22; --text: #e8dccb; --dim: #9a8a78; --ember: #ff8a3c; --ok: #7ad38d; --bad: #ff5a5a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: var(--ember); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 18px 0 8px; }
+  p { color: var(--dim); margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--ember); }
+  button.on { background: #3a1e10; border-color: var(--ember); color: #fff; }
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  label { display: flex; align-items: center; gap: 8px; }
+  label span { width: 80px; color: var(--dim); }
+  input[type=range] { flex: 1; accent-color: var(--ember); }
+  #status { font-family: ui-monospace, monospace; font-size: 12px; color: var(--dim); margin-top: 8px; }
+  table { border-collapse: collapse; font: 12px ui-monospace, monospace; margin-top: 8px; }
+  td, th { padding: 2px 10px 2px 0; text-align: left; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  .group { margin-bottom: 6px; }
+  .group b { display: block; font-weight: 500; color: var(--dim); font-size: 12px; margin: 6px 0 4px; }
+</style>
+</head>
+<body>
+<h1>Nachtglut — Audio Test</h1>
+<p>Alle Klänge und die Musik werden zur Laufzeit synthetisiert. Erster Klick startet den AudioContext.</p>
+
+<div class="controls">
+  <label><span>Intensität</span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0"><output id="intensityOut">0</output></label>
+  <label><span>Master</span><input id="master" type="range" min="0" max="1" step="0.01" value="1"></label>
+  <label><span>Musik</span><input id="music" type="range" min="0" max="1" step="0.01" value="1"></label>
+  <label><span>SFX</span><input id="sfx" type="range" min="0" max="1" step="0.01" value="1"></label>
+</div>
+<div id="status">uninitialised</div>
+
+<h2>Musik</h2>
+<div class="row" id="tracks"></div>
+<div class="row" style="margin-top:6px">
+  <button id="stop">Musik stoppen</button>
+  <button id="pause">Pause-Duck (state:change)</button>
+  <button id="combat">room:lock → room:clear</button>
+  <button id="combo">Funken-Kombo</button>
+</div>
+
+<h2>Soundeffekte</h2>
+<div id="sfxButtons"></div>
+
+<h2>Offline-Prüfung</h2>
+<div class="row"><button id="verify">Alle Effekte + Tracks offline rendern</button></div>
+<div id="report"></div>
+
+<script type="module">
+import { audio, SFX_NAMES, MUSIC_TRACKS } from '../src/audio/audio.js';
+import { renderSfx, renderMusic, renderStress } from '../src/audio/offline.js';
+import { Bus } from '../src/core/events.js';
+
+const bus = new Bus();
+audio.bindEvents(bus, {});
+const $ = (id) => document.getElementById(id);
+
+const groups = [
+  ['Spieler', /^(shoot_|dash|skill|player_|levelup|revive|fall|footstep|weapon_)/],
+  ['Gegner', /^(enemy_|elite_|telegraph|explosion|status_)/],
+  ['Boss', /^boss_/],
+  ['Welt', /^(door_|room_|pickup_|chest_|barrel_|crystal_|fountain|forge|shrine|portal|relic_|boon_|curse_|shop_)/],
+  ['UI', /^(ui_|toast|achievement|banner)/],
+];
+const placed = new Set();
+for (const [label, re] of groups) {
+  const g = document.createElement('div'); g.className = 'group';
+  g.innerHTML = `<b>${label}</b>`;
+  const row = document.createElement('div'); row.className = 'row';
+  for (const n of SFX_NAMES) {
+    if (!re.test(n) || placed.has(n)) continue;
+    placed.add(n);
+    const b = document.createElement('button'); b.textContent = n;
+    b.onclick = () => { audio.init(); audio.play(n); };
+    row.appendChild(b);
+  }
+  g.appendChild(row); $('sfxButtons').appendChild(g);
+}
+
+const trackBtns = {};
+for (const id of MUSIC_TRACKS) {
+  const b = document.createElement('button'); b.textContent = id; trackBtns[id] = b;
+  b.onclick = () => { audio.init(); audio.music.play(id); };
+  $('tracks').appendChild(b);
+}
+$('stop').onclick = () => audio.music.stop();
+let paused = false;
+$('pause').onclick = () => { audio.init(); paused = !paused; bus.emit('state:change', { from: paused ? 'playing' : 'paused', to: paused ? 'paused' : 'playing' }); $('pause').classList.toggle('on', paused); };
+$('combat').onclick = () => { audio.init(); bus.emit('door:close', {}); bus.emit('room:lock', {}); setTimeout(() => { bus.emit('room:clear', {}); bus.emit('door:open', {}); }, 6000); };
+$('combo').onclick = () => { audio.init(); for (let i = 0; i < 10; i++) setTimeout(() => bus.emit('pickup:collect', { kind: 'spark', amount: 1 }), i * 90); };
+
+$('intensity').oninput = (e) => { audio.music.setIntensity(+e.target.value); $('intensityOut').textContent = (+e.target.value).toFixed(2); };
+for (const k of ['master', 'music', 'sfx']) $(k).oninput = (e) => audio.setVolumes({ [k]: +e.target.value });
+
+setInterval(() => {
+  const s = audio.stats();
+  $('status').textContent = `ctx ${s.state} · voices ${s.voices} · track ${s.track ?? '–'} · intensity ${s.intensity.toFixed(2)} · t ${s.time.toFixed(1)}s`;
+  for (const id of MUSIC_TRACKS) trackBtns[id].classList.toggle('on', s.track === id);
+}, 250);
+
+const LONG = new Set(['boss_intro', 'boss_death']);
+async function verifyAll() {
+  const sfx = [];
+  for (const n of SFX_NAMES) {
+    const r = await renderSfx(n);
+    const maxDur = LONG.has(n) ? 6 : 3;
+    r.ok = !r.nan && r.peak > 0.02 && r.peak <= 1 && r.wetPeak <= 1 && r.duration <= maxDur;
+    sfx.push(r);
+  }
+  const music = [];
+  for (const id of MUSIC_TRACKS) {
+    for (const intensity of [0, 1]) {
+      const r = await renderMusic(id, { seconds: 8, intensity, limited: intensity === 1 });
+      r.ok = !r.nan && r.peak > 0.02 && r.peak <= 1;
+      music.push(r);
+    }
+  }
+  // the near-silent loops after the victory / death intros
+  const tails = [];
+  for (const [id, from] of [['victory', 11], ['death', 13.5]]) {
+    const r = await renderMusic(id, { seconds: 22, from });
+    r.ok = !r.nan && r.peak > 0.005 && r.peak <= 1;
+    tails.push(r);
+  }
+  const stress = await renderStress();
+  stress.ok = !stress.nan && stress.peak <= 1;
+  return { sfx, music, tails, stress };
+}
+window.__audioTest = { audio, bus, SFX_NAMES, MUSIC_TRACKS, renderSfx, renderMusic, renderStress, verifyAll };
+
+$('verify').onclick = async () => {
+  $('report').textContent = 'rendering…';
+  const r = await verifyAll();
+  const f = (x) => (x === undefined ? '' : x.toFixed(3));
+  const rows = (list, key) => list.map((x) => `<tr class="${x.ok ? 'ok' : 'bad'}"><td>${x[key]}${x.intensity !== undefined ? ' @' + x.intensity : ''}</td><td>peak ${f(x.peak)}</td><td>${x.wetPeak !== undefined ? 'wet ' + f(x.wetPeak) : ''}${x.limitedPeak !== undefined ? ' lim ' + f(x.limitedPeak) : ''}</td><td>rms ${f(x.rms)}</td><td>${f(x.duration)} s</td></tr>`).join('');
+  $('report').innerHTML = `<table>${rows(r.sfx, 'name')}${rows(r.music, 'id')}${rows(r.tails, 'id')}</table>
+    <p class="${r.stress.ok ? 'ok' : 'bad'}">Stress (final @1 + 24 Effekte): raw ${f(r.stress.rawPeak)} → master ${f(r.stress.peak)}</p>`;
+};
+</script>
+</body>
+</html>

@@ -16,15 +16,17 @@ sprite('spore_puff', 14, 14, (b, p) => {
   b.rect(4 + (st === 1 ? -1 : 0), 11, 2, 2, STEM[0]);
   b.rect(8 + (st === 2 ? 1 : 0), 11, 2, 2, STEM[0]);
   // stalk body with face
-  b.ball(4, 6 + by, 6, 6, STEM);
-  b.px(6, 9 + by, DARK); b.px(9, 9 + by, DARK);
-  if (p.hurt) { b.px(5, 9 + by, DARK); b.px(8, 9 + by, DARK); }
+  b.ball(3, 6 + by, 8, 6, STEM);
   // cap
   const g = puff ? 1 : 0;
-  b.vol(CAP, (m) => { m.oval(1 - g, 1 + by - g, 12 + g * 2, 8 + g, 1); }, { sep: 0.6, hi: CAP[3] });
+  b.vol(CAP, (m) => { m.oval(1 - g, 1 + by - g, 12 + g * 2, 7 + g, 1); }, { sep: 0.6, hi: CAP[3] });
   // glowing spots
   const sc = puff ? G.l : G.m;
   b.px(4, 3 + by - g, sc); b.px(8, 2 + by - g, sc); b.px(10, 5 + by - g, sc); b.px(6, 6 + by, G.d);
+  // face peeking out under the cap
+  const fy = 9 + by;
+  b.px(6, fy, p.hurt ? STEM[0] : G.l); b.px(9, fy, p.hurt ? STEM[0] : G.l);
+  b.px(6, fy + 1, DARK); b.px(9, fy + 1, DARK);
   if (puff) { b.px(4, 2 + by - g, G.w); b.px(8, 1 + by - g, G.w); b.px(2, 5 + by, sc); }
 }, {
   idle: [3, {}, { bob: 1 }],

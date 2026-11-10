@@ -123,17 +123,22 @@ sprite('proj_hammer', 13, 13, (b, p) => {
   }
 }, { idle: [14, { f: 0 }, { f: 1 }] }, T);
 
-sprite('proj_blade', 13, 13, (b, p) => {
-  // curved sickle/glaive blade spinning
-  const a = p.f ? Math.PI / 4 : 0;
-  const c = 6;
+sprite('proj_blade', 14, 14, (b, p) => {
+  // twin crescent glaive, spinning (2 frames 45° apart)
+  const c = 6.5, a0 = p.f ? Math.PI / 4 : 0;
   for (let i = 0; i < 2; i++) {
-    const ang = a + i * Math.PI;
-    const x0 = c + Math.cos(ang) * 1, y0 = c + Math.sin(ang) * 1;
-    const x1 = c + Math.cos(ang - 0.6) * 6, y1 = c + Math.sin(ang - 0.6) * 6;
-    const cx = c + Math.cos(ang + 0.5) * 6, cy = c + Math.sin(ang + 0.5) * 6;
-    b.bez(x0, y0, cx, cy, x1, y1, L, 2, 1);
-    b.px(x1, y1, W);
+    const a = a0 + i * Math.PI;
+    const outer = [], inner = [];
+    for (let k = 0; k <= 8; k++) {
+      const t = k / 8, ang = a + t * 2.3;
+      const ro = 6.2, ri = 6.2 - 2.6 * Math.sin(t * Math.PI) - 0.3;
+      outer.push([c + Math.cos(ang) * ro, c + Math.sin(ang) * ro]);
+      inner.push([c + Math.cos(ang) * ri, c + Math.sin(ang) * ri]);
+    }
+    b.poly(outer.concat(inner.reverse()), L);
+    b.px(outer[8][0], outer[8][1], W);
+    b.px(outer[4][0], outer[4][1], W);
   }
-  b.disc(c, c, 1, M);
+  b.disc(c, c, 1.5, M);
+  b.px(c, c, W);
 }, { idle: [14, { f: 0 }, { f: 1 }] }, T);

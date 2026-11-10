@@ -110,10 +110,11 @@ sprite('shard_archer', 20, 20, (b, p) => {
   b.px(11, 3 + by, p.hurt ? CR[0] : C.d);
   // bow: arc on the right
   const bx = 15 + (atk ? 1 : 0), drawn = atk ? 2 : 0;
-  b.bez(bx - 2, 3 + by, bx + 2, 10 + by, bx - 2, 17 + by, '#d9f6ff', 1, 1);
-  b.px(bx, 10 + by, '#ffffff');
+  b.bez(bx - 3, 2 + by, bx + 3, 10 + by, bx - 3, 18 + by, '#5fa6d6', 2, 2);
+  b.bez(bx - 3, 2 + by, bx + 2, 10 + by, bx - 3, 18 + by, '#d9f6ff', 1, 1);
+  b.px(bx, 10 + by, '#ffffff'); b.px(bx - 3, 2 + by, C.l); b.px(bx - 3, 18 + by, C.l);
   // string
-  b.line(bx - 2, 4 + by, bx - 2 - drawn, 10 + by, '#7fb6d8'); b.line(bx - 2 - drawn, 10 + by, bx - 2, 16 + by, '#7fb6d8');
+  b.line(bx - 3, 3 + by, bx - 3 - drawn, 10 + by, '#9fd0ee'); b.line(bx - 3 - drawn, 10 + by, bx - 3, 17 + by, '#9fd0ee');
   // arm
   b.line(12, 9 + by, bx - 1, 10 + by, CR[1]);
   // nocked shard arrow

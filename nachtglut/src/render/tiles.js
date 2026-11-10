@@ -86,9 +86,13 @@ function paintFloorTile(buf, S, tx, ty, seed, flat) {
   const ox = tx * TS, oy = ty * TS;
   const v = rnd2(tx, ty, seed) * 0.55 + rnd2(tx >> 1, ty >> 1, seed + 1) * 0.45;
   const base = mx(S.floor, S.floorAlt, v);
-  const seamC = dk(base, S.id === 'fungal' ? 0.08 : 0.2);
+  const seamC = dk(base, S.id === 'fungal' ? 0.07 : 0.16);
   const seamL = lt(base, 0.05);
   const goldSeam = S.id === 'core' ? mx(base, S.top, 0.35) : 0;
+  // slabs of irregular size: only some tile edges carry a seam
+  const hs = hash2(tx, ty, seed + 3);
+  const seamX = (hs & 3) !== 0 || (tx & 1) === 0;
+  const seamY = ((hs >>> 2) & 3) !== 0 || (ty & 1) === 0;
   for (let y = 0; y < TS; y++) {
     for (let x = 0; x < TS; x++) {
       const n = rnd2(ox + x, oy + y, seed + 7);
@@ -96,9 +100,9 @@ function paintFloorTile(buf, S, tx, ty, seed, flat) {
       if (n < 0.07) c = dk(base, 0.1);
       else if (n > 0.95) c = lt(base, 0.05);
       if (!flat) {
-        if (x === 0 || y === 0) {
+        if ((x === 0 && seamX) || (y === 0 && seamY)) {
           if (n > 0.12) c = goldSeam && (tx + ty) % 2 === 0 ? goldSeam : seamC;
-        } else if (x === 1 || y === 1) c = seamL;
+        } else if ((x === 1 && seamX) || (y === 1 && seamY)) c = seamL;
       }
       buf.d[(oy + y) * buf.w + ox + x] = c;
     }
@@ -158,12 +162,12 @@ function floorDetail(buf, S, tx, ty, seed, base) {
       if (q < 0.5) setPx(buf, ox + ax, oy + ay, mx(base, S.hz, id === 'core' ? 0.45 : 0.35));
     } else if (r < 0.3) {
       // pebbles with a little shadow
-      const pc = mx(base, S.det, 0.6);
+      const pc = mx(base, S.det, id === 'core' ? 0.3 : 0.6);
       setPx(buf, ox + ax, oy + ay, lt(pc, 0.15)); setPx(buf, ox + ax + 1, oy + ay, pc); setPx(buf, ox + ax + 1, oy + ay + 1, dk(base, 0.3));
       if (q < 0.5) { setPx(buf, ox + ax - 4, oy + ay + 3, pc); setPx(buf, ox + ax - 4, oy + ay + 4, dk(base, 0.25)); }
     } else if (r < 0.38 && id === 'ash') {
       for (let k = 0; k < 6; k++) setPx(buf, ox + ax + ((h >>> k) & 3) - 1, oy + ay + ((h >>> (k + 3)) & 3) - 1, lt(base, 0.18));
-    } else if (r < 0.48 && id === 'core') {
+    } else if (r < 0.36 && id === 'core') {
       // golden sun inlay
       const g = mx(base, S.top, 0.75), gl = lt(g, 0.25);
       const cx = ox + 8, cy = oy + 8;
@@ -253,11 +257,12 @@ function paintHazard(buf, glow, S, t, tx, ty, seed, base) {
   const inside = (x, y) => blobInside(t, tx, ty, x, y, T.HAZARD, seed);
   if (kind === 'lava' || kind === 'rift') {
     const isRift = kind === 'rift';
-    const crust = isRift ? dk(base, 0.55) : mx(dk(base, 0.35), S.hz, 0.06);
+    const crust = isRift ? dk(base, 0.6) : mx(dk(base, 0.55), S.hz, 0.1);
     for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
       if (!inside(x, y)) continue;
       const n = rnd2(ox + x, oy + y, seed + 41);
-      setPx(buf, ox + x, oy + y, n < 0.15 ? dk(crust, 0.25) : n > 0.9 ? lt(crust, 0.06) : crust);
+      setPx(buf, ox + x, oy + y, n < 0.15 ? dk(crust, 0.3) : n > 0.9 ? lt(crust, 0.08) : crust);
+      if (n > 0.965) gset(ox + x, oy + y, isRift ? S.det : S.hz, 0.55);
     }
     // crack network: centre → neighbouring hazard tiles + a branch
     const cx = ox + 6 + (h % 4), cy = oy + 6 + ((h >>> 2) % 4);
@@ -337,7 +342,7 @@ function lineJag(x0, y0, x1, y1, seed, fn) {
 
 function paintIce(buf, S, t, tx, ty, seed, base) {
   const ox = tx * TS, oy = ty * TS;
-  const iceA = mx(base, C('#9fd4f0'), 0.42), iceB = mx(base, C('#bfeaff'), 0.5), iceL = mx(base, C('#ffffff'), 0.62);
+  const iceA = mx(base, C('#6fb4e0'), 0.45), iceB = mx(base, C('#9fd8f6'), 0.52), iceL = mx(base, C('#e8faff'), 0.66);
   const h = hash2(tx, ty, seed + 71);
   for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) {
     if (!blobInside(t, tx, ty, x, y, T.ICE, seed + 5)) continue;
@@ -425,7 +430,7 @@ function paintWall(buf, S, t, tx, ty, seed) {
   let interior = true;
   for (let y = -1; y <= 1 && interior; y++) for (let x = -1; x <= 1; x++) if (open(t(tx + x, ty + y))) { interior = false; break; }
   // also count tiles two rows below (front faces of the row below make this tile visible)
-  const topBase = interior ? mx(S.top, S.wall, 0.62) : S.top;
+  const topBase = interior ? mx(S.top, S.wall, 0.8) : mx(S.top, S.wall, 0.5);
   const OUTC = C('#020104');
   const h = hash2(tx, ty, seed + 91);
   for (let y = 0; y < topH; y++) {
@@ -434,10 +439,13 @@ function paintWall(buf, S, t, tx, ty, seed) {
       let c = n < 0.1 ? dk(topBase, 0.08) : n > 0.93 ? lt(topBase, 0.05) : topBase;
       // subtle stone block pattern on tops
       if (!interior && ((y === 7 && topH > 8) || (x === ((y < 8 ? 0 : 8) + (tx & 1) * 4) % 16))) c = dk(c, 0.1);
-      if (y === 0 && open(up)) c = lt(topBase, 0.22);
-      if (x === 0 && open(lf)) c = lt(topBase, 0.14);
-      if (x === TS - 1 && open(rt)) c = dk(topBase, 0.28);
-      if (y === topH - 1 && hasFront) c = lt(topBase, 0.3);
+      if (y === 0 && open(up)) c = lt(S.top, 0.12);
+      else if (y === 1 && open(up)) c = mx(S.top, topBase, 0.5);
+      if (x === 0 && open(lf)) c = lt(S.top, 0.08);
+      else if (x === 1 && open(lf)) c = mx(S.top, topBase, 0.5);
+      if (x === TS - 1 && open(rt)) c = dk(S.top, 0.25);
+      if (y === topH - 1 && hasFront) c = lt(S.top, 0.25);
+      else if (y === topH - 2 && hasFront) c = mx(S.top, topBase, 0.35);
       if (y === TS - 1 && !hasFront && open(dn)) c = dk(topBase, 0.3);
       if (y === 0 && up === T.VOID) c = OUTC;
       if (x === 0 && lf === T.VOID) c = OUTC;
@@ -459,7 +467,7 @@ function paintWall(buf, S, t, tx, ty, seed) {
   }
   if (!hasFront) return;
   // front face
-  const fTop = mx(S.wall, S.top, 0.42), fBot = dk(S.wall, 0.15);
+  const fTop = mx(S.wall, S.top, 0.5), fBot = dk(S.wall, 0.1);
   const mortar = dk(S.wall, 0.45);
   const stagger = (tx & 1) * 4;
   for (let fy = 0; fy < FRONT; fy++) {

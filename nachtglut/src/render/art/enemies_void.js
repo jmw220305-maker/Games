@@ -1,7 +1,7 @@
 // Schattenkern (floor 4) + Sonnenherz (floor 5) enemies.
 import { sprite, mix } from './helpers.js';
 
-const VOID = ['#0e0a1c', '#251a44', '#45307a', '#6a4fb0'];
+const VOID = ['#120c24', '#2c1f52', '#4f3890', '#7a5cc8'];
 const INK = ['#07050e', '#151026', '#2a2048'];
 const V = { d: '#7a3fd0', m: '#b07cff', l: '#e2ccff', p: '#e04bd0', P: '#ff9af0', w: '#ffffff' };
 const GOLD = ['#5a3a10', '#a8741c', '#e8b23a', '#fff0a0'];
@@ -19,8 +19,8 @@ sprite('null_leech', 16, 10, (b, p) => {
   }, { hi: VOID[3] });
   // segment rings
   b.vl(5, 5, 3, VOID[0]); b.vl(10, 5 - hump, 3, VOID[0]);
-  // glowing spots
-  b.px(3, 5, V.p); b.px(7, 4 - hump, V.p); b.px(12, 5, V.p);
+  // glowing spots along the back
+  b.px(3, 5, V.P); b.px(7, 4 - hump, V.P); b.px(8, 4 - hump, V.p); b.px(12, 5, V.P);
   // round sucker mouth
   if (atk) { b.oval(12, 3, 4, 5, INK[0]); b.ring(12, 3, 4, 5, V.P); b.px(13, 5, V.l); }
   else { b.px(14, 6, INK[0]); b.px(14, 5, V.P); }
