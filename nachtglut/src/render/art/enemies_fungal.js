@@ -25,8 +25,8 @@ sprite('spore_puff', 14, 14, (b, p) => {
   b.px(4, 3 + by - g, sc); b.px(8, 2 + by - g, sc); b.px(10, 5 + by - g, sc); b.px(6, 6 + by, G.d);
   // face peeking out under the cap
   const fy = 9 + by;
-  b.px(6, fy, p.hurt ? STEM[0] : G.l); b.px(9, fy, p.hurt ? STEM[0] : G.l);
-  b.px(6, fy + 1, DARK); b.px(9, fy + 1, DARK);
+  b.px(5, fy, DARK); b.px(6, fy, DARK); b.px(5, fy + 1, DARK); b.px(6, fy + 1, p.hurt ? DARK : G.m);
+  b.px(8, fy, DARK); b.px(9, fy, DARK); b.px(8, fy + 1, DARK); b.px(9, fy + 1, p.hurt ? DARK : G.m);
   if (puff) { b.px(4, 2 + by - g, G.w); b.px(8, 1 + by - g, G.w); b.px(2, 5 + by, sc); }
 }, {
   idle: [3, {}, { bob: 1 }],

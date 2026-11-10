@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07050a">
+<meta name="description" content="Nachtglut – ein düsteres Action-Roguelite im Browser.">
+<title>Nachtglut</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07050a; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  #game, #overlay { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #game { background: #07050a; image-rendering: crisp-edges; image-rendering: pixelated; }
+  #overlay { pointer-events: none; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<canvas id="overlay"></canvas>
+<div id="ui"></div>
+<noscript><p style="color:#e8e2d4;font:16px sans-serif;text-align:center;margin-top:40vh">Nachtglut braucht JavaScript.</p></noscript>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
