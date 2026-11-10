@@ -174,8 +174,10 @@ export class Lighting {
     this.lg = new Float32Array(MAX_LIGHTS);   // additive glow alpha
     this.lc = new Array(MAX_LIGHTS).fill('#ffffff');
     this.n = 0;
-    this.hazards = new WeakMap();             // room → Int32Array of HAZARD tile indices
-    this._hz = new Int32Array(512);
+    this.hazards = new WeakMap();             // room → Float32Array [x, y, r, 0, …] of hazard lights
+    this._hzCols = new WeakMap();             // room → colour per hazard light (or empty → biome accent)
+    this._hz = new Int32Array(1024);
+    this.roomLights = null;                   // optional art helper: roomLights(room, biome) → [{ x, y, r, color }]
     // view rect used for culling while gathering
     this.vx = 0; this.vy = 0; this.vw = 0; this.vh = 0;
   }
@@ -200,17 +202,6 @@ export class Lighting {
     const i = this.n++;
     this.lx[i] = x; this.ly[i] = y; this.lr[i] = r;
     this.li[i] = intensity > 1 ? 1 : intensity; this.lg[i] = glow; this.lc[i] = color;
-  }
-
-  hazardTiles(room) {
-    let list = this.hazards.get(room);
-    if (list) return list;
-    const out = [];
-    const t = room.tiles;
-    if (t) for (let i = 0; i < t.length; i++) if (t[i] === TILE.HAZARD) out.push(i);
-    list = Int32Array.from(out);
-    this.hazards.set(room, list);
-    return list;
   }
 
   /** Collect every light of the frame. */
@@ -301,32 +292,59 @@ export class Lighting {
         this.add(k.x, k.y, k.kind === 'heart' ? 16 : 12, PICKUP_LIGHT[k.kind] || '#ffd35a', 0.55, 0.25);
       }
     }
-    // hazard tiles: capped sample of the ones in view
+    // hazard tiles: capped, culled sample of the ones in view
     const room = world.room, biome = world.biome;
     if (room && room.tiles) {
-      const list = this.hazardTiles(room);
-      if (list.length) {
-        const W = room.w;
-        const tx0 = Math.floor(camX / TS) - 1, ty0 = Math.floor(camY / TS) - 1;
-        const tx1 = Math.ceil((camX + vw) / TS) + 1, ty1 = Math.ceil((camY + vh) / TS) + 1;
+      const list = this.hazardLights(room, biome);
+      const nl = list.length / 4;
+      if (nl) {
         let m = 0;
         const hz = this._hz;
-        for (let i = 0; i < list.length && m < hz.length; i++) {
-          const idx = list[i], tx = idx % W, ty = (idx - tx) / W;
-          if (tx < tx0 || tx > tx1 || ty < ty0 || ty > ty1) continue;
-          hz[m++] = idx;
+        const x0 = camX - 32, y0 = camY - 32, x1 = camX + vw + 32, y1 = camY + vh + 32;
+        for (let i = 0; i < nl && m < hz.length; i++) {
+          const x = list[i * 4], y = list[i * 4 + 1];
+          if (x < x0 || y < y0 || x > x1 || y > y1) continue;
+          hz[m++] = i;
         }
         if (m) {
           const stride = Math.max(1, Math.ceil(m / MAX_HAZARD_LIGHTS));
-          const col = (biome && biome.accent) || '#ff7a2f';
-          for (let i = 0; i < m; i += stride) {
-            const idx = hz[i], tx = idx % W, ty = (idx - tx) / W;
-            const f = Math.sin(time * 2.6 + idx * 1.7) * 0.12;
-            this.add((tx + 0.5) * TS, (ty + 0.5) * TS, 26 + stride * 3, col, 0.45 + f, 0.2 + f * 0.5);
+          const cols = this._hzCols.get(room) || [];
+          for (let k = 0; k < m; k += stride) {
+            const i = hz[k];
+            const f = Math.sin(time * 2.6 + i * 1.7) * 0.12;
+            const r = list[i * 4 + 2] + (stride - 1) * 4;
+            this.add(list[i * 4], list[i * 4 + 1], r, cols[i] || (biome && biome.accent) || '#ff7a2f', 0.45 + f, 0.2 + f * 0.5);
           }
         }
       }
     }
+  }
+
+  /** Flat [x, y, r, 0, …] list of hazard lights for a room: art's roomLights() when available, else every HAZARD tile. */
+  hazardLights(room, biome) {
+    let list = this.hazards.get(room);
+    if (list) return list;
+    let src = null;
+    if (this.roomLights) {
+      try { src = this.roomLights(room, biome); } catch (err) { console.warn('[lighting] roomLights failed', err); src = null; }
+    }
+    const cols = [];
+    if (Array.isArray(src)) {
+      list = new Float32Array(src.length * 4);
+      src.forEach((L, i) => { list[i * 4] = L.x; list[i * 4 + 1] = L.y; list[i * 4 + 2] = L.r || 22; cols.push(L.color || null); });
+    } else {
+      const out = [];
+      const t = room.tiles, W = room.w;
+      for (let i = 0; i < t.length; i++) {
+        if (t[i] !== TILE.HAZARD) continue;
+        const tx = i % W, ty = (i - tx) / W;
+        out.push((tx + 0.5) * TS, (ty + 0.5) * TS, 24, 0);
+      }
+      list = Float32Array.from(out);
+    }
+    this.hazards.set(room, list);
+    this._hzCols.set(room, cols);
+    return list;
   }
 
   /**
