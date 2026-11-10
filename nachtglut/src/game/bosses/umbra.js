@@ -8,7 +8,7 @@ import { TAU, clamp, angleTo, dist, norm } from '../../core/math.js';
 import {
   makeBossAI, during, teleTime, telegraph, attackEvent, facePlayer, angleToPlayer, distToPlayer, pointNear, rayLen,
   findStand, zCircle, zLine, zCone, zRing, shot, ringShots, fanShots, phaseGate, keepInArena, forwardHit,
-  removePart, removeParts, TELE_MIN,
+  removePart, removeParts,
 } from './common.js';
 
 const COL = { body: '#8a5cff', twin: '#e6dcff', blade: '#c9a6ff', twinBlade: '#f4efff', dark: '#3a2266', weak: '#9a86c9' };
@@ -101,7 +101,8 @@ function* zip(w, cuts, orbs = true) {
   }
 }
 
-function* fans(w, B, actors, waves, n, spread = 1.1, speed = 115) {
+function* fans(w, B, list, waves, n, spread = 1.1, speed = 115) {
+  const actors = list.filter((a) => a && !a.dead);
   for (const a of actors) { a.anim = 'attack'; facePlayer(w, a); telegraph(a, 'shoot'); }
   yield teleTime(B, 0.5);
   for (let v = 0; v < waves; v++) {
@@ -258,7 +259,7 @@ function* mirrorFans(w, e, B) {
 function* twinStrikes(w, e, B) {
   for (let i = 0; i < 4; i++) {
     const a = i % 2 ? B.twin : e;
-    if (a.dead) continue;
+    if (!a || a.dead) continue;
     yield* strike(w, B, a, 0.65);
   }
   yield 0.2;
@@ -409,4 +410,3 @@ export const UMBRA_DEFS = {
     },
   },
 };
-export { TELE_MIN };
