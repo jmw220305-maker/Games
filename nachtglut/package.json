@@ -1,0 +1,15 @@
+{
+  "name": "nachtglut",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nachtglut – a dark top-down action roguelite for the browser (vanilla JS, Canvas 2D).",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node --test tests/",
+    "build": "node tools/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

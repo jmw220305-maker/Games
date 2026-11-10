@@ -718,7 +718,7 @@ export const TRACKS = {
       if (s === 0 && lb % 4 === 0) {
         const second = lb % 8 === 4;
         motif(p, p.calm, t, I.lead, {
-          stretch: 2, deg0: second ? 2 : 0, oct: second ? 0 : 0,
+          stretch: 2, deg0: second ? 2 : 0,
           opt: { type: 'sawtooth', det: 8, cut: 1700, bright: 0.7, g: 0.08, a: 0.04, r: 0.35, vib: 14 },
         });
       }
@@ -774,7 +774,7 @@ export const TRACKS = {
       if (s === 0 && bar === 0) {
         I.pad(p, p.calm, t, [45, 50, 53, 57], p.bd * 2, { type: 'sawtooth', det: 8, cut: 650, a: 1.2, r: 2.5, g: 0.14 });
         I.bass(p, p.calm, t, 38, p.bd * 2, { type: 'triangle', cut: 300, env: 1, q: 0.3, g: 0.24, r: 2 });
-        motif(p, p.calm, t, I.lead, { stretch: 2, end: -7 + 7, lastLen: 1.6, opt: { type: 'sawtooth', cut: 900, g: 0.085, a: 0.18, r: 1, vib: 16, vibRate: 4.8 } });
+        motif(p, p.calm, t, I.lead, { stretch: 2, end: 0, lastLen: 1.6, // the lament resolves home to D opt: { type: 'sawtooth', cut: 900, g: 0.085, a: 0.18, r: 1, vib: 16, vibRate: 4.8 } });
       }
       if (s === 0 && bar === 2) {
         I.pad(p, p.calm, t, [46, 50, 53, 58], p.bd, { type: 'sawtooth', det: 8, cut: 550, a: 0.8, r: 3.5, g: 0.11 });

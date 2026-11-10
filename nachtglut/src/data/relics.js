@@ -291,7 +291,6 @@ const LIST = [
     desc: '+20 max. Leben.', flavor: 'Es schlägt noch – langsam, aber warm.',
     icon: { glyph: 'heart', color: '#ff6a5a' }, tags: ['hp'],
     mods: (n) => [{ stat: 'maxHp', add: 20 * n }],
-    hooks: { onGain(ctx) { heal(ctx, 20, true); } },
   },
   {
     id: 'whetstone', name: 'Wetzstein', rarity: 'common', maxStacks: 2,
@@ -874,7 +873,6 @@ const LIST = [
     desc: '+5 % Lebensraub, +15 max. Leben.', flavor: 'Nie leer. Nie ganz voll.',
     icon: { glyph: 'potion', color: '#b0203a' }, tags: ['heal', 'hp'],
     mods: [{ stat: 'lifesteal', add: 0.05 }, { stat: 'maxHp', add: 15 }],
-    hooks: { onGain(ctx) { heal(ctx, 15, true); } },
   },
   {
     id: 'orbit_blades', name: 'Kreisende Klingen', rarity: 'rare',

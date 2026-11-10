@@ -28,9 +28,12 @@ export async function renderSfx(name, opts = {}) {
   const seconds = opts.seconds || 8;
   const C = OAC();
   const run = async (reverb, limiter) => {
-    const ctx = new C(2, Math.ceil(sr * seconds), sr);
+    // the DynamicsCompressor needs a moment to settle after the context starts (it ducks everything during the
+    // first few hundred ms), so the master-chain measurement starts the sound after a 1 s warm-up
+    const at = limiter ? 1 : 0.01;
+    const ctx = new C(2, Math.ceil(sr * (seconds + (limiter ? 1 : 0))), sr);
     const mix = buildMixer(ctx, { reverb, limiter });
-    startSfx(ctx, mix.sfx, reverb ? mix.sfxWet : null, name, 0.01, { pitch: opts.pitch ?? 1, volume: opts.volume ?? 1, seed: 1234 });
+    startSfx(ctx, mix.sfx, reverb ? mix.sfxWet : null, name, at, { pitch: opts.pitch ?? 1, volume: opts.volume ?? 1, seed: 1234 });
     return stats(await ctx.startRendering());
   };
   const dry = await run(false, false);
@@ -88,8 +91,8 @@ export async function renderStress(opts = {}) {
     eng.setIntensity(1, true);
     eng.play(opts.track || 'final', { fade: 0.01 });
     eng.scheduleUntil(seconds);
-    // 24 voices piled into the first second
-    for (let i = 0; i < 24; i++) startSfx(ctx, mix.sfx, mix.sfxWet, names[i % names.length], 0.2 + (i % 6) * 0.04, { seed: i + 1 });
+    // 24 voices piled up within 0.25 s (after the compressor's start-up settle)
+    for (let i = 0; i < 24; i++) startSfx(ctx, mix.sfx, mix.sfxWet, names[i % names.length], 1.2 + (i % 6) * 0.04, { seed: i + 1 });
     return stats(await ctx.startRendering());
   };
   const raw = await run(false);
