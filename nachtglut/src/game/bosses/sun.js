@@ -298,7 +298,7 @@ export const SUN_AI = makeBossAI({
     emberBloom: { phases: [1, 2], weight: (w, e, B) => (B.phase === 2 ? 1.5 : 2.5), run: emberBloom },
     coreForge: {
       phases: [1, 2], weight: 5, run: coreForge,
-      cond: (w, e, B) => liveCores(B) === 0 && B.coreDownT > (B.phase === 1 ? 9 : 14) && !w.zones.some((z) => !z.dead && z.data && z.data.summonFor === e),
+      cond: (w, e, B) => liveCores(B) === 0 && B.coreDownT > (B.phase === 1 ? 12 : 16) && !w.zones.some((z) => !z.dead && z.data && z.data.summonFor === e),
     },
     beams: { phases: [2, 3], weight: (w, e, B) => (B.phase === 2 ? 3 : 2.5), run: beams },
     corona: { phases: [2, 3], weight: (w, e, B) => (B.phase === 2 ? 3 : 2), run: corona },

@@ -220,7 +220,7 @@ export const CINDER_DEFS = {
   boss_cinder: {
     id: 'boss_cinder', name: 'Schlackenkönig', title: 'Herr der Aschegruben',
     desc: 'Ein König aus erstarrter Schlacke. Er stürmt, stampft Schockwellen in den Boden und lässt Magma regnen – und wenn seine Krone entflammt, brennt die Grube.',
-    biome: 'ash', boss: true, hp: 900, speed: 34, damage: 14, r: 18, mass: 0, xp: 60, sparks: [40, 60],
+    biome: 'ash', boss: true, hp: 1200, speed: 34, damage: 14, r: 18, mass: 0, xp: 60, sparks: [40, 60],
     sprite: 'boss_cinder', color: COL.body, light: { r: 90, color: '#ff7a2f' }, shadow: true, contactType: 'fire',
     ai: 'boss_cinder', aiParams: {},
     hooks: { onHit: phaseGate },

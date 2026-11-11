@@ -1,7 +1,6 @@
 // Level-up boons ("Segen"). See docs/ARCHITECTURE.md §6.5. `mods(stacks)` scales with the boon's stack count,
 // hooks read `ctx.stacks`. `rarity` sets the roll weight (common / uncommon / rare).
 import { TYPE_COLORS } from '../game/constants.js';
-import { installTicker } from './relics.js';
 
 const pct = (v) => Math.round(v * 100);
 
@@ -256,6 +255,5 @@ const LIST = [
 export const BOONS = {};
 for (const def of LIST) {
   if (def.maxStacks == null) def.maxStacks = 1;
-  installTicker(def);
   BOONS[def.id] = def;
 }

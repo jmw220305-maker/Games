@@ -514,7 +514,7 @@ export class World {
     for (const af of enemy.affixes) if (af.onHit) { try { af.onHit(this, enemy, hit); } catch (err) { console.error(`[affix] ${af.id}.onHit failed`, err); } }
     dmg = hit.amount;
     if (!(dmg > 0)) {
-      if (!info.silent) this.fx.text(enemy.x, enemy.y - enemy.r - 4, 'Geblockt', '#9aa7b8', { small: true });
+      if (!info.silent && !hit.redirected) this.fx.text(enemy.x, enemy.y - enemy.r - 4, 'Geblockt', '#9aa7b8', { small: true });
       return 0;
     }
     enemy.hp -= dmg;

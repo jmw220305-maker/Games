@@ -130,8 +130,9 @@ function tryBuild(rng, spec) {
   const boss = g.nodes[bossId];
   const nearBoss = (gx, gy) => Math.abs(gx - boss.gx) + Math.abs(gy - boss.gy) === 1;
 
-  // side branches
-  let remaining = spec.N - M;
+  // side branches (a few rooms are kept back as loop connectors)
+  const loopRooms = Math.min(spec.loops, Math.max(0, spec.N - M - spec.desiredLeaves + 1));
+  let remaining = spec.N - M - loopRooms;
   let guard = 0;
   while (remaining > 0) {
     if (++guard > 300) return null;
@@ -181,32 +182,61 @@ function tryBuild(rng, spec) {
     }
   }
 
-  // loops: connect grid-adjacent rooms of different branches without shortening the way to the boss
-  for (let l = 0; l < spec.loops; l++) {
-    const pairs = [];
+  // loops: a connector room on a free cell next to two rooms of different branches
+  // (never a shortcut towards the boss), or a plain side room when no loop fits
+  let loopsMade = 0;
+  for (let l = 0; l < loopRooms; l++) {
+    const opts = [];
+    const tried = new Set();
     for (const a of g.nodes) {
-      if (a.id === 0 || a.id === bossId) continue;
-      for (const d of ['e', 's']) {
-        const b = g.at(a.gx + DIRS[d].dx, a.gy + DIRS[d].dy);
-        if (b <= 0 || b === bossId || g.linked(a.id, b)) continue;
-        pairs.push([a.id, b]);
+      for (const d of g.freeDirs(a)) {
+        const cx = a.gx + DIRS[d].dx, cy = a.gy + DIRS[d].dy;
+        const key = ck(cx, cy);
+        if (tried.has(key)) continue;
+        tried.add(key);
+        const nbs = [];
+        for (const d2 of DIR_KEYS) {
+          const b = g.at(cx + DIRS[d2].dx, cy + DIRS[d2].dy);
+          if (b > 0 && b !== bossId && g.nodes[b].adj.length < 4) nbs.push(b);
+        }
+        for (let i = 0; i < nbs.length; i++) for (let j = i + 1; j < nbs.length; j++) {
+          const da = g.bfs(nbs[i])[nbs[j]];
+          if (da < 2) continue;
+          const leafCost = (g.nodes[nbs[i]].adj.length === 1 ? 1 : 0) + (g.nodes[nbs[j]].adj.length === 1 ? 1 : 0);
+          opts.push({ cx, cy, a: nbs[i], b: nbs[j], weight: (1 + Math.min(da, 6)) / (1 + leafCost * 2) });
+        }
       }
     }
-    rng.shuffle(pairs);
-    const leavesBefore = g.leafCount(bossId);
-    for (const [a, b] of pairs) {
-      if (g.bfs(a)[b] < 3) continue;
-      g.link(a, b);
+    let done = false;
+    while (opts.length && !done) {
+      const o = rng.weighted(opts);
+      opts.splice(opts.indexOf(o), 1);
+      const id = g.add(o.cx, o.cy, false, 0);
+      g.link(o.a, id); g.link(o.b, id);
       const dd = g.bfs(0);
-      const leaves = g.leafCount(bossId);
-      if (dd[bossId] === bossDepth && Math.max(...dd) <= bossDepth && leaves >= Math.min(leavesBefore, spec.desiredLeaves - 1)) break;
-      g.unlink(a, b);
+      if (dd[bossId] === bossDepth && Math.max(...dd) <= bossDepth && g.leafCount(bossId) >= spec.desiredLeaves - 1) {
+        for (const n of g.nodes) n.depth = dd[n.id];
+        done = true;
+        loopsMade++;
+        break;
+      }
+      g.unlink(o.a, id); g.unlink(o.b, id);
+      g.nodes.pop(); g.cells.delete(ck(o.cx, o.cy));
     }
+    if (done) continue;
+    // fallback: ordinary side room
+    const cands = g.nodes.filter((n) => n.id !== bossId && n.id !== 0 && !(spec.mainAnchorsOnly && !n.main) && n.depth + 1 <= bossDepth && g.freeDirs(n).length);
+    if (!cands.length) return null;
+    const a = rng.pick(cands);
+    const d = rng.pick(g.freeDirs(a));
+    const id = g.add(a.gx + DIRS[d].dx, a.gy + DIRS[d].dy, false, a.depth + 1);
+    g.link(a.id, id);
   }
 
   const dd = g.bfs(0);
+  if (dd[bossId] !== bossDepth || Math.max(...dd) > bossDepth) return null;
   for (const n of g.nodes) n.depth = dd[n.id];
-  return { g, bossId };
+  return { g, bossId, loopsMade };
 }
 
 /** Deterministic comb layout used only if random attempts keep failing (never loops forever). */
@@ -254,7 +284,7 @@ export function buildGraph(rng, plan) {
     const r = tryBuild(rng.fork('g' + attempt), plan);
     if (!r) continue;
     const leaves = r.g.leafCount(r.bossId);
-    if (leaves >= plan.desiredLeaves) { res = r; break; }
+    if (leaves >= plan.desiredLeaves - (r.loopsMade ? 1 : 0)) { res = r; break; }
     if (!best || leaves > best.g.leafCount(best.bossId)) best = r;
     if (attempt >= 30 && best) { res = best; break; }
   }

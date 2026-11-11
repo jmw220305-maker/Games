@@ -15,7 +15,7 @@ import { installGodMode } from '../tools/sim.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DT = 1 / 60;
-const EXPECTED_HP = { boss_cinder: 900, boss_mycel: 1500, boss_rime: 2200, boss_umbra: 3000, boss_sun: 4200 };
+const EXPECTED_HP = { boss_cinder: 1200, boss_mycel: 1500, boss_rime: 2200, boss_umbra: 3000, boss_sun: 4200 };
 
 let generateFloor;
 if (existsSync(resolve(ROOT, 'src/gen/floorgen.js'))) {

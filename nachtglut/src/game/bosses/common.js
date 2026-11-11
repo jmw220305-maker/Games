@@ -225,7 +225,7 @@ export function forwardHit(w, from, to, hit, mul = 1) {
   const bd = from.boss ? (w.player && w.player.stats && w.player.stats.bossDamage) || 1 : 1;
   const amount = (hit.amount * mul) / bd;
   hit.amount = 0;
-  info.silent = true; // the part itself must not print "Geblockt"
+  hit.redirected = true; // core: no "Geblockt" text for damage that was passed on
   from.flash = 1;
   if (!to || to.dead || !(amount > 0)) return 0;
   const dealt = w.damageEnemy(to, amount, { ...info, silent: true, dot: false, type: hit.type, crit: hit.crit });

@@ -44,67 +44,6 @@ export function shootsProjectiles(p) {
   return defs.some((d) => (Array.isArray(d.tags) ? d.tags.includes('projectile') : !(d.melee || d.beam || NON_PROJECTILE.has(d.id))));
 }
 
-// ---------------------------------------------------------------------------------------------
-// onUpdate fallback driver.
-// §6.5 documents `onUpdate(ctx, dt)`, but if the core does not call it, an invisible player-team zone (far outside
-// the room, radius 0) ticks every perk's onUpdate from its `onTick`. As soon as the core drives onUpdate itself
-// (detected through the wrapper below), the driver stops calling hooks, so nothing ever runs twice per frame.
-// ---------------------------------------------------------------------------------------------
-const coreTick = new WeakMap();   // run -> run time of the last core-driven onUpdate
-const drivers = new WeakMap();    // world -> driver zone
-
-function driverTick(w, z, dt) {
-  const run = w.run;
-  if (!run || !run.player) return;
-  const last = coreTick.get(run);
-  if (last != null && Math.abs((run.time || 0) - last) < 0.25) return; // the core calls onUpdate itself
-  const p = run.player;
-  tickList(w, run, p, p.relics, dt);
-  tickList(w, run, p, p.boons, dt);
-}
-
-function tickList(w, run, p, list, dt) {
-  for (let i = 0; i < list.length; i++) {
-    const perk = list[i];
-    const fn = perk.def.hooks && perk.def.hooks.onUpdate;
-    if (!fn) continue;
-    try {
-      (fn._inner || fn)({ w, player: p, run, rng: w.rng, stacks: perk.stacks, state: perk.state, perk }, dt);
-    } catch (err) {
-      if (!perk._tickErr) { perk._tickErr = true; console.error(`[perk] ${perk.def.id}.onUpdate failed`, err); }
-    }
-  }
-}
-
-/** Make sure the current room has a driver zone (called from onGain / onRoomEnter of ticking perks). */
-export function ensureTicker(ctx) {
-  const w = ctx.w;
-  if (!w || !w.room || typeof w.spawnZone !== 'function' || !Array.isArray(w.zones)) return;
-  const z = drivers.get(w);
-  if (z && !z.dead && z.data.room === w.room && w.zones.includes(z)) return;
-  drivers.set(w, w.spawnZone({
-    shape: 'circle', x: -4096, y: -4096, r: 0, delay: 0, duration: 1e12, damage: 0, team: 'player', persist: true,
-    color: 'rgba(0,0,0,0)', onTick: driverTick, data: { relicTicker: true, room: w.room },
-  }));
-}
-
-/**
- * Wires a perk definition with an onUpdate hook to the driver: wraps onUpdate (marks core-driven calls) and
- * makes onGain / onRoomEnter ensure a driver zone. Safe to call twice.
- */
-export function installTicker(def) {
-  const h = def.hooks;
-  if (!h || !h.onUpdate || h.onUpdate._inner) return def;
-  const inner = h.onUpdate;
-  const wrapped = function onUpdate(ctx, dt) { coreTick.set(ctx.run, ctx.run.time || 0); inner(ctx, dt); };
-  wrapped._inner = inner;
-  h.onUpdate = wrapped;
-  const gain = h.onGain, enter = h.onRoomEnter;
-  h.onGain = function onGain(ctx) { if (gain) gain(ctx); ensureTicker(ctx); };
-  h.onRoomEnter = function onRoomEnter(ctx, arg) { if (enter) enter(ctx, arg); ensureTicker(ctx); };
-  return def;
-}
-
 /** Monotonic time for internal cooldowns (run time survives room changes; world time is the fallback). */
 function now(ctx) {
   const r = ctx.run;
@@ -1296,7 +1235,6 @@ function flareExpire(w, p) {
 export const RELICS = {};
 for (const def of LIST) {
   if (def.maxStacks == null) def.maxStacks = 1;
-  installTicker(def);
   RELICS[def.id] = def;
 }
 

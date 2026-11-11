@@ -14,7 +14,7 @@ export function createTitle(ui) {
     button('Chronik', { cls: 'btn-menu', icon: icon({ glyph: 'book', color: '#e8d6b0' }, 24, { name: 'C' }), sub: 'Gegner, Relikte, Erfolge', onClick: () => ui.openScreen('chronik') }),
     button('Einstellungen', { cls: 'btn-menu', icon: icon({ glyph: 'compass', color: '#e8d6b0' }, 24, { name: 'E' }), sub: 'Klang, Bild, Steuerung', onClick: () => ui.openScreen('settings') }));
 
-  const el = h('section.screen.screen-title', { attrs: { 'aria-label': 'Nachtglut' } },
+  const el = h('section.screen.screen-home', { attrs: { 'aria-label': 'Nachtglut' } },
     h('div.title-vignette'),
     h('div.title-wrap',
       h('div.logo-block',
