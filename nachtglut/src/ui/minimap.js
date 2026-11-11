@@ -89,7 +89,7 @@ export function drawMap(canvas, floor, roomId, opts = {}) {
   let cell = opts.cell || 16;
   if (full) {
     const pad = 24;
-    cell = Math.max(10, Math.min(44, Math.floor(Math.min((cw - pad * 2) / Math.max(1, lay.cols), (ch - pad * 2) / Math.max(1, lay.rows)))));
+    cell = Math.max(10, Math.min(64, Math.floor(Math.min((cw - pad * 2) / Math.max(1, lay.cols), (ch - pad * 2) / Math.max(1, lay.rows)))));
   }
   const cellW = cell, cellH = Math.round(cell * 0.78);
   const gap = Math.max(3, Math.round(cell * 0.28));
@@ -137,7 +137,7 @@ export function drawMap(canvas, floor, roomId, opts = {}) {
     g.strokeRect(rx + 0.5, ry + 0.5, roomW - 1, roomH - 1);
     const ic = ROOM_ICON[c.type];
     const showIcon = ic && c.type !== 'combat' && (c.visited || c.type === 'boss') && !(c.current && !full && c.type === 'start');
-    if (showIcon && !(c.current && c.type === 'start')) {
+    if (showIcon) {
       const s = Math.min(roomW, roomH) * 0.78;
       drawShape(g, ic.shape, x, y, s, c.current ? '#2a140a' : ic.color);
     }

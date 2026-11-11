@@ -17,11 +17,12 @@ export function onContentLoaded(fn) {
   return () => listeners.delete(fn);
 }
 
-async function tryImport(path) {
+// `loader` is a function with a literal import() so bundlers (esbuild) can resolve it.
+async function tryImport(label, loader) {
   try {
-    return await import(path);
+    return await loader();
   } catch (err) {
-    console.warn(`[ui] optional module ${path} unavailable:`, err && err.message ? err.message : err);
+    console.warn(`[ui] optional module ${label} unavailable:`, err && err.message ? err.message : err);
     return null;
   }
 }
@@ -36,14 +37,14 @@ export function loadContent() {
   if (loading) return loading;
   loading = (async () => {
     const [registry, biomes, stats, sprites, achievements, codex, progression, tracker] = await Promise.all([
-      tryImport('../game/registry.js'),
-      tryImport('../data/biomes.js'),
-      tryImport('../game/stats.js'),
-      tryImport('../render/sprites.js'),
-      tryImport('../meta/achievements.js'),
-      tryImport('../meta/codex.js'),
-      tryImport('../meta/progression.js'),
-      tryImport('../meta/tracker.js'),
+      tryImport('registry', () => import('../game/registry.js')),
+      tryImport('biomes', () => import('../data/biomes.js')),
+      tryImport('stats', () => import('../game/stats.js')),
+      tryImport('sprites', () => import('../render/sprites.js')),
+      tryImport('achievements', () => import('../meta/achievements.js')),
+      tryImport('codex', () => import('../meta/codex.js')),
+      tryImport('progression', () => import('../meta/progression.js')),
+      tryImport('tracker', () => import('../meta/tracker.js')),
     ]);
     if (registry) {
       for (const k of ['CHARACTERS', 'WEAPONS', 'RELICS', 'BOONS', 'ENEMIES', 'BOSSES', 'AFFIXES']) {

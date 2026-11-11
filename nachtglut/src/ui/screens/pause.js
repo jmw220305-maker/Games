@@ -101,7 +101,7 @@ export function createCharsheet(ui) {
         h('span.tag', { text: `Leben ${Math.ceil(p.hp || 0)} / ${Math.round(maxHp)}` }),
         p.shield > 0 ? h('span.tag', { text: `Schild ${Math.ceil(p.shield)}` }) : null,
         h('span.tag', { text: `${fmtInt(p.sparks || 0)} Funken` }),
-        run.rerolls > 0 ? h('span.tag', { text: `${run.rerolls} Neuwürfe` }) : null)));
+        run.rerolls > 0 ? h('span.tag', { text: run.rerolls === 1 ? '1 Neuwurf' : `${run.rerolls} Neuwürfe` }) : null)));
 
   // weapons with level descriptions
   const weapons = h('div.cs-weapons', sectionTitle('Waffen'));

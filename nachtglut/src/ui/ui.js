@@ -90,9 +90,9 @@ function createApi(game) {
       }
     },
     topLayer() { return api.layers[api.layers.length - 1] || null; },
-    focusEl(el, silent) {
+    focusEl(el, silent, noScroll) {
       if (!el || typeof el.focus !== 'function') return;
-      try { el.focus({ preventScroll: false }); } catch { el.focus(); }
+      try { el.focus({ preventScroll: !!noScroll }); } catch { el.focus(); }
       const top = api.topLayer();
       if (top && top.el.contains(el)) top.lastFocus = el;
       if (!silent) sfx.hover();
@@ -113,7 +113,7 @@ function createApi(game) {
       if (!opts.silent) sfx.open();
       hideTooltip();
       const f = (inst.focus && inst.focus()) || focusables(inst.el)[0];
-      if (f) api.focusEl(f, true);
+      if (f) api.focusEl(f, true, true); // screens open scrolled to the top
       return inst;
     },
     back() {
@@ -215,7 +215,12 @@ function navigate(api, dir, fromPad) {
 function onKeyDown(api, e) {
   const top = api.topLayer();
   if (!top) {
-    // gameplay: leave keys to the game input, except a few UI-only ones
+    // gameplay: leave keys to the game input; the map toggle is UI-only (catch quick taps here,
+    // the per-frame poll in update() covers gamepad + virtual buttons)
+    if (e.code === 'KeyM' && !e.repeat && !isTextField(e.target) && S.vis.hud && api.game.state !== 'paused') {
+      S.mapDown = true;
+      api.toggleMap();
+    }
     return;
   }
   // a modal UI is open: keep the key away from the game input
@@ -491,6 +496,7 @@ export const ui = {
         if (S.endPending.t <= 0 && (game.state === 'dead' || game.state === 'victory')) {
           S.endPending = null;
           S.notify.clearBanner();
+          S.notify.clearToasts(); // the end screen lists unlocks + achievements itself
           const payload = S.lastEnd || { victory: game.state === 'victory', summary: (game.run && game.run.lastSummary) || {} };
           api.resetScreens(['end'], { payload, achievements: S.runAchievements.slice() });
         }

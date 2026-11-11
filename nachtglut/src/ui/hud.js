@@ -305,8 +305,9 @@ export function createHud(ui) {
 
   function bossNotches(boss) {
     const d = boss.def || {};
-    let ph = d.phases || d.phaseThresholds || (boss.data && boss.data.phases);
-    if (!Array.isArray(ph)) ph = [0.5];
+    // bosses/common.js keeps the HP fractions that start phase 2, 3, … in boss.data.thresholds
+    let ph = (boss.data && boss.data.thresholds) || d.phases || d.phaseThresholds || (boss.data && boss.data.phases);
+    if (!Array.isArray(ph)) ph = [];
     return ph.map((v) => (typeof v === 'number' ? v : v && (v.hp ?? v.at ?? v.threshold))).filter((v) => typeof v === 'number' && v > 0 && v < 1);
   }
 
@@ -321,11 +322,18 @@ export function createHud(ui) {
       last.bossLag = 1;
       setText(el.bossName, boss.name || (boss.def && boss.def.name) || 'Boss');
       setText(el.bossTitle, (boss.def && boss.def.title) || boss.title || '');
-      clear(el.bossNotches);
-      for (const n of bossNotches(boss)) el.bossNotches.appendChild(h('span.notch', { style: { left: `${n * 100}%` } }));
+      last.notchSig = null;
       el.boss.classList.remove('enter');
       void el.boss.offsetWidth;
       el.boss.classList.add('enter');
+    }
+    // thresholds are set on the boss's first AI tick: (re)build the notches when they change
+    const notches = bossNotches(boss);
+    const nsig = notches.join(',');
+    if (nsig !== last.notchSig) {
+      last.notchSig = nsig;
+      clear(el.bossNotches);
+      for (const n of notches) el.bossNotches.appendChild(h('span.notch', { style: { left: `${n * 100}%` } }));
     }
     const f = clamp01((boss.hp || 0) / Math.max(1, boss.maxHp || 1));
     setVar(el.bossFill, '--f', r2(f));

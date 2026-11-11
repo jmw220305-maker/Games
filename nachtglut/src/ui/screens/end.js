@@ -61,7 +61,8 @@ export function createEnd(ui, params = {}) {
   if (!recap.childElementCount) recap.appendChild(h('div.empty.small', { text: 'Ohne Relikte und Segen – nur Glut und Willen.' }));
 
   // ---- ash breakdown -----------------------------------------------------------------------
-  const parts = Array.isArray(s.ashParts) && s.ashParts.length ? s.ashParts : [{ label: 'Asche', amount: s.ash || 0, kind: 'total' }];
+  const parts = Array.isArray(s.ashParts) && s.ashParts.length ? s.ashParts
+    : [{ label: (s.ash || 0) > 0 ? 'Asche' : 'Zu früh erloschen – kaum Asche geblieben', amount: s.ash || 0, kind: 'total' }];
   const total = Number.isFinite(s.ash) ? s.ash : parts.reduce((a, p) => a + (p.amount || 0), 0);
   const lines = parts.map((p) => {
     const val = h('span.ash-amt', { text: '0' });

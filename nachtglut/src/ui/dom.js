@@ -1,6 +1,18 @@
 // Tiny DOM helpers shared by every UI module.
 import { bus } from '../core/events.js';
-import { content } from './content.js';
+import { content, onContentLoaded } from './content.js';
+
+// Icons created before the sprite module finished loading get upgraded in place once it is there.
+const pendingIcons = new Set();
+onContentLoaded(() => {
+  for (const p of pendingIcons) {
+    const url = iconUrl(p.spec, p.px);
+    if (!url) continue;
+    p.el.classList.remove('ico-fallback');
+    clear(p.el).appendChild(h('img', { src: url, alt: '', draggable: false, width: p.size, height: p.size }));
+  }
+  pendingIcons.clear();
+});
 
 /**
  * Create an element. `tag` may carry classes and an id: 'div.panel.big#root'.
@@ -116,6 +128,7 @@ export function icon(spec, px = 32, opts = {}) {
   } else {
     el.classList.add('ico-fallback');
     el.appendChild(h('span', { text: fallbackLetter(spec, opts.name) }));
+    if (!content.loaded && spec) pendingIcons.add({ el, spec, px: Math.max(16, Math.round(px)), size: px });
   }
   return el;
 }

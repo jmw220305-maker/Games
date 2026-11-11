@@ -15,6 +15,10 @@ const TAG_DE = {
   crit: 'Kritisch', hp: 'Leben', heal: 'Heilung', speed: 'Tempo', damage: 'Schaden', gold: 'Funken', sparks: 'Funken',
   dash: 'Sprint', skill: 'Fertigkeit', defense: 'Abwehr', shield: 'Schild', luck: 'Glück', projectile: 'Geschoss',
   status: 'Effekt', summon: 'Beschwörung', orbit: 'Umlauf', area: 'Fläche', curse: 'Fluch', xp: 'Erfahrung', utility: 'Nutzen',
+  kill: 'Erlegen', fireRate: 'Feuerrate', revive: 'Wiederkehr', orbital: 'Umlauf', economy: 'Handel', thorns: 'Dornen',
+  rapid: 'Schnellfeuer', proc: 'Auslöser', pierce: 'Durchschlag', melee: 'Nahkampf', split: 'Teilung', shotgun: 'Streuung',
+  knockback: 'Rückstoß', explosive: 'Explosiv', control: 'Kontrolle', charge: 'Aufladen', chain: 'Kette', boomerang: 'Bumerang',
+  beam: 'Strahl', elite: 'Elite', boss: 'Boss', lifesteal: 'Lebensraub', armor: 'Rüstung', dodge: 'Ausweichen', range: 'Reichweite',
 };
 export const tagName = (t) => TAG_DE[t] || t;
 
@@ -106,7 +110,8 @@ export function createChoice(ui) {
       }));
     }
     box.className = `choice choice-${choice.kind || 'relic'}`;
-    box.append(head, cards, foot.childElementCount ? foot : null);
+    box.append(head, cards);
+    if (foot.childElementCount) box.appendChild(foot);
   }
 
   return {

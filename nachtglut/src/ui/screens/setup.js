@@ -147,13 +147,13 @@ export function createSetup(ui) {
     function nextFocus() { const b = diffBox.querySelectorAll('.btn-step')[1]; if (b) ui.focusEl(b, true); }
     const pips = h('div.diff-pips', list.map((x) => h('span.dpip' + (x.level <= diff ? '.on' : '') + (x.level > max ? '.locked' : ''), { title: `Glutstufe ${x.level}` })));
     const ashMult = d.mods && d.mods.ashMult ? d.mods.ashMult : 1;
-    diffBox.append(
+    diffBox.append(...[
       sectionTitle('Glutstufe', h('span.diff-ash', { text: `Asche ×${fmtDec(ashMult, 2)}` })),
       h('div.diff-stepper', prev, h('div.diff-current', h('div.diff-level', { text: `${diff}` }), h('div.diff-name', { text: d.name || '' })), next),
       pips,
       h('div.diff-desc', { text: d.desc || '' }),
       Array.isArray(d.effects) && d.effects.length ? h('div.diff-effects', d.effects.map((e) => h('span.tag', { text: e }))) : null,
-      max < 10 ? h('div.diff-unlock', { text: `Siege auf Glutstufe ${max}, um Glutstufe ${max + 1} zu entfachen.` }) : null);
+      max < 10 ? h('div.diff-unlock', { text: `Siege auf Glutstufe ${max}, um Glutstufe ${max + 1} zu entfachen.` }) : null].filter(Boolean));
   }
 
   function updateGo() {

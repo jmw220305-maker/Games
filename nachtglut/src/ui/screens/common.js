@@ -19,7 +19,7 @@ export function screenShell(ui, opts = {}) {
   const head = h('header.screen-head');
   if (opts.back !== false) {
     head.appendChild(button(opts.backLabel || 'Zurück', {
-      cls: 'btn-back', sound: false,
+      cls: 'btn-back', sound: false, title: opts.backLabel || 'Zurück',
       icon: h('span.back-arrow', { attrs: { 'aria-hidden': 'true' } }),
       onClick: () => { sfx.close(); (opts.back || ui.back)(); },
     }));

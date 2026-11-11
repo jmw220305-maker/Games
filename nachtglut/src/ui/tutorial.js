@@ -80,6 +80,10 @@ export function createTutorial(ui) {
       if (!enabled() || !game.run) { if (active) { active = null; toggleClass(el, 'show', false); } return; }
       const st = game.state;
       toggleClass(el, 'in-choice', st === 'choice');
+      // only visible while playing (the level-up hint only inside its choice)
+      const visible = !!active && ((st === 'playing' && active.id !== 'levelup') || (st === 'choice' && active.id === 'levelup'));
+      toggleClass(el, 'show', visible);
+      if (st === 'dead' || st === 'victory' || st === 'menu') { if (active) { queued.add(active.id); active = null; } return; }
       if (st !== 'playing' && st !== 'choice') return;
       const run = game.run;
       const w = run.world;
@@ -91,8 +95,9 @@ export function createTutorial(ui) {
         if (next) { queued.delete(next); show(next); }
         return;
       }
-      active.t += dt;
       const id = active.id;
+      if ((st === 'choice') !== (id === 'levelup')) return;
+      active.t += dt;
       if (id === 'move') {
         const m = ui.input && ui.input.move;
         if (m && Math.hypot(m.x, m.y) > 0.3) moveT += dt;

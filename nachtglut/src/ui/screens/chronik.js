@@ -87,7 +87,7 @@ export function createChronik(ui) {
       if (kind === 'bosses') { if (e.seen) facts.push(`Besiegt: ${fmtInt(e.kills)}`); if (e.bestTime > 0) facts.push(`Bestzeit ${fmtTime(e.bestTime)}`); if (biome) facts.push(biome.name); }
       if (isPerk && e.seen) facts.push(`${kind === 'boons' ? 'Gewählt' : 'Gefunden'}: ${fmtInt(e.count)}×`);
       if (kind === 'weapons' && e.seen) facts.push(`Geführt in ${fmtInt(e.count)} Abstiegen`);
-      det.append(
+      det.append(...[
         h('div.cxd-head',
           h('div.cxd-icon', icon(ic, kind === 'bosses' ? 96 : 64, { name: e.name, silhouette: !e.seen })),
           h('div.cxd-names',
@@ -96,7 +96,7 @@ export function createChronik(ui) {
             r && e.seen ? h('div.cxd-rarity', { text: r.name, style: { color: r.color } }) : null)),
         h('p.cxd-desc', { text: e.seen ? descAt(def.desc, 1) || e.desc || '' : kind === 'weapons' && e.unlocked === false ? `Verschlossen: ${e.unlockText || ''}` : 'Noch nicht entdeckt. Steig tiefer hinab, um mehr zu erfahren.' }),
         e.seen && def.flavor ? h('p.cxd-flavor', { text: text(def.flavor) }) : null,
-        facts.length ? h('div.cxd-facts', facts.map((f) => h('span.tag', { text: f }))) : null);
+        facts.length ? h('div.cxd-facts', facts.map((f) => h('span.tag', { text: f }))) : null].filter(Boolean));
     }
 
     let firstSeen = null;

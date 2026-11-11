@@ -169,7 +169,7 @@ export const LIFETIME_STAT_LABELS = Object.freeze({
   kills: { name: 'Besiegte Gegner', fmt: 'int' },
   eliteKills: { name: 'Besiegte Elitegegner', fmt: 'int' },
   bossKills: { name: 'Besiegte Bosse', fmt: 'int' },
-  bestKills: { name: 'Meiste Siege in einem Abstieg', fmt: 'int' },
+  bestKills: { name: 'Meiste besiegte Gegner in einem Abstieg', fmt: 'int' },
   bestLevel: { name: 'Höchste Stufe', fmt: 'int' },
   bestHit: { name: 'Stärkster Treffer', fmt: 'int' },
   damageDealt: { name: 'Verursachter Schaden', fmt: 'int' },
