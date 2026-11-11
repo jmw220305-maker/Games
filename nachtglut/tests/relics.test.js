@@ -231,7 +231,7 @@ describe('headless: everything at once', () => {
         return r;
       };
 
-      const seen = { orbitals: 0, relicShots: 0, zones: 0, flare: 0, reflect: 0, kills0: run.stats.kills };
+      const seen = { states: {}, orbitals: 0, relicShots: 0, zones: 0, flare: 0, reflect: 0, kills0: run.stats.kills };
       const offs = [bus.on('player:hit', () => { seen.hits = (seen.hits || 0) + 1; })];
       let t = 0, floorEntered = false, cleared = false;
       for (let i = 0; i < 60 * 60; i++) {
@@ -269,6 +269,7 @@ describe('headless: everything at once', () => {
           w.spawnProjectile({ x: p.x + 40, y: p.y, angle: Math.PI, speed: 120, r: 4, damage: 8, type: 'fire', team: 'enemy', life: 2 });
         }
         game.update(DT);
+        seen.states[game.state] = (seen.states[game.state] || 0) + 1;
         if (p.flags.reflect) seen.reflect++;
         for (const pr of w.projectiles) {
           if (pr.data && pr.data.orbital) seen.orbitals++;
@@ -278,6 +279,8 @@ describe('headless: everything at once', () => {
         if (i % 30 === 0) assertSane(run, `t=${t.toFixed(2)}`);
       }
       for (const off of offs) off();
+      if (process.env.RELICS_DEBUG) console.log(JSON.stringify({ states: seen.states, kills: run.stats.kills, dealt: Math.round(run.stats.damageDealt), taken: Math.round(run.stats.damageTaken), hits: seen.hits, proj: w.projectiles.length, zones: w.zones.length, orb: seen.orbitals, shots: seen.relicShots, flare: seen.flare, time: run.time, stats: p.stats }));
+      assert.ok((seen.states.playing || 0) > 3000, `playing frames ${JSON.stringify(seen.states)}`);
       assertSane(run, 'end');
       assert.ok(run.floorIndex === 2, 'floor 2 entered');
       assert.ok(run.stats.kills - seen.kills0 > 20, `kills ${run.stats.kills}`);
@@ -325,12 +328,11 @@ describe('headless: individual mechanics', () => {
     p.iframes = 0;
     w.damagePlayer(9999, { unblockable: true });
     assert.ok(!p.alive || run.ended, 'no charges left → death');
-    run.player.alive = true;
-    // second ember bonus damage after use
-    run.ended = false;
-    const { refreshDynamicMods } = { refreshDynamicMods: null };
-    void refreshDynamicMods;
-    assert.ok(dmg0 > 0);
+    // second ember: +15 % damage for the rest of the run once used
+    run.ended = false; p.alive = true; p.hp = 10;
+    run._dynT = 0;
+    run.update(DT);
+    assert.ok(Math.abs(p.stats.damage - dmg0 * 1.15) < 1e-6, `damage ${dmg0} -> ${p.stats.damage}`);
   });
 
   test('sun heart: every 10th shot is a flare that explodes', () => {
@@ -535,7 +537,7 @@ describe('headless: shrines', () => {
     g = shrineRun('sac');
     const mh = g.p.stats.maxHp, dm = g.p.stats.damage;
     SHRINES.sacrifice.options(g.ctx)[0].pick(g.ctx);
-    assert.equal(g.p.stats.maxHp, mh - 15);
+    assert.ok(g.p.stats.maxHp < mh && g.p.stats.maxHp >= mh - 15, `maxHp ${mh} -> ${g.p.stats.maxHp}`); // −15 before multiplicative curses
     assert.ok(g.p.stats.damage > dm);
 
     // Sternenkarte

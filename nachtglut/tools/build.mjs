@@ -100,7 +100,11 @@ fs.writeFileSync(path.join(DIST, 'nachtglut.artifact.html'), artifact);
 
 // ------------------------------------------------------------------ checks + report
 const warn = [];
-if (/\b(?:window\.)?(?:alert|confirm|prompt)\s*\(/.test(js.replace(/\.prompt\(|prompt\s*:/g, ''))) warn.push('bundle may call alert/confirm/prompt');
+// bare or window./globalThis./self. calls only (method calls such as sfx.confirm() are fine)
+// (object-literal method definitions such as `confirm(opts){…}` are not calls either)
+if (/(?:^|[^\w$.])(?:alert|confirm|prompt)\s*\([^()]*\)(?!\s*\{)/.test(js.replace(/(?:window|globalThis|self)\.(?=(?:alert|confirm|prompt)\s*\()/g, ' '))) {
+  warn.push('bundle may call alert/confirm/prompt');
+}
 const external = (out.match(/(?:src|href)=["']https?:\/\/[^"']+/g) || []).filter((u) => !/fonts\.(googleapis|gstatic)\.com/.test(u));
 if (external.length) warn.push('external references: ' + external.join(', '));
 const kb = (s) => (Buffer.byteLength(s) / 1024).toFixed(1) + ' KiB';

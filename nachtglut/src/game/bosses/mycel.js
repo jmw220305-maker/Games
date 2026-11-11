@@ -11,10 +11,10 @@ import {
 
 const COL = { body: '#a77be0', spore: '#9be35a', root: '#b98cff', toxic: '#7fd94a', cloud: '#8fcf5a' };
 
-const poison = (e, power = 1.1, duration = 2.5) => ({ id: 'poison', duration, power: power * (e.dmgMul ?? 1) });
+const poison = (e, power = 0.9, duration = 2.5) => ({ id: 'poison', duration, power: power * (e.dmgMul ?? 1) });
 const sporeShot = (e, o = {}) => ({
-  r: 3.5, damage: 9, type: 'poison', sprite: 'proj_spore', color: COL.spore,
-  status: { id: 'poison', duration: 3, power: 1 * (e.dmgMul ?? 1), chance: 0.3 }, ...o,
+  r: 3.5, damage: 8, type: 'poison', sprite: 'proj_spore', color: COL.spore,
+  status: { id: 'poison', duration: 3, power: 0.8 * (e.dmgMul ?? 1), chance: 0.25 }, ...o,
 });
 
 /** Stationary poison cloud (status-only zone). */
@@ -38,7 +38,7 @@ function driftingCloud(w, e) {
   const a = angleTo(x, y, tx, ty), sp = w.rng.float(15, 22);
   const vx = Math.cos(a) * sp, vy = Math.sin(a) * sp;
   return zCircle(w, e, x, y, 26, {
-    delay: 1.0, duration: 16, tick: 0.5, damage: 0, type: 'poison', status: poison(e, 1.2),
+    delay: 1.0, duration: 16, tick: 0.5, damage: 0, type: 'poison', status: poison(e, 1.0),
     color: COL.cloud, data: { cloud: true, drift: true, hazard: true },
     onTick(w2, z, dt) {
       z.x += vx * dt; z.y += vy * dt;
@@ -264,7 +264,7 @@ export const MYCEL_DEFS = {
   boss_mycel: {
     id: 'boss_mycel', name: 'Myzelmutter', title: 'Herz der Sporengrotten',
     desc: 'Die verwurzelte Königin der Grotten. Ihre Wurzeln brechen aus dem Boden, ihre Sporen wirbeln in Spiralen – und wenn ihre Sporensäcke aufplatzen, atmet die Höhle Gift.',
-    biome: 'fungal', boss: true, hp: 1500, speed: 0, damage: 16, r: 20, mass: 0, xp: 80, sparks: [50, 75],
+    biome: 'fungal', boss: true, hp: 1500, speed: 0, damage: 15, r: 20, mass: 0, xp: 80, sparks: [50, 75],
     sprite: 'boss_mycel', color: COL.body, light: { r: 90, color: COL.spore }, shadow: true, contactType: 'poison',
     ai: 'boss_mycel', aiParams: {},
     hooks: { onHit: phaseGate },

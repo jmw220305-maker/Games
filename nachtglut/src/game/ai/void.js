@@ -18,7 +18,7 @@ export const VOID_AI = {
       switch (e.state) {
         case 'windup':
           e.anim = 'attack';
-          if (d.t < a.windup - 0.12) d.ang = aimAt(e, p);
+          if (d.t < a.windup - 0.12) d.ang = aimAt(e, p, a.leapSpeed, 0.6);
           if (d.t >= a.windup) { go(e, 'leap'); attackEvent(w, e, 'melee'); }
           break;
         case 'leap': {

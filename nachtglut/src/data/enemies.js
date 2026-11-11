@@ -156,7 +156,7 @@ export const ENEMIES = {
     desc: 'Zielt lange und genau. Sein Eissplitter ist schneller als ein Herzschlag.',
     hp: 55, speed: 40, damage: 9, r: 6.5, mass: 1, xp: 6, sparks: [1, 4], color: '#c4d8ea',
     resist: { frost: 0.5, fire: -0.25 },
-    aiParams: { min: 110, max: 175, aim: 0.8, cooldown: 2.6, projSpeed: 165, projDamage: 15, range: 300 },
+    aiParams: { min: 110, max: 175, aim: 0.8, lock: 0.4, cooldown: 2.6, projSpeed: 165, projDamage: 15, range: 300 },
   }),
   snow_caster: def({
     id: 'snow_caster', name: 'Schneebeschwörer', biome: 'frost',

@@ -48,6 +48,10 @@ export const FROST_AI = {
       switch (e.state) {
         case 'squash':
           e.anim = 'attack';
+          // keeps tracking a target in clear view until the last 0.12 s, then the hop direction is locked
+          if (d.t < a.squash - 0.12 && distTo(e, p) < a.hop * 2.2 && w.hasClearPath && w.hasClearPath(e.x, e.y, p.x, p.y, false)) {
+            d.ang = aimAt(e, p, a.hop / a.hopTime, 0.6);
+          }
           if (d.t >= a.squash) {
             go(e, 'hop');
             if (distTo(e, p) < a.hop * 1.6) attackEvent(w, e, 'melee');
@@ -140,6 +144,13 @@ export const FROST_AI = {
       const d = tick(e, dt), a = params(e), p = w.player;
       if (e.state === 'aim') {
         e.anim = 'attack';
+        // the marked line follows the player for the first half of the aim, then locks (last `lock` s)
+        if (d.t < a.aim - a.lock && d.line && !d.line.dead) {
+          d.ang = aimAt(e, p, a.projSpeed, 0.35);
+          const len = rayLength(w, e.x, e.y, d.ang, a.range, true);
+          d.line.x2 = e.x + Math.cos(d.ang) * len;
+          d.line.y2 = e.y + Math.sin(d.ang) * len;
+        }
         face(e, e.x + Math.cos(d.ang), e.y + Math.sin(d.ang));
         if (d.t >= a.aim) {
           shoot(w, e, d.ang, {
@@ -160,7 +171,7 @@ export const FROST_AI = {
         d.ang = ang;
         go(e, 'aim');
         telegraph(w, e, 'shoot');
-        telegraphLine(w, e, e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len, { width: 5, delay: a.aim, color: '#d9f6ff' });
+        d.line = telegraphLine(w, e, e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len, { width: 5, delay: a.aim, color: '#d9f6ff' });
       }
     },
   },

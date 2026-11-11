@@ -16,7 +16,7 @@ export const ASH_AI = {
       switch (e.state) {
         case 'windup':
           e.anim = 'attack';
-          if (d.t < a.windup - 0.15) d.ang = aimAt(e, p);
+          if (d.t < a.windup - 0.15) d.ang = aimAt(e, p, a.lungeSpeed, 0.6);
           if (d.t >= a.windup) { go(e, 'lunge'); attackEvent(w, e, 'melee'); }
           break;
         case 'lunge': {
@@ -58,7 +58,7 @@ export const ASH_AI = {
           e.anim = 'attack';
           const back = Math.atan2(e.y - p.y, e.x - p.x);
           moveDir(w, e, Math.cos(back), Math.sin(back), 18 * speedScale(e), dt);
-          if (d.t < a.windup - 0.12) d.ang = aimAt(e, p);
+          if (d.t < a.windup - 0.12) d.ang = aimAt(e, p, a.diveSpeed, 0.6);
           else face(e, e.x + Math.cos(d.ang), e.y + Math.sin(d.ang));
           if (d.t >= a.windup) { go(e, 'dive'); attackEvent(w, e, 'melee'); }
           break;

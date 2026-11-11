@@ -188,6 +188,8 @@ export class Run {
     if (!this.ended) this.time += dt;
     w.update(sdt);
     if (this.finished) return;
+    // per-tick perk hook (§6.5 onUpdate): timed relic effects, orbitals, character passives
+    if (!this.ended && this.player.alive && game.state === 'playing') runHooks(this, 'onUpdate', sdt);
 
     this._dynT -= dt;
     if (this._dynT <= 0) { this._dynT = 0.2; refreshDynamicMods(this); }

@@ -46,7 +46,7 @@ export const FUNGAL_AI = {
         case 'windup':
           e.anim = 'attack';
           moveDir(w, e, Math.cos(d.ph * 3), Math.sin(d.ph * 3), 20, dt); // agitated buzz in place
-          if (d.t >= a.windup) { d.ang = aimAt(e, p); go(e, 'dart'); attackEvent(w, e, 'melee'); }
+          if (d.t >= a.windup) { d.ang = aimAt(e, p, a.dartSpeed, 0.6); go(e, 'dart'); attackEvent(w, e, 'melee'); }
           break;
         case 'dart': {
           e.anim = 'attack';
