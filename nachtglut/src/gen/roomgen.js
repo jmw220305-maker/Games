@@ -3,7 +3,7 @@ import { TILE } from '../game/constants.js';
 import { laneRect, doorCells, doorEntrances, flood, isWalkable } from './util.js';
 import { makeLayoutContext, pickLayout, hazardPass, LAYOUTS } from './layouts.js';
 
-const { FLOOR, WALL, PIT, DOOR, ICE, VOID } = TILE;
+const { FLOOR, WALL, DOOR, ICE, VOID } = TILE;
 
 export const SAFE_TYPES = new Set(['start', 'shop', 'treasure', 'shrine', 'forge', 'rest', 'secret', 'boss']);
 export const MIN_OPEN = 0.56; // FLOOR + ICE share of the interior

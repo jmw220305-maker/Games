@@ -638,7 +638,7 @@ export class Renderer {
     const props = world.props, pk = world.pickups, es = world.enemies, p = world.player;
     if (props) for (let i = 0; i < props.length; i++) { const o = props[i]; if (!o.removed && this.inView(o.x, o.y, 40)) n = this.pushSlot(n, K_PROP, o, o.y); }
     if (pk) for (let i = 0; i < pk.length; i++) { const o = pk[i]; if (!o.dead && this.inView(o.x, o.y, 12)) n = this.pushSlot(n, K_PICKUP, o, o.y - 1); }
-    if (es) for (let i = 0; i < es.length; i++) { const o = es[i]; if (!o.dead && !o.hidden && this.inView(o.x, o.y, CULL + (o.boss ? 40 : 0))) n = this.pushSlot(n, K_ENEMY, o, o.y + (o.flying ? 6 : 0)); }
+    if (es) for (let i = 0; i < es.length; i++) { const o = es[i]; if (!o.dead && this.inView(o.x, o.y, CULL + (o.boss ? 40 : 0))) n = this.pushSlot(n, K_ENEMY, o, o.y + (o.flying ? 6 : 0)); }
     if (p) n = this.pushSlot(n, K_PLAYER, p, p.y);
     this.list.length = n;
     this.list.sort(byY);
@@ -753,19 +753,21 @@ export class Renderer {
   drawEnemy(ctx, e, t) {
     const def = e.def || {};
     const key = this.enemyKey(e);
+    if (e.hidden) { this.drawMound(ctx, e, key, t); return; }
     const r = e.r || 6;
-    let alpha = 1, scale = 1;
+    const es = e.scale > 0 ? e.scale : 1;
+    let alpha = e.alpha != null ? clamp(e.alpha, 0, 1) : 1, scale = es;
     if (e.spawnT > 0) {
       const k = clamp(e.spawnT / (e.spawnMax || 0.6), 0, 1);
-      alpha = 1 - k; scale = 0.45 + 0.55 * (1 - k);
+      alpha *= 1 - k; scale = es * (0.45 + 0.55 * (1 - k));
       if (alpha < 0.05) return;
     }
     const has = this.has(key);
     const sz = has ? this.sizeOf(key, r) : null;
-    const h = sz ? sz.h : r * 2;
+    const h = (sz ? sz.h : r * 2) * es;
     const dy = has ? this.unitDrawY(e, h, t) : e.y + (e.flying ? -3 : 0);
     // shadow at the feet (flying: on the ground below the body)
-    const sw = sz ? Math.min(sz.w * 0.8, r * 2.8) : r * 2.2;
+    const sw = sz ? Math.min(sz.w * 0.8 * es, r * 2.8 * es) : r * 2.2;
     const shY = e.flying ? Math.max(e.y + r, dy + h / 2) + 2 : e.y + r;
     if (def.shadow !== false) this.shadow(ctx, e.x, shY, sw * (e.flying ? 0.7 : 1), Math.max(3, sw * 0.38), (e.flying ? 0.4 : 0.65) * alpha);
     const flash = e.frozen ? Math.max(e.flash || 0, 0.38) : e.flash || 0;
@@ -781,9 +783,23 @@ export class Renderer {
       ctx.fillRect(Math.round(e.x + dir * r * 0.3 + dir * 2), Math.round(dy - r * 0.25), 1, 1);
       ctx.globalAlpha = 1;
     }
+    // affix shield bubble (opacity follows shield / shieldMax)
+    if (e.shield > 0) {
+      const k = clamp(e.shield / (e.shieldMax || e.shield), 0, 1);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = '#9ad0ff';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = (0.2 + 0.5 * k) * alpha * (0.85 + 0.15 * Math.sin(t * 6 + (e.uid || 0)));
+      ctx.beginPath(); ctx.arc(e.x, dy, Math.max(r + 3, h * 0.55), 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 0.08 * k * alpha;
+      ctx.fillStyle = '#9ad0ff';
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
     // frozen: ice block
     if (e.frozen) {
-      const w = sz ? sz.w : r * 2;
+      const w = (sz ? sz.w : r * 2) * es;
       const x = Math.round(e.x - w / 2) - 1, y = Math.round(dy - h / 2) - 1;
       ctx.globalAlpha = 0.28;
       ctx.fillStyle = '#9fdcff';
@@ -795,6 +811,38 @@ export class Renderer {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(x + 2, y + 2, 2, 1);
       ctx.globalAlpha = 1;
+    }
+  }
+
+  /** Burrowed (hidden) enemy: its 'special' anim when the art has one, else a small moving dirt mound. */
+  drawMound(ctx, e, key, t) {
+    if (!this.inView(e.x, e.y, 16)) return;
+    let special = false;
+    if (this.has(key)) {
+      const cache = this._specialAnim || (this._specialAnim = new Map());
+      special = cache.get(key);
+      if (special === undefined) {
+        special = false;
+        try { const info = this.sprites.info && this.sprites.info(key); special = !!(info && info.anims && info.anims.special); } catch { special = false; }
+        cache.set(key, special);
+      }
+    }
+    if (special) {
+      const h = this.sizeOf(key, e.r).h;
+      this.spr(ctx, key, e.x, e.y - h / 2 + (e.r || 5) + 1, this.opt('special', e.animT || t, e.flipX, 0, 1, 1));
+      return;
+    }
+    const r = (e.r || 6) * 0.9;
+    const wob = Math.sin(t * 9 + (e.uid || 0)) * 0.6;
+    this.shadow(ctx, e.x, e.y + 1, r * 2.6, r, 0.6);
+    ctx.fillStyle = '#2a201b';
+    ctx.beginPath(); ctx.ellipse(e.x, e.y, r + wob, r * 0.5, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#4a3a30';
+    ctx.fillRect(Math.round(e.x - r * 0.5), Math.round(e.y - r * 0.45), Math.max(1, Math.round(r * 0.6)), 1);
+    ctx.fillStyle = '#6b5245';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 7 + i * 2.1 + (e.uid || 0);
+      ctx.fillRect(Math.round(e.x + Math.cos(a) * (r + 1)), Math.round(e.y - Math.abs(Math.sin(a * 1.3)) * 3), 1, 1);
     }
   }
 
