@@ -494,7 +494,7 @@ test('player: xp, level-up, boon choice; weapon gain + swap', () => {
   assert.equal(p.level, 2);
   assert.equal(lv.length, 1);
   assert.equal(run.pendingBoons, 1);
-  assert.equal(p.xpNext, Math.round(18 + 24 + 6.4));
+  assert.equal(p.xpNext, Math.round(16 + 18 + 4));
   g.update(DT);
   assert.equal(g.state, 'choice');
   assert.equal(g.choice.kind, 'boon');

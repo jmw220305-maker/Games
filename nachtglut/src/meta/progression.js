@@ -51,34 +51,34 @@ const C = { 'körper': '#ff6a5a', glut: '#ff8a3c', geschick: '#8fd8ff', schicksa
 const UPGRADE_DEFS = [
   // --- Körper ---------------------------------------------------------------------------------
   {
-    id: 'vitality', name: 'Herzfeuer', branch: 'körper', glyph: 'heart', maxLevel: 5, costs: [20, 50, 110, 200, 340],
+    id: 'vitality', name: 'Herzfeuer', branch: 'körper', glyph: 'heart', maxLevel: 5, costs: [20, 60, 135, 245, 415],
     desc: describe('+10 maximales Leben pro Stufe.', (l) => `+${10 * l} maximales Leben.`),
     mods: (l) => [{ stat: 'maxHp', add: 10 * l }],
   },
   {
-    id: 'slag_skin', name: 'Schlackenhaut', branch: 'körper', glyph: 'shield', maxLevel: 3, costs: [80, 200, 400],
+    id: 'slag_skin', name: 'Schlackenhaut', branch: 'körper', glyph: 'shield', maxLevel: 3, costs: [100, 245, 490],
     requires: { id: 'vitality', level: 2 },
     desc: describe('Jeder Treffer verursacht 1 Schaden weniger pro Stufe.', (l) => `Jeder Treffer verursacht ${l} Schaden weniger.`),
     mods: (l) => [{ stat: 'armor', add: l }],
   },
   {
-    id: 'mending', name: 'Heilende Wärme', branch: 'körper', glyph: 'potion', maxLevel: 3, costs: [50, 120, 260],
+    id: 'mending', name: 'Heilende Wärme', branch: 'körper', glyph: 'potion', maxLevel: 3, costs: [60, 145, 315],
     desc: describe('Jede Heilung wirkt 8 % stärker pro Stufe.', (l) => `Jede Heilung wirkt ${pct(0.08 * l)} % stärker.`),
     mods: (l) => [{ stat: 'healPower', add: r4(0.08 * l) }],
   },
   {
-    id: 'descent_rest', name: 'Rast am Abstieg', branch: 'körper', glyph: 'candle', maxLevel: 3, costs: [60, 140, 300],
+    id: 'descent_rest', name: 'Rast am Abstieg', branch: 'körper', glyph: 'candle', maxLevel: 3, costs: [75, 170, 365],
     desc: describe('Beim Betreten einer neuen Ebene heilst du 10 % deines maximalen Lebens pro Stufe.',
       (l) => `Beim Betreten einer neuen Ebene heilst du ${10 * l} % deines maximalen Lebens.`),
     effect: { healOnFloor: 0.1 },
   },
   {
-    id: 'ash_shield', name: 'Aschepanzer', branch: 'körper', glyph: 'shield', maxLevel: 3, costs: [45, 110, 240],
+    id: 'ash_shield', name: 'Aschepanzer', branch: 'körper', glyph: 'shield', maxLevel: 3, costs: [55, 135, 295],
     desc: describe('Beginne jeden Abstieg mit 15 Schild pro Stufe.', (l) => `Beginne jeden Abstieg mit ${15 * l} Schild.`),
     effect: { startShield: 15 },
   },
   {
-    id: 'second_ember', name: 'Zweite Glut', branch: 'körper', glyph: 'ember', maxLevel: 1, costs: [1000],
+    id: 'second_ember', name: 'Zweite Glut', branch: 'körper', glyph: 'ember', maxLevel: 1, costs: [1200],
     requires: { id: 'vitality', level: 3 },
     desc: describe('Einmal pro Abstieg: Statt zu fallen, erhebst du dich mit 30 % Leben aus der Asche.',
       () => 'Einmal pro Abstieg erhebst du dich mit 30 % Leben aus der Asche, statt zu fallen.'),
@@ -86,108 +86,108 @@ const UPGRADE_DEFS = [
   },
   // --- Glut -----------------------------------------------------------------------------------
   {
-    id: 'might', name: 'Glühender Zorn', branch: 'glut', glyph: 'flame', maxLevel: 5, costs: [25, 60, 120, 220, 360],
+    id: 'might', name: 'Glühender Zorn', branch: 'glut', glyph: 'flame', maxLevel: 5, costs: [25, 75, 145, 270, 440],
     desc: describe('+4 % Schaden pro Stufe.', (l) => `+${pct(0.04 * l)} % Schaden.`),
     mods: (l) => [{ stat: 'damage', add: r4(0.04 * l) }],
   },
   {
-    id: 'precision', name: 'Scharfes Auge', branch: 'glut', glyph: 'eye', maxLevel: 5, costs: [30, 65, 130, 230, 370],
+    id: 'precision', name: 'Scharfes Auge', branch: 'glut', glyph: 'eye', maxLevel: 5, costs: [30, 80, 160, 280, 450],
     desc: describe('+2 % kritische Trefferchance pro Stufe.', (l) => `+${pct(0.02 * l)} % kritische Trefferchance.`),
     mods: (l) => [{ stat: 'critChance', add: r4(0.02 * l) }],
   },
   {
-    id: 'white_heat', name: 'Weißglut', branch: 'glut', glyph: 'star', maxLevel: 3, costs: [90, 210, 420],
+    id: 'white_heat', name: 'Weißglut', branch: 'glut', glyph: 'star', maxLevel: 3, costs: [110, 255, 510],
     requires: { id: 'precision', level: 2 },
     desc: describe('Kritische Treffer verursachen 10 % mehr Schaden pro Stufe.', (l) => `Kritische Treffer verursachen ${pct(0.1 * l)} % mehr Schaden.`),
     mods: (l) => [{ stat: 'critMult', add: r4(0.1 * l) }],
   },
   {
-    id: 'quick_flame', name: 'Flinke Flamme', branch: 'glut', glyph: 'bolt', maxLevel: 5, costs: [30, 65, 130, 230, 370],
+    id: 'quick_flame', name: 'Flinke Flamme', branch: 'glut', glyph: 'bolt', maxLevel: 5, costs: [30, 80, 160, 280, 450],
     desc: describe('+3 % Feuerrate pro Stufe.', (l) => `+${pct(0.03 * l)} % Feuerrate.`),
     mods: (l) => [{ stat: 'fireRate', add: r4(0.03 * l) }],
   },
   {
-    id: 'giant_slayer', name: 'Riesentöter', branch: 'glut', glyph: 'crown', maxLevel: 3, costs: [60, 150, 320],
+    id: 'giant_slayer', name: 'Riesentöter', branch: 'glut', glyph: 'crown', maxLevel: 3, costs: [75, 185, 390],
     requires: { id: 'might', level: 2 },
     desc: describe('+5 % Schaden gegen Bosse und Elitegegner pro Stufe.', (l) => `+${pct(0.05 * l)} % Schaden gegen Bosse und Elitegegner.`),
     mods: (l) => [{ stat: 'bossDamage', add: r4(0.05 * l) }, { stat: 'eliteDamage', add: r4(0.05 * l) }],
   },
   {
-    id: 'inner_fire', name: 'Inneres Feuer', branch: 'glut', glyph: 'sun', maxLevel: 3, costs: [50, 130, 280],
+    id: 'inner_fire', name: 'Inneres Feuer', branch: 'glut', glyph: 'sun', maxLevel: 3, costs: [60, 160, 340],
     desc: describe('Deine Fertigkeit wirkt 8 % stärker pro Stufe.', (l) => `Deine Fertigkeit wirkt ${pct(0.08 * l)} % stärker.`),
     mods: (l) => [{ stat: 'skillPower', add: r4(0.08 * l) }],
   },
   // --- Geschick -------------------------------------------------------------------------------
   {
-    id: 'swiftness', name: 'Leichtfuß', branch: 'geschick', glyph: 'boot', maxLevel: 4, costs: [25, 60, 130, 250],
+    id: 'swiftness', name: 'Leichtfuß', branch: 'geschick', glyph: 'boot', maxLevel: 4, costs: [25, 75, 160, 305],
     desc: describe('+3 % Lauftempo pro Stufe.', (l) => `+${pct(0.03 * l)} % Lauftempo.`),
     mods: (l) => [{ stat: 'moveSpeed', mul: r4(1 + 0.03 * l) }],
   },
   {
-    id: 'slipstream', name: 'Windschatten', branch: 'geschick', glyph: 'wing', maxLevel: 3, costs: [40, 100, 220],
+    id: 'slipstream', name: 'Windschatten', branch: 'geschick', glyph: 'wing', maxLevel: 3, costs: [40, 120, 270],
     desc: describe('Der Sprint lädt 6 % schneller auf pro Stufe.', (l) => `Der Sprint lädt ${pct(0.06 * l)} % schneller auf.`),
     mods: (l) => [{ stat: 'dashCooldown', mul: r4(1 - 0.06 * l) }],
   },
   {
-    id: 'double_step', name: 'Doppelschritt', branch: 'geschick', glyph: 'feather', maxLevel: 1, costs: [800],
+    id: 'double_step', name: 'Doppelschritt', branch: 'geschick', glyph: 'feather', maxLevel: 1, costs: [960],
     requires: { id: 'slipstream', level: 2 },
     desc: describe('+1 Sprintladung.', () => '+1 Sprintladung.'),
     mods: (l) => [{ stat: 'dashCharges', add: l }],
   },
   {
-    id: 'spark_pull', name: 'Funkensog', branch: 'geschick', glyph: 'spiral', maxLevel: 3, costs: [15, 40, 90],
+    id: 'spark_pull', name: 'Funkensog', branch: 'geschick', glyph: 'spiral', maxLevel: 3, costs: [15, 50, 110],
     desc: describe('+15 % Sammelradius pro Stufe.', (l) => `+${pct(0.15 * l)} % Sammelradius.`),
     mods: (l) => [{ stat: 'pickupRadius', mul: r4(1 + 0.15 * l) }],
   },
   {
-    id: 'bright_lantern', name: 'Helle Laterne', branch: 'geschick', glyph: 'lantern', maxLevel: 3, costs: [15, 40, 90],
+    id: 'bright_lantern', name: 'Helle Laterne', branch: 'geschick', glyph: 'lantern', maxLevel: 3, costs: [15, 50, 110],
     desc: describe('+8 % Lichtradius pro Stufe.', (l) => `+${pct(0.08 * l)} % Lichtradius.`),
     mods: (l) => [{ stat: 'lightRadius', mul: r4(1 + 0.08 * l) }],
   },
   {
-    id: 'quick_spark', name: 'Rascher Funke', branch: 'geschick', glyph: 'hourglass', maxLevel: 3, costs: [50, 130, 280],
+    id: 'quick_spark', name: 'Rascher Funke', branch: 'geschick', glyph: 'hourglass', maxLevel: 3, costs: [60, 160, 340],
     desc: describe('Deine Fertigkeit lädt 5 % schneller auf pro Stufe.', (l) => `Deine Fertigkeit lädt ${pct(0.05 * l)} % schneller auf.`),
     mods: (l) => [{ stat: 'skillCooldown', mul: r4(1 - 0.05 * l) }],
   },
   // --- Schicksal ------------------------------------------------------------------------------
   {
-    id: 'spark_pouch', name: 'Funkenbeutel', branch: 'schicksal', glyph: 'coin', maxLevel: 4, costs: [20, 50, 110, 220],
+    id: 'spark_pouch', name: 'Funkenbeutel', branch: 'schicksal', glyph: 'coin', maxLevel: 4, costs: [20, 60, 135, 270],
     desc: describe('Beginne jeden Abstieg mit 25 Funken pro Stufe.', (l) => `Beginne jeden Abstieg mit ${25 * l} Funken.`),
     effect: { startSparks: 25 },
   },
   {
-    id: 'ash_sense', name: 'Aschegespür', branch: 'schicksal', glyph: 'ember', maxLevel: 5, costs: [30, 70, 140, 240, 380],
+    id: 'ash_sense', name: 'Aschegespür', branch: 'schicksal', glyph: 'ember', maxLevel: 5, costs: [30, 85, 170, 295, 465],
     desc: describe('+6 % Asche am Ende jedes Abstiegs pro Stufe.', (l) => `+${pct(0.06 * l)} % Asche am Ende jedes Abstiegs.`),
     mods: (l) => [{ stat: 'ashGain', add: r4(0.06 * l) }],
   },
   {
-    id: 'old_lore', name: 'Alte Lehren', branch: 'schicksal', glyph: 'book', maxLevel: 4, costs: [30, 70, 150, 290],
+    id: 'old_lore', name: 'Alte Lehren', branch: 'schicksal', glyph: 'book', maxLevel: 4, costs: [30, 85, 185, 355],
     desc: describe('+5 % Erfahrung pro Stufe.', (l) => `+${pct(0.05 * l)} % Erfahrung.`),
     mods: (l) => [{ stat: 'xpGain', add: r4(0.05 * l) }],
   },
   {
-    id: 'lucky_coal', name: 'Glückskohle', branch: 'schicksal', glyph: 'gem', maxLevel: 3, costs: [50, 130, 280],
+    id: 'lucky_coal', name: 'Glückskohle', branch: 'schicksal', glyph: 'gem', maxLevel: 3, costs: [60, 160, 340],
     desc: describe('+1 Glück pro Stufe. Seltene Relikte und Segen erscheinen häufiger.', (l) => `+${l} Glück. Seltene Relikte und Segen erscheinen häufiger.`),
     mods: (l) => [{ stat: 'luck', add: l }],
   },
   {
-    id: 'haggler', name: 'Feilscher', branch: 'schicksal', glyph: 'scale', maxLevel: 3, costs: [45, 110, 240],
+    id: 'haggler', name: 'Feilscher', branch: 'schicksal', glyph: 'scale', maxLevel: 3, costs: [55, 135, 295],
     desc: describe('Händler verlangen 4 % weniger Funken pro Stufe.', (l) => `Händler verlangen ${pct(0.04 * l)} % weniger Funken.`),
     mods: (l) => [{ stat: 'shopDiscount', add: r4(0.04 * l) }],
   },
   {
-    id: 'fate_dice', name: 'Schicksalswürfel', branch: 'schicksal', glyph: 'dice', maxLevel: 3, costs: [70, 180, 380],
+    id: 'fate_dice', name: 'Schicksalswürfel', branch: 'schicksal', glyph: 'dice', maxLevel: 3, costs: [85, 220, 465],
     desc: describe('+1 Neuwurf pro Abstieg und Stufe.', (l) => (l === 1 ? '+1 Neuwurf pro Abstieg.' : `+${l} Neuwürfe pro Abstieg.`)),
     effect: { rerolls: 1 },
   },
   {
-    id: 'foresight', name: 'Weitblick', branch: 'schicksal', glyph: 'compass', maxLevel: 1, costs: [750],
+    id: 'foresight', name: 'Weitblick', branch: 'schicksal', glyph: 'compass', maxLevel: 1, costs: [900],
     requires: { id: 'fate_dice', level: 1 },
     desc: describe('Reliktauswahlen bieten eine zusätzliche Option.', () => 'Reliktauswahlen bieten eine zusätzliche Option.'),
     effect: { relicChoices: 1 },
   },
   {
-    id: 'heirloom', name: 'Erbstück', branch: 'schicksal', glyph: 'ring', maxLevel: 1, costs: [500],
+    id: 'heirloom', name: 'Erbstück', branch: 'schicksal', glyph: 'ring', maxLevel: 1, costs: [600],
     requires: { id: 'spark_pouch', level: 2 },
     desc: describe('Beginne jeden Abstieg mit einem zufälligen gewöhnlichen Relikt.', () => 'Beginne jeden Abstieg mit einem zufälligen gewöhnlichen Relikt.'),
     effect: { startRelics: 1 },
@@ -365,16 +365,16 @@ export function defaultDifficultyMods() {
 const DIFFICULTY_STEPS = [
   { name: 'Erste Glut', desc: 'Der Schacht, wie er ist. Keine Erschwernisse.', apply() {} },
   { name: 'Schwelbrand', desc: 'Gegner haben 20 % mehr Leben.', apply(m) { m.enemyHp *= 1.2; } },
-  { name: 'Glimmende Wut', desc: 'Gegner verursachen 15 % mehr Schaden.', apply(m) { m.enemyDamage *= 1.15; } },
+  { name: 'Glimmende Wut', desc: 'Gegner verursachen 20 % mehr Schaden.', apply(m) { m.enemyDamage *= 1.2; } },
   { name: 'Unruhige Schatten', desc: 'Elitegegner erscheinen deutlich häufiger.', apply(m) { m.eliteChance += 0.08; } },
   { name: 'Karge Zeiten', desc: 'Händler verlangen 25 % mehr Funken.', apply(m) { m.shopPrice *= 1.25; } },
   { name: 'Wachsende Horde', desc: 'In jedem Raum lauern 20 % mehr Gegner.', apply(m) { m.spawnBudget += 0.2; } },
   { name: 'Hastige Brut', desc: 'Gegner bewegen sich 10 % schneller.', apply(m) { m.enemySpeed *= 1.1; } },
   { name: 'Erwachte Wächter', desc: 'Bosse haben 30 % mehr Leben.', apply(m) { m.bossHp *= 1.3; } },
-  { name: 'Versiegte Quellen', desc: 'Jede Heilung wirkt 25 % schwächer.', apply(m) { m.healMult *= 0.75; } },
+  { name: 'Versiegte Quellen', desc: 'Jede Heilung wirkt 30 % schwächer.', apply(m) { m.healMult *= 0.7; } },
   { name: 'Gezeichnete Elite', desc: 'Elitegegner tragen eine zusätzliche Eigenschaft und erscheinen noch häufiger.', apply(m) { m.extraAffixes += 1; m.eliteChance += 0.06; } },
-  { name: 'Ewige Nacht', desc: 'Alles wird härter: Gegner haben 25 % mehr Leben und verursachen 15 % mehr Schaden, Bosse haben weitere 20 % mehr Leben.',
-    apply(m) { m.enemyHp *= 1.25; m.enemyDamage *= 1.15; m.bossHp *= 1.2; } },
+  { name: 'Ewige Nacht', desc: 'Alles wird härter: Gegner haben 50 % mehr Leben und verursachen 50 % mehr Schaden, Bosse haben weitere 40 % mehr Leben, und es lauern noch mehr Gegner.',
+    apply(m) { m.enemyHp *= 1.5; m.enemyDamage *= 1.5; m.bossHp *= 1.4; m.spawnBudget += 0.15; } },
 ];
 
 const signedPct = (frac) => `${frac >= 0 ? '+' : '−'}${pct(Math.abs(frac))} %`;
@@ -638,10 +638,10 @@ export function checkUnlocks(save) {
 export const ASH_RULES = Object.freeze({
   floor: Object.freeze([0, 24, 32, 44, 60, 80]),   // cumulative, by deepest floor reached (1..5)
   floorOneKills: 20,                               // floor-1 ash is prorated until this many kills (no instant-abandon farming)
-  bossBase: 10, bossStep: 4,                       // n-th boss: bossBase + bossStep * n  (14, 18, 22, 26, 30)
+  bossBase: 6, bossStep: 3,                        // n-th boss: bossBase + bossStep * n  (9, 12, 15, 18, 21)
   elite: 2, eliteCap: 40,                          // per elite kill, capped
-  killsPerAsh: 12, killCap: 720,                   // 1 ash per 12 kills, capped
-  victory: 120,
+  killsPerAsh: 15, killCap: 720,                   // 1 ash per 15 kills, capped
+  victory: 70,
 });
 
 const n0 = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);

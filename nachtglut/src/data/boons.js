@@ -203,9 +203,9 @@ const LIST = [
   },
   {
     id: 'boon_multishot', name: 'Funkenregen', rarity: 'rare', maxStacks: 3,
-    desc: per('+5 % Schaden pro Stufe. Auf Stufe 3: +1 Projektil pro Salve.', (n) => `+${5 * n} %${n >= 3 ? ', +1 Projektil' : ''}`),
+    desc: per('+3 % Schaden pro Stufe. Auf Stufe 3: +1 Projektil pro Salve.', (n) => `+${3 * n} %${n >= 3 ? ', +1 Projektil' : ''}`),
     icon: { glyph: 'star', color: '#ffb347' }, tags: ['projectile', 'damage'],
-    mods: (n) => [{ stat: 'damage', mul: 1 + 0.05 * n }, { stat: 'multishot', add: n >= 3 ? 1 : 0 }],
+    mods: (n) => [{ stat: 'damage', mul: 1 + 0.03 * n }, { stat: 'multishot', add: n >= 3 ? 1 : 0 }],
   },
   {
     id: 'boon_pierce', name: 'Durchdringende Glut', rarity: 'rare', maxStacks: 3,

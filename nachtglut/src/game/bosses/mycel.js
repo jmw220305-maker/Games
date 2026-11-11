@@ -13,7 +13,7 @@ const COL = { body: '#a77be0', spore: '#9be35a', root: '#b98cff', toxic: '#7fd94
 
 const poison = (e, power = 0.9, duration = 2.5) => ({ id: 'poison', duration, power: power * (e.dmgMul ?? 1) });
 const sporeShot = (e, o = {}) => ({
-  r: 3.5, damage: 8, type: 'poison', sprite: 'proj_spore', color: COL.spore,
+  r: 3.5, damage: 10, type: 'poison', sprite: 'proj_spore', color: COL.spore,
   status: { id: 'poison', duration: 3, power: 0.8 * (e.dmgMul ?? 1), chance: 0.25 }, ...o,
 });
 
@@ -88,7 +88,7 @@ function* sporeBombs(w, e, B) {
       light: { r: 18, color: COL.spore },
     });
     zCircle(w, e, c.x, c.y, 22, {
-      delay: d, duration: 0.12, damage: 12, type: 'poison', status: poison(e, 1.2, 3), color: COL.toxic,
+      delay: d, duration: 0.12, damage: 14, type: 'poison', status: poison(e, 1.2, 3), color: COL.toxic,
       onStart(w2, z) {
         w2.fx.burst('poison', z.x, z.y, { count: 16 });
         poisonCloud(w2, e, z.x, z.y, { r: 26, duration: B.phase >= 2 ? 5.5 : 4.5 });
@@ -119,7 +119,7 @@ function* rootEruption(w, e, B) {
         if (Math.abs(c.x - x) > 1 || Math.abs(c.y - y) > 1) break;
         maxN = Math.max(maxN, i + 1);
         zCircle(w, e, x, y, 13, {
-          delay: d0 + i * per, duration: 0.14, damage: 14, knockback: 120, type: 'phys', color: COL.root,
+          delay: d0 + i * per, duration: 0.14, damage: 16, knockback: 120, type: 'phys', color: COL.root,
           onStart(w2, z) { w2.fx.burst('dust', z.x, z.y, { count: 5, color: COL.root }); },
         });
       }
@@ -141,9 +141,9 @@ function* rootCage(w, e, B) {
   for (let i = 0; i < n; i++) {
     if (i === gap || i === (gap + 1) % n) continue;
     const a = (i / n) * TAU;
-    zCircle(w, e, cx + Math.cos(a) * R, cy + Math.sin(a) * R, 14, { delay: d, duration: 0.14, damage: 14, type: 'phys', color: COL.root });
+    zCircle(w, e, cx + Math.cos(a) * R, cy + Math.sin(a) * R, 14, { delay: d, duration: 0.14, damage: 16, type: 'phys', color: COL.root });
   }
-  zCircle(w, e, cx, cy, 44, { delay: d + 0.55, duration: 0.15, damage: 18, knockback: 160, type: 'poison', status: poison(e, 1.4, 3), color: COL.toxic });
+  zCircle(w, e, cx, cy, 44, { delay: d + 0.55, duration: 0.15, damage: 22, knockback: 160, type: 'poison', status: poison(e, 1.4, 3), color: COL.toxic });
   yield d;
   attackEvent(e, 'slam');
   w.fx.shake(2, 0.2);
@@ -166,7 +166,7 @@ function* toxicPulse(w, e, B) {
   const d = teleTime(B, 0.8);
   for (let i = 0; i < rings; i++) {
     zRing(w, e, e.x, e.y, e.r + 10, e.r - 2, {
-      delay: d + i * 0.55, duration: 2.3, grow: 95, damage: 12, type: 'poison', status: poison(e, 1.2, 3), color: COL.toxic,
+      delay: d + i * 0.55, duration: 2.3, grow: 95, damage: 14, type: 'poison', status: poison(e, 1.2, 3), color: COL.toxic,
     });
   }
   yield d;
@@ -181,7 +181,7 @@ function* relocate(w, e, B) {
   const d = teleTime(B, 1.1);
   e.anim = 'special';
   telegraph(e, 'teleport');
-  zCircle(w, e, dest.x, dest.y, 30, { delay: d, duration: 0.15, damage: 16, knockback: 180, type: 'phys', color: COL.root });
+  zCircle(w, e, dest.x, dest.y, 30, { delay: d, duration: 0.15, damage: 20, knockback: 180, type: 'phys', color: COL.root });
   yield 0.35;
   try {
     e.hidden = true;
@@ -264,7 +264,7 @@ export const MYCEL_DEFS = {
   boss_mycel: {
     id: 'boss_mycel', name: 'Myzelmutter', title: 'Herz der Sporengrotten',
     desc: 'Die verwurzelte Königin der Grotten. Ihre Wurzeln brechen aus dem Boden, ihre Sporen wirbeln in Spiralen – und wenn ihre Sporensäcke aufplatzen, atmet die Höhle Gift.',
-    biome: 'fungal', boss: true, hp: 1500, speed: 0, damage: 15, r: 20, mass: 0, xp: 80, sparks: [50, 75],
+    biome: 'fungal', boss: true, hp: 2300, speed: 0, damage: 15, r: 20, mass: 0, xp: 80, sparks: [25, 35],
     sprite: 'boss_mycel', color: COL.body, light: { r: 90, color: COL.spore }, shadow: true, contactType: 'poison',
     ai: 'boss_mycel', aiParams: {},
     hooks: { onHit: phaseGate },

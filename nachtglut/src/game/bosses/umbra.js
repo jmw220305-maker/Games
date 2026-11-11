@@ -14,7 +14,7 @@ import {
 const COL = { body: '#8a5cff', twin: '#e6dcff', blade: '#c9a6ff', twinBlade: '#f4efff', dark: '#3a2266', weak: '#9a86c9' };
 
 const colorOf = (a) => (a.id === 'boss_umbra_twin' ? COL.twinBlade : COL.blade);
-const blade = (a, o = {}) => ({ r: 3.5, damage: 12, type: 'shadow', sprite: 'proj_blade', color: colorOf(a), ...o });
+const blade = (a, o = {}) => ({ r: 3.5, damage: 15, type: 'shadow', sprite: 'proj_blade', color: colorOf(a), ...o });
 const twinAlive = (B) => !!(B.twin && !B.twin.dead);
 
 // ---------------------------------------------------------------------------------------------
@@ -54,7 +54,7 @@ function* strike(w, B, a, markT = 0.75) {
   a.anim = 'attack';
   telegraph(a, 'melee');
   const ds = teleTime(B, 0.55);
-  zCone(w, a, a.x, a.y, 50, angleToPlayer(w, a), 1.7, { delay: ds, duration: 0.12, damage: 18, knockback: 160, type: 'shadow', color: a.def.color });
+  zCone(w, a, a.x, a.y, 50, angleToPlayer(w, a), 1.7, { delay: ds, duration: 0.12, damage: 23, knockback: 160, type: 'shadow', color: a.def.color });
   yield ds;
   attackEvent(a, 'melee');
   yield 0.15;
@@ -71,7 +71,7 @@ function* dashCut(w, B, a, target = null, d = null) {
   a.anim = 'attack';
   telegraph(a, 'charge');
   const dd = d ?? teleTime(B, 0.8);
-  zLine(w, a, a.x, a.y, end.x, end.y, 20, { delay: dd, duration: 0.18, damage: 18, knockback: 140, type: 'shadow', color: a.def.color });
+  zLine(w, a, a.x, a.y, end.x, end.y, 20, { delay: dd, duration: 0.18, damage: 23, knockback: 140, type: 'shadow', color: a.def.color });
   yield dd;
   return { a, sx: a.x, sy: a.y, ex: end.x, ey: end.y };
 }
@@ -94,8 +94,8 @@ function* zip(w, cuts, orbs = true) {
       const x = c.sx + (c.ex - c.sx) * k, y = c.sy + (c.ey - c.sy) * k;
       const a0 = i % 2 ? 0 : Math.PI / 4;
       shot(w, c.a, x, y, 0, 0, {
-        r: 4.5, damage: 10, type: 'shadow', sprite: 'proj_orb', color: c.a.def.color, life: 0.8,
-        onExpire: (w2, pr) => ringShots(w2, c.a, pr.x, pr.y, 4, 72, a0, blade(c.a, { damage: 10 })),
+        r: 4.5, damage: 13, type: 'shadow', sprite: 'proj_orb', color: c.a.def.color, life: 0.8,
+        onExpire: (w2, pr) => ringShots(w2, c.a, pr.x, pr.y, 4, 72, a0, blade(c.a, { damage: 13 })),
       });
     }
   }
@@ -119,9 +119,9 @@ function* fans(w, B, list, waves, n, spread = 1.1, speed = 115) {
 function pulseAt(w, B, a, d) {
   a.anim = 'cast';
   telegraph(a, 'cast');
-  zCircle(w, a, a.x, a.y, 36, { delay: d, duration: 0.15, damage: 16, type: 'shadow', status: { id: 'weak', duration: 3 }, color: COL.dark });
+  zCircle(w, a, a.x, a.y, 36, { delay: d, duration: 0.15, damage: 20, type: 'shadow', status: { id: 'weak', duration: 3 }, color: COL.dark });
   zRing(w, a, a.x, a.y, 36, 24, {
-    delay: d, duration: 1.8, grow: 115, damage: 14, type: 'shadow', status: { id: 'weak', duration: 3 }, color: a.def.color,
+    delay: d, duration: 1.8, grow: 115, damage: 18, type: 'shadow', status: { id: 'weak', duration: 3 }, color: a.def.color,
     onStart(w2) { w2.fx.flash('#140a24', 0.15); attackEvent(a, 'explode'); },
   });
 }
@@ -168,7 +168,7 @@ function* soulLights(w, e, B) {
   for (let i = 0; i < n; i++) {
     const a = base + Math.PI + (i - (n - 1) / 2) * 0.7; // launched backwards, then they curve in
     shot(w, e, e.x, e.y, a, 62, {
-      r: 5, damage: 12, type: 'shadow', sprite: 'proj_skull', color: COL.twinBlade, homing: 1.3, life: 5, trail: 'shadow',
+      r: 5, damage: 15, type: 'shadow', sprite: 'proj_skull', color: COL.twinBlade, homing: 1.3, life: 5, trail: 'shadow',
       light: { r: 20, color: COL.blade },
     });
   }
@@ -180,7 +180,7 @@ function* shadowStorm(w, e, B) {
   e.anim = 'special';
   telegraph(e, 'cast');
   const d = teleTime(B, 0.6);
-  zCircle(w, e, e.x, e.y, e.r + 16, { delay: d, duration: 0.1, damage: 14, type: 'shadow', color: COL.dark });
+  zCircle(w, e, e.x, e.y, e.r + 16, { delay: d, duration: 0.1, damage: 18, type: 'shadow', color: COL.dark });
   yield d;
   attackEvent(e, 'shoot');
   let a = w.rng.angle(), acc = 0;
@@ -190,7 +190,7 @@ function* shadowStorm(w, e, B) {
     acc += dt;
     while (acc >= 0.13) {
       acc -= 0.13;
-      for (let k = 0; k < 3; k++) shot(w, e, e.x, e.y, a + (k * TAU) / 3, 92, blade(e, { damage: 11 }));
+      for (let k = 0; k < 3; k++) shot(w, e, e.x, e.y, a + (k * TAU) / 3, 92, blade(e, { damage: 14 }));
     }
     // drift slowly toward the player
     const n = norm(w.player.x - e.x, w.player.y - e.y);
@@ -215,7 +215,7 @@ function* crossfire(w, e, B) {
       a.anim = 'cast';
       facePlayer(w, a);
       zLine(w, a, a.x, a.y, a.x + Math.cos(ang) * L, a.y + Math.sin(ang) * L, 18, {
-        delay: d, duration: 0.2, damage: 18, type: 'shadow', color: a.def.color,
+        delay: d, duration: 0.2, damage: 23, type: 'shadow', color: a.def.color,
       });
       telegraph(a, 'beam');
     }
@@ -391,7 +391,7 @@ export const UMBRA_DEFS = {
   boss_umbra: {
     id: 'boss_umbra', name: 'Umbra, der Zwillingsschatten', title: 'Klinge des Schattenkerns',
     desc: 'Ein Schattenduellant, der zwischen den Lichtern springt. Verwundet reißt er sich entzwei – zwei Klingen, ein Leben.',
-    biome: 'void', boss: true, hp: 3000, speed: 72, damage: 20, r: 14, mass: 0, xp: 120, sparks: [70, 95],
+    biome: 'void', boss: true, hp: 4300, speed: 72, damage: 20, r: 14, mass: 0, xp: 120, sparks: [35, 45],
     sprite: 'boss_umbra', color: COL.body, light: { r: 64, color: COL.blade }, shadow: true, contactType: 'shadow',
     ai: 'boss_umbra', aiParams: {},
     hooks: {
@@ -402,7 +402,7 @@ export const UMBRA_DEFS = {
   boss_umbra_twin: {
     id: 'boss_umbra_twin', name: 'Umbras Spiegelschatten', title: 'Die andere Hälfte',
     desc: 'Umbras abgespaltene Hälfte in umgekehrten Farben. Jeder Treffer trifft beide.',
-    biome: 'void', boss: true, hp: 3000, speed: 72, damage: 20, r: 14, mass: 0, xp: 0, sparks: [0, 0],
+    biome: 'void', boss: true, hp: 4300, speed: 72, damage: 20, r: 14, mass: 0, xp: 0, sparks: [0, 0],
     sprite: 'boss_umbra_twin', color: COL.twin, light: { r: 64, color: COL.twin }, shadow: true, contactType: 'shadow',
     ai: 'boss_umbra_twin', aiParams: {},
     hooks: {

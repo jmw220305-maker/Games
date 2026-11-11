@@ -18,7 +18,7 @@ const PATH_MAX = Math.ceil(((SEGMENTS + 2) * SPACING) / 2) + 20;
 const SEGMENT_FORWARD = 0.6; // body hits deal 60 % to the head (the head is the weak point)
 
 const chill = (duration = 2.5) => ({ id: 'chill', duration });
-const shard = (o = {}) => ({ r: 3.5, damage: 11, type: 'frost', sprite: 'proj_shard', color: COL.frost, status: { id: 'chill', duration: 2, chance: 0.4 }, ...o });
+const shard = (o = {}) => ({ r: 3.5, damage: 18, type: 'frost', sprite: 'proj_shard', color: COL.frost, status: { id: 'chill', duration: 2, chance: 0.4 }, ...o });
 
 // ---------------------------------------------------------------------------------------------
 // Movement
@@ -118,7 +118,7 @@ function* frostBreath(w, e, B) {
   for (let k = 0; k < cones; k++) {
     const ang = cones === 1 ? a : a + sgn * (k - 1) * 0.55;
     zCone(w, e, e.x, e.y, 125, ang, 0.85, {
-      delay: d + k * 0.3, duration: 0.55, tick: 0.25, damage: 12, type: 'frost', status: chill(2.5), color: COL.frost,
+      delay: d + k * 0.3, duration: 0.55, tick: 0.25, damage: 19, type: 'frost', status: chill(2.5), color: COL.frost,
     });
   }
   yield d;
@@ -139,7 +139,7 @@ function* icicleRain(w, e, B) {
     if (i > 0) { const a = w.rng.angle(), r = i === 1 ? 22 : w.rng.float(18, 115); x += Math.cos(a) * r; y += Math.sin(a) * r; }
     const c = w.clampToRoom(x, y, 10);
     zCircle(w, e, c.x, c.y, 13, {
-      delay: teleTime(B, 1.0) + i * 0.07, duration: 0.12, damage: 13, type: 'frost', status: chill(2), color: COL.ice,
+      delay: teleTime(B, 1.0) + i * 0.07, duration: 0.12, damage: 22, type: 'frost', status: chill(2), color: COL.ice,
       onStart(w2, z) { w2.fx.burst('frost', z.x, z.y, { count: 8 }); },
     });
   }
@@ -164,7 +164,7 @@ function* burrow(w, e, B) {
     });
     const tgt = w.clampToRoom(p.x, p.y, 18);
     const d = teleTime(B, 0.9);
-    zCircle(w, e, tgt.x, tgt.y, 30, { delay: d, duration: 0.15, damage: 20, knockback: 220, type: 'frost', status: chill(2.5), color: COL.ice });
+    zCircle(w, e, tgt.x, tgt.y, 30, { delay: d, duration: 0.15, damage: 32, knockback: 220, type: 'frost', status: chill(2.5), color: COL.ice });
     telegraph(e, 'emerge');
     const sx = e.x, sy = e.y;
     B.heading = angleTo(sx, sy, tgt.x, tgt.y);
@@ -204,7 +204,7 @@ function* frostWalls(w, e, B) {
       y1 = y2 = y; x1 = Math.max(A.x0 + 4, p.x - 105); x2 = Math.min(A.x1 - 4, p.x + 105);
     }
     zLine(w, e, x1, y1, x2, y2, 12, {
-      delay: d, duration: 5.5, tick: 0.6, damage: 6, type: 'frost', status: chill(1.5), color: COL.ice, data: { hazard: true, wall: true },
+      delay: d, duration: 5.5, tick: 0.6, damage: 10, type: 'frost', status: chill(1.5), color: COL.ice, data: { hazard: true, wall: true },
       onStart(w2, z) { w2.fx.burst('frost', (z.x + z.x2) / 2, (z.y + z.y2) / 2, { count: 14 }); },
     });
   }
@@ -237,8 +237,8 @@ function* scaleBarrage(w, e, B) {
         s.anim = 'idle';
         if (s.dead || s.hidden) continue;
         const a = s.facing + Math.PI / 2;
-        shot(w, s, s.x, s.y, a, 72, shard({ damage: 10 }));
-        shot(w, s, s.x, s.y, a + Math.PI, 72, shard({ damage: 10 }));
+        shot(w, s, s.x, s.y, a, 72, shard({ damage: 16 }));
+        shot(w, s, s.x, s.y, a + Math.PI, 72, shard({ damage: 16 }));
       }
       attackEvent(e, 'shoot');
       yield* during(0.45, (dt) => steer(w, e, B, dt, 0.8));
@@ -269,7 +269,7 @@ function* coil(w, e, B) {
     for (const s of live) {
       s.anim = 'idle';
       if (s.dead || s.hidden) continue;
-      shot(w, s, s.x, s.y, angleTo(s.x, s.y, tx, ty), 66, shard({ damage: 10 }));
+      shot(w, s, s.x, s.y, angleTo(s.x, s.y, tx, ty), 66, shard({ damage: 16 }));
     }
     fanShots(w, e, e.x, e.y, angleToPlayer(w, e), 3, 0.4, 96, shard());
     attackEvent(e, 'shoot');
@@ -346,7 +346,7 @@ export const RIME_AI = makeBossAI({
         for (let i = 0; i < 2; i++) {
           const a = w.rng.angle(), r = i ? w.rng.float(20, 60) : 0;
           const c = w.clampToRoom(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 10);
-          zCircle(w, e, c.x, c.y, 12, { delay: teleTime(B, 1.0), duration: 0.12, damage: 11, type: 'frost', status: chill(2), color: COL.ice });
+          zCircle(w, e, c.x, c.y, 12, { delay: teleTime(B, 1.0), duration: 0.12, damage: 18, type: 'frost', status: chill(2), color: COL.ice });
         }
       }
     }
@@ -374,7 +374,7 @@ export const RIME_DEFS = {
   boss_rime: {
     id: 'boss_rime', name: 'Reifwyrm', title: 'Schlange der Frostadern',
     desc: 'Ein Wyrm aus uraltem Eis, der unter dem Boden schwimmt. Nur sein Kopf ist verwundbar – sein Panzer leitet Treffer nur zum Teil weiter.',
-    biome: 'frost', boss: true, hp: 2200, speed: 72, damage: 18, r: 14, mass: 0, flying: true, xp: 100, sparks: [60, 85],
+    biome: 'frost', boss: true, hp: 3900, speed: 72, damage: 18, r: 14, mass: 0, flying: true, xp: 100, sparks: [30, 40],
     sprite: 'boss_rime', color: COL.body, light: { r: 80, color: COL.body }, shadow: true, contactType: 'frost',
     ai: 'boss_rime', aiParams: {},
     hooks: {

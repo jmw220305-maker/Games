@@ -9,7 +9,7 @@ import { MAX_WEAPON_LEVEL } from './combat.js';
 const INTERACT_RANGE = 16;   // px beyond the prop radius
 const PORTAL_STAND_TIME = 0.8;
 
-const RELIC_PRICE = { common: 40, uncommon: 65, rare: 100, legendary: 160 };
+const RELIC_PRICE = { common: 45, uncommon: 75, rare: 115, legendary: 185 };
 const BASE_PRICE = { weapon: 75, heal: 30, boon: 55 };
 const HEAL_OFFER = { name: 'Glutelixier', desc: 'Heilt 35 % deines maximalen Lebens.', icon: { glyph: 'potion', color: '#ff6a5a' } };
 
@@ -39,7 +39,7 @@ function roundTo5(v) { return Math.max(5, Math.round(v / 5) * 5); }
 /** Floor / difficulty / discount price factor shared by shops and forges. */
 function priceFactor(run, withDiscount = true) {
   const shop = (run.difficulty && run.difficulty.mods && run.difficulty.mods.shopPrice) ?? 1;
-  let f = (1 + 0.15 * (floorOf(run) - 1)) * shop;
+  let f = (1 + 0.25 * (floorOf(run) - 1)) * shop;
   if (withDiscount) {
     const disc = (run.player.stats.shopDiscount || 0) + ((run.bonuses && run.bonuses.shopDiscount) || 0);
     f *= Math.max(0.4, 1 - disc);
@@ -263,10 +263,10 @@ export function interact(w, pr) {
       }
       openChest(w, pr);
       if (pr.tier === 'rare') {
-        w.dropLoot(pr.x, pr.y + 6, { sparks: rng.int(25, 40) + 6 * (fl - 1) });
+        w.dropLoot(pr.x, pr.y + 6, { sparks: rng.int(22, 34) + 4 * (fl - 1) });
         run.offerRelicChoice(3, { boost: 1, title: 'Prächtige Truhe' });
       } else {
-        w.dropLoot(pr.x, pr.y + 6, { sparks: rng.int(12, 22) + 4 * (fl - 1), hearts: rng.chance(0.3) ? 1 : 0 });
+        w.dropLoot(pr.x, pr.y + 6, { sparks: rng.int(12, 22) + 2 * (fl - 1), hearts: rng.chance(0.3) ? 1 : 0 });
         run.offerRelicChoice(2, { title: 'Truhe' });
       }
       return true;
@@ -393,7 +393,7 @@ export function damageProp(w, pr, amount = 1) {
         w.knockback(p, p.x - pr.x, p.y - pr.y, 160);
       }
     } else {
-      w.dropLoot(pr.x, pr.y, { sparks: w.rng.int(2, 5), hearts: w.rng.chance(0.1) ? 1 : 0 });
+      w.dropLoot(pr.x, pr.y, { sparks: w.rng.int(2, 5), hearts: w.rng.chance(0.06) ? 1 : 0 });
     }
   } else if (pr.kind === 'crystal') {
     w.fx.burst('light', pr.x, pr.y, { count: 14, color: pr.light ? pr.light.color : '#8fd8ff' });
@@ -429,7 +429,7 @@ export function onRoomCleared(w, room) {
   if (room.type === 'boss') {
     const b = w.bossDefeated;
     const bx = b ? b.x : (room.w * TS) / 2, by = b ? b.y : (room.h * TS) / 2;
-    w.dropLoot(bx, by, { sparks: 40 + 15 * fl, hearts: 3, ash: 8 + 4 * fl });
+    w.dropLoot(bx, by, { sparks: 20 + 10 * fl, hearts: 1, ash: 5 + 3 * fl });
     const ctx = Math.floor(room.w / 2), cty = Math.floor(room.h / 2);
     for (let i = -1; i <= 1; i++) {
       const t = freeTile(w, ctx + i * 2, cty + 1);
@@ -444,11 +444,11 @@ export function onRoomCleared(w, room) {
     return;
   }
   // combat reward: sparks flying straight to the player
-  let sparks = rng.int(4, 8) + 2 * fl;
+  let sparks = rng.int(4, 8) + fl;
   while (sparks > 0) {
     const v = sparks >= 5 ? 5 : 1;
     w.spawnPickup('spark', p.x, p.y, { amount: v, burst: true, magnet: true });
     sparks -= v;
   }
-  if (rng.chance(0.1)) w.spawnPickup('heart', p.x, p.y, { burst: true, magnet: true });
+  if (rng.chance(0.08)) w.spawnPickup('heart', p.x, p.y, { burst: true, magnet: true });
 }

@@ -18,9 +18,9 @@ const COL = {
 const CORE_R = 74;
 const SHIELD = 0.3; // damage taken while a core lives
 
-const burn = (e, power = 5) => ({ id: 'burn', duration: 2, power: power * (e.dmgMul ?? 1) });
-const ember = (o = {}) => ({ r: 3.5, damage: 11, type: 'fire', sprite: 'proj_orb', color: COL.ember, ...o });
-const star = (o = {}) => ({ r: 3.5, damage: 12, type: 'light', sprite: 'proj_star', color: COL.gold, light: { r: 14, color: COL.gold }, ...o });
+const burn = (e, power = 4) => ({ id: 'burn', duration: 2, power: power * (e.dmgMul ?? 1) });
+const ember = (o = {}) => ({ r: 3.5, damage: 10, type: 'fire', sprite: 'proj_orb', color: COL.ember, ...o });
+const star = (o = {}) => ({ r: 3.5, damage: 11, type: 'light', sprite: 'proj_star', color: COL.gold, light: { r: 14, color: COL.gold }, ...o });
 
 function liveCores(B) {
   B.cores = (B.cores || []).filter((c) => !c.dead);
@@ -90,7 +90,7 @@ function* gravityWell(w, e, B) {
       w2.moveEntity(p, (dx / l) * pull * dt, (dy / l) * pull * dt);
     },
   });
-  zCircle(w, e, e.x, e.y, e.r + 22, { delay: d, duration: dur, tick: 0.5, damage: 16, type: 'fire', status: burn(e), color: COL.cinder });
+  zCircle(w, e, e.x, e.y, e.r + 22, { delay: d, duration: dur, tick: 0.5, damage: 14, type: 'fire', status: burn(e), color: COL.cinder });
   yield d;
   attackEvent(e, 'cast');
   w.fx.shake(2.5, dur);
@@ -112,8 +112,8 @@ function* emberBloom(w, e, B) {
   for (let k = 0; k < n; k++) {
     const a = base + (k - (n - 1) / 2) * 0.5;
     shot(w, e, e.x, e.y, a, 85, ember({
-      r: 7, scale: 2.2, damage: 16, life: 1.5, trail: 'ember', light: { r: 40, color: COL.ember },
-      onExpire: (w2, pr) => ringShots(w2, e, pr.x, pr.y, 10, 76, w2.rng.angle(), ember({ damage: 10 })),
+      r: 7, scale: 2.2, damage: 14, life: 1.5, trail: 'ember', light: { r: 40, color: COL.ember },
+      onExpire: (w2, pr) => ringShots(w2, e, pr.x, pr.y, 10, 76, w2.rng.angle(), ember({ damage: 9 })),
     }));
   }
   attackEvent(e, 'shoot');
@@ -142,7 +142,7 @@ function* beams(w, e, B) {
     const ang0 = a0 + (k * TAU) / n;
     const L0 = rayLen(w, e.x, e.y, ang0);
     zLine(w, e, e.x, e.y, e.x + Math.cos(ang0) * L0, e.y + Math.sin(ang0) * L0, 14, {
-      delay: d, duration: dur, tick: 0.35, damage: 15, type: 'light', color: COL.light, data: { ang: ang0, beam: true },
+      delay: d, duration: dur, tick: 0.35, damage: 14, type: 'light', color: COL.light, data: { ang: ang0, beam: true },
       onTick(w2, z, dt) {
         z.data.ang += spin * dt;
         const L = rayLen(w2, z.x, z.y, z.data.ang);
@@ -204,9 +204,9 @@ function* flares(w, e, B) {
     const L = rayLen(w, e.x, e.y, ang);
     const d = teleTime(B, 0.85);
     telegraph(e, 'beam');
-    zLine(w, e, e.x, e.y, e.x + Math.cos(ang) * L, e.y + Math.sin(ang) * L, 22, { delay: d, duration: 0.2, damage: 22, type: 'light', color: COL.flare });
+    zLine(w, e, e.x, e.y, e.x + Math.cos(ang) * L, e.y + Math.sin(ang) * L, 22, { delay: d, duration: 0.2, damage: 20, type: 'light', color: COL.flare });
     zCircle(w, e, p.x, p.y, 28, {
-      delay: d, duration: 0.2, damage: 22, type: 'fire', status: burn(e), color: COL.ember,
+      delay: d, duration: 0.2, damage: 20, type: 'fire', status: burn(e), color: COL.ember,
       onStart(w2, z) { w2.fx.burst('explosion', z.x, z.y, { color: COL.flare, count: 14 }); attackEvent(e, 'beam'); },
     });
     yield 0.5;
@@ -221,7 +221,7 @@ function fireRing(w, e, B) {
   const inner0 = Math.max(120, near + 10);
   const minInner = 105;
   zRing(w, e, e.x, e.y, 520, inner0, {
-    delay: teleTime(B, 1.1), duration: 9, tick: 0.5, damage: 10, type: 'fire', status: burn(e), color: COL.cinder,
+    delay: teleTime(B, 1.1), duration: 9, tick: 0.5, damage: 9, type: 'fire', status: burn(e), color: COL.cinder,
     data: { fireRing: true },
     onTick(w2, z, dt) { z.inner = Math.max(minInner, z.inner - 7 * dt); },
   });
@@ -320,7 +320,7 @@ export const SUN_CORE_AI = {
       c.data.wind = false;
       c.anim = 'idle';
       const p = w.player;
-      fanShots(w, c, c.x, c.y, angleTo(c.x, c.y, p.x, p.y), 1, 0, 80, ember({ damage: 10, color: COL.core }));
+      fanShots(w, c, c.x, c.y, angleTo(c.x, c.y, p.x, p.y), 1, 0, 80, ember({ damage: 9, color: COL.core }));
       attackEvent(c, 'shoot');
     }
   },
@@ -339,7 +339,7 @@ export const SUN_DEFS = {
   boss_sun: {
     id: 'boss_sun', name: 'Die Erloschene Sonne', title: 'Das kalte Herz der Welt',
     desc: 'Was vom Sonnenherz übrig blieb: eine tote Scheibe, umkreist von glühenden Kernen. Doch tief in ihr glimmt noch Glut – und sie will nicht verlöschen.',
-    biome: 'core', boss: true, hp: 4200, speed: 0, damage: 24, r: 24, mass: 0, flying: true, xp: 0, sparks: [0, 0],
+    biome: 'core', boss: true, hp: 5600, speed: 0, damage: 24, r: 24, mass: 0, flying: true, xp: 0, sparks: [0, 0],
     sprite: 'boss_sun', color: COL.gold, light: { r: 110, color: COL.ember }, shadow: false, contactType: 'fire',
     ai: 'boss_sun', aiParams: {},
     hooks: {

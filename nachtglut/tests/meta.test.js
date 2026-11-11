@@ -295,12 +295,12 @@ describe('upgrades', () => {
     }
   });
 
-  test('cost curve: cheap first steps, total in 12 000–16 000', () => {
+  test('cost curve: cheap first steps, total in 15 000–19 000', () => {
     const cheap = UPGRADE_LIST.filter((u) => u.cost(1) <= 40 && !u.requires);
     assert.ok(cheap.length >= 8, `cheap first levels: ${cheap.length}`);
     assert.ok(UPGRADE_LIST.some((u) => u.cost(1) <= 25), 'something affordable after a weak first run');
     const total = totalUpgradeCost();
-    assert.ok(total >= 12000 && total <= 16000, `total ${total}`);
+    assert.ok(total >= 15000 && total <= 19000, `total ${total}`);
   });
 
   test('getMetaMods only uses §6.2 stat names and stays sane when everything is maxed', () => {
@@ -528,10 +528,10 @@ describe('ash reward', () => {
     assert.ok(computeAshReward({ floor: 1, stats: { kills: 0 } }).total < 5);
   });
 
-  test('full win at Glutstufe 0 gives ~350–450', () => {
+  test('full win at Glutstufe 0 gives ~240–340 (full altar ≈ 60–100 runs)', () => {
     for (const stats of [{ kills: 320, eliteKills: 10, bossKills: 5 }, { kills: 420, eliteKills: 20, bossKills: 5, ashPickedUp: 15 }]) {
       const r = computeAshReward({ floor: 5, victory: true, stats, difficulty: DIFFICULTIES[0], ashPickedUp: stats.ashPickedUp });
-      assert.ok(r.total >= 350 && r.total <= 450, `win: ${r.total}`);
+      assert.ok(r.total >= 240 && r.total <= 340, `win: ${r.total}`);
       assert.equal(sum(r), r.total);
       assert.ok(r.parts.some((p) => /Sonnenherz/.test(p.label)));
     }
@@ -703,7 +703,7 @@ describe('tracker', () => {
     b.emit('run:start', { run });
     const summary = summaryOf(run, true);
     b.emit('run:end', { run, victory: true, summary });
-    assert.ok(summary.ash >= 350 && summary.ash <= 470, `ash ${summary.ash}`);
+    assert.ok(summary.ash >= 240 && summary.ash <= 350, `ash ${summary.ash}`);
     assert.equal(game.save.stats.wins, 1);
     assert.equal(game.save.stats.fastestWin, 1500);
     assert.equal(game.save.stats.highestDifficultyWon, 0);

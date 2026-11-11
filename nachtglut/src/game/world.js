@@ -570,7 +570,9 @@ export class World {
       const luck = this.player.stats.luck;
       const sp = def.sparks || [0, 1];
       const sparks = this.rng.int(sp[0], sp[1]) * e.sparkMul * (e.summoned ? 0 : 1);
-      const hearts = e.boss ? 3 : (!e.summoned && this.rng.chance((elite ? 0.3 : 0.035) + luck * 0.004)) ? 1 : 0;
+      // heart chance per kill falls with depth (deeper floors have more kills, hearts per floor stay ~constant)
+      const heartP = elite ? 0.15 : Math.max(0.02, 0.045 - 0.005 * Math.max(1, run.floorIndex || 1));
+      const hearts = e.boss ? 2 : (!e.summoned && this.rng.chance(heartP + luck * 0.004)) ? 1 : 0;
       this.dropLoot(e.x, e.y, {
         sparks, xp: (def.xp || 0) * e.xpMul * (e.summoned ? 0.34 : 1), hearts,
         ash: e.boss ? 0 : elite ? 2 : (!e.summoned && this.rng.chance(0.03)) ? 1 : 0,

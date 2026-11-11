@@ -12,7 +12,20 @@
 //                                       meta progression: sequential runs on one save, ash credited via
 //                                       meta/tracker.applyRunEnd, cheapest affordable altar upgrade bought after
 //                                       each run. Reports runs to first floor clears / first win / full altar.
+//   node tools/balance.mjs --mode perks [--floors 2] [--runs 12]
+//                                       every relic (1 stack) / boon (max stacks) added to the floor-N typical build:
+//                                       boss time + damage taken relative to the baseline (finds outliers).
+//   boss mode also takes --build all (every relic + every boon at max stacks: stacking-cap check) and --attacks
+//   (damage per boss attack script).
 //   common: [--workers 4] [--seconds 3000] [--seed prefix] [--json out.json] [--quiet]
+//           [--bot expert|average|novice|raw]   skill proxy (default expert):
+//             raw     = tools/sim.mjs Bot as is
+//             expert  = Bot + dashes through expanding shockwave rings + steers around hazard tiles (≈ skilled human)
+//             average = expert with 0.2 s telegraph reaction, 60 % dodge success, 90 % fire uptime, 85 % hazard care
+//             novice  = expert with 0.3 s reaction, 35 % dodge success, 80 % fire uptime, 60 % hazard care (≈ new human)
+//           [--meta none|mid|full] altar preset (mid ≈ 385 ash ≈ 5 early runs), [--diff 0..10] Glutstufe
+// Typical session: `--mode run --bot novice --chars all`, `--mode run --bot average`, `--mode god`, `--mode boss`,
+// `--mode campaign --bot novice`. Stalled/timeout runs (bot stuck on geometry) are excluded from clear rates.
 //
 // Modes `run` (non-god) measure difficulty, `god` measures pacing/economy across all floors. In god mode a would-be
 // lethal hit is counted ("lethal") and the player is refilled to full, so "lethal per floor" estimates how many
@@ -50,6 +63,7 @@ function parseArgs(argv) {
       case '--quiet': o.quiet = true; break;
       case '--bot': o.bot = v(); break;
       case '--attacks': o.attacks = true; break;
+      case '--build': o.build = v(); break;
       default: if (a.startsWith('--')) console.warn(`unknown option ${a}`);
     }
   }
@@ -72,6 +86,7 @@ async function workerMain() {
     import(mod('src/game/entities.js')), import(mod('src/gen/floorgen.js')), import(mod('src/meta/progression.js')),
     import(mod('src/meta/save.js')), import(mod('src/meta/tracker.js')), import(mod('src/game/perks.js')), import(mod('tools/sim.mjs')),
   ]);
+  const { RELICS, BOONS } = await import(mod('src/game/registry.js'));
   const { Game, makeStubInput } = gameMod;
   const { Bot } = sim;
 
@@ -171,7 +186,9 @@ async function workerMain() {
     const p = run.player;
     return {
       t0: run.time, t1: null, level0: p.level, sparks0: p.sparks, hp0: p.hp, maxHp0: p.stats.maxHp,
-      sc0: run.stats.sparksCollected, relics: 0, curses: 0, boons: 0, levelUps: 0, buys: 0, spent: 0, buyTypes: {}, shopSparks: null, chests: 0,
+      sc0: run.stats.sparksCollected, healed0: run.stats.healed, dmg0: run.stats.damageTaken,
+      st: Object.fromEntries(['maxHp', 'regen', 'lifesteal', 'armor', 'dodge', 'damage', 'fireRate', 'multishot', 'critChance', 'thorns', 'healPower', 'moveSpeed'].map((k) => [k, p.stats[k]])),
+      relics: 0, curses: 0, boons: 0, levelUps: 0, buys: 0, spent: 0, buyTypes: {}, shopSparks: null, chests: 0,
       healed: 0, hearts: 0, rooms: {}, dmg: {}, spawned: {}, sparksGot: 0, lethal: 0,
       bossT0: null, bossDur: null, bossDmg: 0, bossHits: 0, bossHp0: null, cleared: false, kills: 0,
     };
@@ -214,6 +231,7 @@ async function workerMain() {
         case 'floor:enter': {
           const prev = rec.floors[run.floorIndex - 1];
           if (prev && prev.t1 == null) prev.t1 = run.time;
+          if (prev) { prev.healTot = run.stats.healed - prev.healed0; prev.dmgTot = run.stats.damageTaken - prev.dmg0; }
           rec.floors[pl.floor.index] = fresh(pl.floor.index, run);
           break;
         }
@@ -238,7 +256,11 @@ async function workerMain() {
           if (f.bossT0 != null && f.bossDur == null) { f.bossDmg += pl.amount; if (!pl.dot) f.bossHits++; }
           break;
         }
-        case 'boss:start': if (f && f.bossT0 == null) { f.bossT0 = run.time; f.bossHp0 = run.player.hp; f.bossMaxHp = run.player.stats.maxHp; } break;
+        case 'boss:start': if (f && f.bossT0 == null) {
+          f.bossT0 = run.time; f.bossHp0 = run.player.hp; f.bossMaxHp = run.player.stats.maxHp;
+          const st = run.player.stats;
+          f.bossSt = { maxHp: st.maxHp, lifesteal: st.lifesteal, dodge: st.dodge, armor: st.armor, regen: st.regen, damage: st.damage, fireRate: st.fireRate, multishot: st.multishot };
+        } break;
         case 'boss:death': if (f && f.bossT0 != null && f.bossDur == null) f.bossDur = run.time - f.bossT0; break;
         case 'relic:gain': if (f) f.relics++; break;
         case 'curse:gain': if (f) f.curses++; break;
@@ -298,11 +320,23 @@ async function workerMain() {
       prepare(game, run) {
         if (N > 1) run.startFloor(N);
         const p = run.player, rng = run.world.rng;
-        for (let k = 1; k < Math.min(5, N); k++) p.upgradeWeapon(p.weapon);
-        for (let k = 0; k < 2 * N; k++) run.giveRelic();
-        for (let k = 0; k < 3 * N; k++) {
-          const d = perks.rollBoons(run, 1, { rng })[0];
-          if (d) run.giveBoon(d.id);
+        if (job.build === 'all') {
+          // stacking-cap check: every relic (no curses) and every boon at max stacks, weapon L5
+          while (p.weapon.level < 5) p.upgradeWeapon(p.weapon);
+          for (const d of Object.values(RELICS)) if (d.rarity !== 'curse') { const mx = d.maxStacks ?? 1; for (let k = 0; k < mx; k++) run.giveRelic(d.id); }
+          for (const d of Object.values(BOONS)) { const mx = d.maxStacks ?? 1; for (let k = 0; k < mx; k++) run.giveBoon(d.id); }
+        } else {
+          if (job.force) {
+            const [kind, id] = job.force.split(':');
+            const def = kind === 'boon' ? BOONS[id] : RELICS[id];
+            if (def) for (let k = 0; k < (kind === 'boon' ? (def.maxStacks ?? 1) : 1); k++) kind === 'boon' ? run.giveBoon(id) : run.giveRelic(id);
+          }
+          for (let k = 1; k < Math.min(5, N); k++) p.upgradeWeapon(p.weapon);
+          for (let k = 0; k < 2 * N; k++) run.giveRelic();
+          for (let k = 0; k < 3 * N; k++) {
+            const d = perks.rollBoons(run, 1, { rng })[0];
+            if (d) run.giveBoon(d.id);
+          }
         }
         // the bot resolves any choice a relic opened, then we go straight into the boss room
         game.clearChoices && game.clearChoices();
@@ -316,9 +350,9 @@ async function workerMain() {
     });
     const f = rec.floors[N] || {};
     return {
-      kind: 'boss', floor: N, character: job.character, seed: job.seed,
+      kind: 'boss', floor: N, character: job.character, seed: job.seed, force: job.force || '',
       dur: f.bossDur, timeout: f.bossDur == null, dmg: f.bossDmg, hits: f.bossHits, maxHp: f.bossMaxHp, lethal: f.lethal || 0,
-      dmgBy: f.dmg, relics: rec.relics, boons: rec.boonsList, weapons: rec.weapons, errors: rec.errors,
+      healed: f.healed, stats: f.bossSt, dmgBy: f.dmg, relics: rec.relics, boons: rec.boonsList, weapons: rec.weapons, errors: rec.errors,
     };
   }
 
@@ -441,6 +475,14 @@ function summarizeRuns(results, o) {
     const tstr = Object.entries(types).map(([t, a]) => `${t} ${(a.n / fr.length).toFixed(1)}/${(a.t / a.n).toFixed(0)}s/${(a.dmg / a.n).toFixed(0)}`).join('  ');
     L.push(`${String(fl).padStart(5)} ${f1(out.floors[fl].levelUps, 9)} ${f0(out.floors[fl].sparksGot, 13)}  ${tstr}`);
   }
+  L.push('floor  stats at entry (mean): maxHp regen lifesteal armor dodge dmgMul fireRate multishot crit thorns | heal total/floor (incl. lifesteal) dmg total/floor');
+  for (let fl = 1; fl <= 5; fl++) {
+    const fr = runs.map((r) => r.floors[fl]).filter((f) => f && f.st);
+    if (!fr.length) continue;
+    const m = (k) => mean(fr.map((f) => f.st[k]));
+    const ht = mean(fr.map((f) => f.healTot).filter((v) => v != null)), dt = mean(fr.map((f) => f.dmgTot).filter((v) => v != null));
+    L.push(`${String(fl).padStart(5)}  ${f0(m('maxHp'))} ${f1(m('regen'), 5)} ${f1(m('lifesteal') * 100, 6)}% ${f1(m('armor'), 5)} ${f1(m('dodge') * 100, 5)}% ${f1(m('damage'), 6)} ${f1(m('fireRate'), 7)} ${f1(m('multishot'), 6)} ${f1(m('critChance') * 100, 5)}% ${f1(m('thorns'), 5)} | ${f0(ht)} ${f0(dt)}`);
+  }
   // damage sources
   L.push('damage taken by source (per floor; total per run, share, per spawned enemy):');
   for (let fl = 1; fl <= 5; fl++) {
@@ -497,9 +539,24 @@ function summarizeBoss(results, o) {
     const tot = Object.values(dmg).reduce((s, v) => s + v, 0) || 1;
     const row = { n: fr.length, med: median(d), p25: pctl(d, 0.25), p75: pctl(d, 0.75), timeouts: fr.filter((r) => r.timeout).length, dmg: mean(fr.map((r) => r.dmg / (r.maxHp || 100))), hits: mean(fr.map((r) => r.hits)), lethal: mean(fr.map((r) => r.lethal)), survive: fr.filter((r) => r.lethal === 0).length / fr.length };
     data[fl] = row;
+    if (o.build === 'all') L.push(`      build stats: ${JSON.stringify(fr[0].stats)}  fastest ${f0(Math.min(...d), 3)} s`);
     L.push(`${String(fl).padStart(5)} ${f0(row.n, 2)} ${f0(row.med, 6)} [${f0(row.p25, 4)}-${f0(row.p75, 4)}] ${f0(row.timeouts, 6)} ${f1(row.dmg, 10)} ${f1(row.hits, 6)} ${f1(row.lethal, 10)} ${pc(row.survive, 12)}   ` + Object.entries(dmg).sort((a, b) => b[1] - a[1]).slice(0, o.attacks ? 9 : 4).map(([k, v]) => `${k} ${Math.round((v / tot) * 100)}%`).join(', '));
   }
   return { text: L.join('\n'), data };
+}
+
+function summarizePerks(results, o) {
+  const rs = results.filter((r) => r.kind === 'boss');
+  const by = {};
+  for (const r of rs) (by[r.force] ||= []).push(r);
+  const base = by[''] || [];
+  const bT = median(base.map((r) => (r.timeout ? 400 : r.dur))), bD = mean(base.map((r) => r.dmg / (r.maxHp || 100)));
+  const rows = Object.entries(by).filter(([k]) => k).map(([k, v]) => ({ k, t: median(v.map((r) => (r.timeout ? 400 : r.dur))) / bT, d: mean(v.map((r) => r.dmg / (r.maxHp || 100))) / (bD || 1) }));
+  const L = [`\n== PERKS on floor-${o.floors[0]} typical build: boss time / damage taken relative to baseline (${f0(bT)} s, ${f1(bD, 4)} maxHp)  n=${o.runs} each`];
+  L.push('fastest kills (time ratio): ' + rows.slice().sort((a, b) => a.t - b.t).slice(0, 14).map((r) => `${r.k.split(':')[1]} ${r.t.toFixed(2)}`).join(', '));
+  L.push('slowest (time ratio): ' + rows.slice().sort((a, b) => b.t - a.t).slice(0, 6).map((r) => `${r.k.split(':')[1]} ${r.t.toFixed(2)}`).join(', '));
+  L.push('safest (damage ratio): ' + rows.slice().sort((a, b) => a.d - b.d).slice(0, 12).map((r) => `${r.k.split(':')[1]} ${r.d.toFixed(2)}`).join(', '));
+  return { text: L.join('\n'), data: rows };
 }
 
 function summarizeCampaign(results) {
@@ -532,13 +589,19 @@ async function main() {
   if (o.mode === 'run' || o.mode === 'god') {
     for (let i = 0; i < o.runs; i++) for (const c of o.chars) jobs.push({ kind: 'run', seed: `${o.seed}-${i}`, character: c, difficulty: o.diff, meta: o.meta, god: o.mode === 'god', seconds: o.seconds, bot: o.bot });
   } else if (o.mode === 'boss') {
-    for (const fl of o.floors) for (let i = 0; i < o.runs; i++) for (const c of o.chars) jobs.push({ kind: 'boss', seed: `${o.seed}-b${fl}-${i}`, character: c, floor: fl, difficulty: o.diff, meta: o.meta, bot: o.bot, attackBreakdown: !!o.attacks });
+    for (const fl of o.floors) for (let i = 0; i < o.runs; i++) for (const c of o.chars) jobs.push({ kind: 'boss', seed: `${o.seed}-b${fl}-${i}`, character: c, floor: fl, difficulty: o.diff, meta: o.meta, bot: o.bot, attackBreakdown: !!o.attacks, build: o.build });
+  } else if (o.mode === 'perks') {
+    // every relic (1 stack) and every boon (max stacks) on top of the floor-N typical build, same seeds as the baseline
+    const { RELICS: R, BOONS: Bo } = await import(mod('src/game/registry.js'));
+    const forces = [''].concat(Object.values(R).filter((d) => d.rarity !== 'curse').map((d) => `relic:${d.id}`), Object.values(Bo).map((d) => `boon:${d.id}`));
+    const fl = o.floors[0];
+    for (const force of forces) for (let i = 0; i < o.runs; i++) jobs.push({ kind: 'boss', seed: `${o.seed}-p${fl}-${i}`, character: o.chars[i % o.chars.length], floor: fl, difficulty: o.diff, meta: o.meta, bot: o.bot, force });
   } else if (o.mode === 'campaign') {
     for (let i = 0; i < o.runs; i++) jobs.push({ kind: 'campaign', seed: `${o.seed}-c${i}`, character: o.chars[0], difficulty: 0, count: o.count, seconds: o.seconds, bot: o.bot });
   } else { console.error(`unknown mode ${o.mode}`); process.exitCode = 1; return; }
   const t0 = Date.now();
   const results = await runPool(jobs, o.workers, o.quiet);
-  const s = o.mode === 'boss' ? summarizeBoss(results, o) : o.mode === 'campaign' ? summarizeCampaign(results) : summarizeRuns(results, o);
+  const s = o.mode === 'perks' ? summarizePerks(results, o) : o.mode === 'boss' ? summarizeBoss(results, o) : o.mode === 'campaign' ? summarizeCampaign(results) : summarizeRuns(results, o);
   console.log(s.text);
   console.log(`(${jobs.length} jobs, ${((Date.now() - t0) / 1000).toFixed(1)} s wall)`);
   const errs = results.filter((r) => r.kind === 'error');

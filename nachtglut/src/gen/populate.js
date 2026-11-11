@@ -6,6 +6,11 @@ const { FLOOR, WALL } = TILE;
 
 export const FIGHT_TYPES = new Set(['combat', 'elite', 'challenge']);
 
+// Balance knobs (owner: balance). Per-floor spawn budget multiplier (index 1..5) and the chance that an elite
+// room holds a sealed chest (each chest is a relic choice; elites already drop ×3 sparks).
+const FLOOR_BUDGET = [1, 1.22, 1.35, 1.4, 1.35, 1.0];
+const ELITE_CHEST_CHANCE = 0.4;
+
 const DECO = {
   ash: [{ kind: 'bones', solid: false, weight: 3 }, { kind: 'stalagmite', solid: true, weight: 2 }, { kind: 'statue', solid: true, weight: 1 }],
   fungal: [{ kind: 'mushroom', solid: false, weight: 3 }, { kind: 'mushroom', solid: true, weight: 2 }, { kind: 'bones', solid: false, weight: 1 }],
@@ -256,7 +261,7 @@ function propsFor(rng, room, P, ctx) {
       break;
     case 'boss': placeBossTorches(rng, room, P); break;
     default: // combat / elite
-      if (room.type === 'elite') P.addNear('chest', cx, cy, { tier: 'common', locked: true });
+      if (room.type === 'elite' && rng.chance(ELITE_CHEST_CHANCE)) P.addNear('chest', cx, cy, { tier: 'common', locked: true });
       placeTorches(rng, P, torchCount(room, 2, 6));
       placeBarrels(rng, P, rng.int(0, 4));
       placeCrystals(rng, P, rng.int(0, 2));
@@ -357,7 +362,7 @@ function makeSpawns(rng, room, P, ctx) {
   else if (room.type === 'challenge') mul = 1.6;
   if (ctx.lowBudget) mul *= ctx.gauntlet ? 0.8 : 0.55;
   else if (ctx.gauntlet) mul *= 1.12;
-  const budget = (5 + 2.2 * index + 1.1 * room.depth) * (difficulty.spawnBudget ?? 1) * areaF * mul;
+  const budget = (5 + 2.2 * index + 1.1 * room.depth) * (FLOOR_BUDGET[index] ?? 1) * (difficulty.spawnBudget ?? 1) * areaF * mul;
 
   let waves;
   if (room.type === 'challenge') waves = rng.int(3, 4);
@@ -415,7 +420,7 @@ function makeSpawns(rng, room, P, ctx) {
       src[k][0].elite = (index >= 3 && rng.chance(0.3) ? 2 : 1) + extra;
     }
   } else if (!ctx.lowBudget) {
-    const p = 0.04 + 0.02 * index + (difficulty.eliteChance ?? 0);
+    const p = 0.03 + 0.03 * index + (difficulty.eliteChance ?? 0);
     for (const e of all) if (!e._pack && rng.chance(p)) e.elite = 1 + extra;
   }
   for (const e of all) { delete e._pack; delete e._cost; }

@@ -9,7 +9,7 @@ import {
 
 const COL = { body: '#ff6a1f', fire: '#ff8a3c', hot: '#ffb347', crown: '#ffd35a', warn: '#ff5a3c', ash: '#8a6a58' };
 
-const burn = (e, power = 5) => ({ id: 'burn', duration: 2, power: power * (e.dmgMul ?? 1) });
+const burn = (e, power = 4) => ({ id: 'burn', duration: 2, power: power * (e.dmgMul ?? 1) });
 
 /** Lingering burning ground: status-only (burn DoT), so it never hands out i-frames. */
 function burningGround(w, e, B, x, y, o = {}) {
@@ -62,7 +62,7 @@ function* charge(w, e, B) {
       for (let i = 0; i < 4; i++) {
         const a = w.rng.angle(), r = w.rng.float(30, 70);
         const c = w.clampToRoom(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 10);
-        zCircle(w, e, c.x, c.y, 14, { delay: teleTime(B, 0.8) + i * 0.08, duration: 0.12, damage: 10, type: 'phys', color: COL.ash });
+        zCircle(w, e, c.x, c.y, 14, { delay: teleTime(B, 0.8) + i * 0.08, duration: 0.12, damage: 7, type: 'phys', color: COL.ash });
       }
       yield 1.0;
       return;
@@ -77,11 +77,11 @@ function* slam(w, e, B) {
   telegraph(e, 'slam');
   const d = teleTime(B, 0.85);
   const r0 = 44;
-  zCircle(w, e, e.x, e.y, r0, { delay: d, duration: 0.12, damage: 18, knockback: 220, type: 'phys', color: COL.warn });
+  zCircle(w, e, e.x, e.y, r0, { delay: d, duration: 0.12, damage: 13, knockback: 220, type: 'phys', color: COL.warn });
   const rings = B.phase >= 2 ? 2 : 1;
   for (let i = 0; i < rings; i++) {
     zRing(w, e, e.x, e.y, r0, r0 - 12, {
-      delay: d + i * 0.5, duration: 1.7, grow: 115, damage: 14, type: 'fire', status: burn(e, 3), color: COL.fire,
+      delay: d + i * 0.5, duration: 1.7, grow: 115, damage: 10, type: 'fire', status: burn(e, 2), color: COL.fire,
     });
   }
   yield d;
@@ -110,7 +110,7 @@ function* magmaRain(w, e, B) {
       const c = w.clampToRoom(tx, ty, 10);
       const d = teleTime(B, 0.95) + i * 0.08;
       zCircle(w, e, c.x, c.y, 18, {
-        delay: d, duration: 0.15, damage: 13, type: 'fire', status: burn(e, 4), color: COL.warn,
+        delay: d, duration: 0.15, damage: 9, type: 'fire', status: burn(e, 3), color: COL.warn,
         onStart(w2, z) {
           w2.fx.burst('explosion', z.x, z.y, { color: COL.fire, count: 10 });
           if (B.phase >= 2) burningGround(w2, e, B, z.x, z.y, { r: 14, delay: 0.05, duration: 2.5 });
@@ -137,7 +137,7 @@ function* fireFan(w, e, B) {
     facePlayer(w, e);
     const n = v % 2 ? 6 : 5;
     fanShots(w, e, e.x, e.y, angleToPlayer(w, e), n, 0.95, B.phase >= 2 ? 118 : 104, {
-      r: 4, damage: 11, type: 'fire', sprite: 'proj_orb', color: COL.hot, trail: v === 0 ? 'ember' : null,
+      r: 4, damage: 8, type: 'fire', sprite: 'proj_orb', color: COL.hot, trail: v === 0 ? 'ember' : null,
     });
     attackEvent(e, 'shoot');
     yield 0.45;
@@ -157,7 +157,7 @@ function* crownFlame(w, e, B) {
   e.anim = 'special';
   telegraph(e, 'cast');
   const d = teleTime(B, 0.7);
-  zCircle(w, e, e.x, e.y, e.r + 14, { delay: d, duration: 0.1, damage: 12, type: 'fire', color: COL.crown });
+  zCircle(w, e, e.x, e.y, e.r + 14, { delay: d, duration: 0.1, damage: 8, type: 'fire', color: COL.crown });
   yield d;
   attackEvent(e, 'shoot');
   w.fx.flash(COL.crown, 0.12);
@@ -169,7 +169,7 @@ function* crownFlame(w, e, B) {
     while (acc >= 0.13) {
       acc -= 0.13;
       for (let k = 0; k < 3; k++) {
-        shot(w, e, e.x, e.y, a + (k * TAU) / 3, 82, { r: 3.5, damage: 10, type: 'fire', color: COL.crown });
+        shot(w, e, e.x, e.y, a + (k * TAU) / 3, 82, { r: 3.5, damage: 7, type: 'fire', color: COL.crown });
       }
     }
   });
@@ -178,7 +178,7 @@ function* crownFlame(w, e, B) {
 
 export const CINDER_AI = makeBossAI({
   phases: [0.5],
-  phaseStats: [{ tele: 1, speed: 1, recover: 1.1 }, { tele: 0.85, speed: 1.35, recover: 0.75 }],
+  phaseStats: [{ tele: 1, speed: 1, recover: 1.3 }, { tele: 0.85, speed: 1.35, recover: 0.9 }],
   introAnim: 'special',
   phaseColor: COL.crown,
   init(w, e, B) { B.trailT = 0; B.lastX = e.x; B.lastY = e.y; },
@@ -220,7 +220,7 @@ export const CINDER_DEFS = {
   boss_cinder: {
     id: 'boss_cinder', name: 'Schlackenkönig', title: 'Herr der Aschegruben',
     desc: 'Ein König aus erstarrter Schlacke. Er stürmt, stampft Schockwellen in den Boden und lässt Magma regnen – und wenn seine Krone entflammt, brennt die Grube.',
-    biome: 'ash', boss: true, hp: 1200, speed: 34, damage: 14, r: 18, mass: 0, xp: 60, sparks: [40, 60],
+    biome: 'ash', boss: true, hp: 1400, speed: 34, damage: 14, r: 18, mass: 0, xp: 60, sparks: [20, 30],
     sprite: 'boss_cinder', color: COL.body, light: { r: 90, color: '#ff7a2f' }, shadow: true, contactType: 'fire',
     ai: 'boss_cinder', aiParams: {},
     hooks: { onHit: phaseGate },

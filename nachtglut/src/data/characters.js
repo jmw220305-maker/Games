@@ -267,7 +267,7 @@ export const CHARACTERS = {
     id: 'bearer', name: 'Glutträger', title: 'Der letzte Funke',
     desc: 'Ausgewogen und verlässlich. Trägt die Glut der alten Feuerstelle im Herzen – sein Feuer brennt etwas heißer.',
     sprite: 'char_bearer', color: '#ff8a3c',
-    baseMods: [{ stat: 'fireDamage', mul: 1.1 }],
+    baseMods: [{ stat: 'fireDamage', mul: 1.15 }, { stat: 'maxHp', add: 10 }],
     weapon: 'ember_bolt',
     skill: {
       id: 'flame_wave', name: 'Flammenwoge', cooldown: 9, duration: 0.35,
@@ -307,7 +307,7 @@ export const CHARACTERS = {
     desc: 'Schnell und zerbrechlich. Hohe Krit-Chance, ein zusätzlicher Dash – wer sie treffen will, trifft meist nur ihren Schatten.',
     sprite: 'char_shadow', color: '#b07cff',
     baseMods: [
-      { stat: 'maxHp', add: -25 }, { stat: 'moveSpeed', mul: 1.12 }, { stat: 'critChance', add: 0.1 }, { stat: 'critMult', add: 0.25 },
+      { stat: 'maxHp', add: -20 }, { stat: 'moveSpeed', mul: 1.12 }, { stat: 'critChance', add: 0.1 }, { stat: 'critMult', add: 0.25 },
       { stat: 'dashCharges', add: 1 }, { stat: 'dashCooldown', mul: 0.85 },
     ],
     weapon: 'shadow_daggers',
@@ -369,8 +369,8 @@ export const CHARACTERS = {
     desc: 'Webt Kälte in jeden Angriff. Stärkere und längere Zustände – unterkühlte Gegner zerbrechen unter ihren Händen.',
     sprite: 'char_weaver', color: '#8fd8ff',
     baseMods: [
-      { stat: 'maxHp', add: -10 }, { stat: 'statusPower', mul: 1.25 }, { stat: 'statusDuration', mul: 1.2 },
-      { stat: 'chillChance', add: 0.12 }, { stat: 'frostDamage', mul: 1.1 },
+      { stat: 'maxHp', add: 0 }, { stat: 'statusPower', mul: 1.25 }, { stat: 'statusDuration', mul: 1.2 },
+      { stat: 'chillChance', add: 0.12 }, { stat: 'frostDamage', mul: 1.2 },
     ],
     weapon: 'ice_staff',
     skill: {
@@ -397,7 +397,7 @@ export const CHARACTERS = {
     id: 'revenant', name: 'Aschenkind', title: 'Aus der Asche geboren',
     desc: 'Wenig Leben, aber unstillbarer Hunger: Lebensraub, Regeneration und die Kraft, das eigene Leben zu verbrennen.',
     sprite: 'char_revenant', color: '#c9c2b8',
-    baseMods: [{ stat: 'maxHp', add: -35 }, { stat: 'lifesteal', add: 0.04 }, { stat: 'regen', add: 0.35 }, { stat: 'healPower', mul: 1.15 }],
+    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'lifesteal', add: 0.015 }, { stat: 'regen', add: 0.05 }, { stat: 'healPower', mul: 1.15 }],
     weapon: 'soul_siphon',
     skill: {
       id: 'ash_rebirth', name: 'Aschegeburt', cooldown: 10, duration: 0.4,

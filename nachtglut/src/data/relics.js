@@ -323,9 +323,9 @@ const LIST = [
   },
   {
     id: 'storm_wing', name: 'Sturmschwinge', rarity: 'common', maxStacks: 2,
-    desc: '−15 % Dash-Abklingzeit.', flavor: 'Eine Feder aus einem Wind, der nicht mehr weht.',
+    desc: '−12 % Dash-Abklingzeit.', flavor: 'Eine Feder aus einem Wind, der nicht mehr weht.',
     icon: { glyph: 'wing', color: '#cfe8ff' }, tags: ['dash'],
-    mods: (n) => [{ stat: 'dashCooldown', mul: 1 - 0.15 * n }],
+    mods: (n) => [{ stat: 'dashCooldown', mul: 1 - 0.12 * n }],
   },
   {
     id: 'ash_chronicle', name: 'Aschenchronik', rarity: 'common', maxStacks: 2,
@@ -746,10 +746,10 @@ const LIST = [
   },
   {
     id: 'twin_flame', name: 'Zwillingsflamme', rarity: 'rare',
-    desc: '+1 Projektil pro Salve. −10 % Schaden.', flavor: 'Zwei Flammen, ein Docht.',
+    desc: '+1 Projektil pro Salve. −25 % Schaden.', flavor: 'Zwei Flammen, ein Docht.',
     icon: { glyph: 'star', color: '#ffb347' }, tags: ['projectile'],
     requires: shootsProjectiles,
-    mods: [{ stat: 'multishot', add: 1 }, { stat: 'damage', mul: 0.9 }],
+    mods: [{ stat: 'multishot', add: 1 }, { stat: 'damage', mul: 0.75 }],
   },
   {
     id: 'winter_heart', name: 'Herz des Winters', rarity: 'rare',
@@ -791,12 +791,13 @@ const LIST = [
   },
   {
     id: 'shadow_veil', name: 'Schattenschleier', rarity: 'rare',
-    desc: 'Nach jedem Dash bist du 0,8 s unverwundbar und dein nächster Schuss trifft garantiert kritisch.', flavor: 'Für einen Herzschlag bist du nicht hier.',
+    desc: 'Nach einem Dash bist du 0,5 s unverwundbar (höchstens alle 1,5 s) und dein nächster Schuss trifft garantiert kritisch.', flavor: 'Für einen Herzschlag bist du nicht hier.',
     icon: { glyph: 'mask', color: SHADOW }, tags: ['dash', 'crit', 'shadow'],
     hooks: {
       ...dashEndHooks((ctx) => {
-        const p = ctx.player;
-        p.iframes = Math.max(p.iframes || 0, 0.8);
+        const p = ctx.player, now = ctx.run ? ctx.run.time : 0;
+        // balance: an internal cooldown so dash spam + dash-cooldown stacking cannot chain the i-frames forever
+        if (!(now - (ctx.state.veilT ?? -99) < 1.5)) { ctx.state.veilT = now; p.iframes = Math.max(p.iframes || 0, 0.5); }
         ctx.state.crit = true;
         if (ctx.w) ctx.w.fx.burst('shadow', p.x, p.y, { count: 10 });
       }),

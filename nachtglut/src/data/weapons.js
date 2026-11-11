@@ -733,11 +733,11 @@ export const WEAPONS = {
     desc: 'Ein kurzer Strahl, der sich an Gegner heftet, ihnen stetig Leben entzieht und dich ein wenig heilt.',
     icon: { glyph: 'hand', color: '#d86bff' }, projSprite: 'proj_beam', color: '#d86bff',
     manual: true,
-    base: { damage: 2.3, tick: 0.1, range: 105, heal: 0.05, healCap: 2.5, beams: 1, secondary: 0.6, reap: 0, cooldown: 0.1, knockback: 0 },
+    base: { damage: 2.3, tick: 0.1, range: 105, heal: 0.025, healCap: 1, beams: 1, secondary: 0.6, reap: 0, cooldown: 0.1, knockback: 0 },
     levels: [
       { desc: '+20 % Schaden und Reichweite', mods: { damage: 1.2, range: 1.2 } },
       { desc: 'Zweiter Strahl: Saugt zusätzlich an einem weiteren Gegner (60 %), +10 % Schaden', mods: { '+beams': 1, damage: 1.1 } },
-      { desc: '+25 % Schaden, doppelte Heilung', mods: { damage: 1.25, heal: 2, healCap: 2 } },
+      { desc: '+25 % Schaden, +50 % Heilung', mods: { damage: 1.25, heal: 1.5, healCap: 1.5 } },
       { desc: 'Seelenernte: Gegner, die am Strahl sterben, explodieren in Seelenfeuer, +15 % Schaden', mods: { '+reap': 1, damage: 1.15 } },
     ],
     update(w, player, ws, dt, held, aim) {
@@ -832,7 +832,7 @@ export const WEAPONS = {
     id: 'ice_staff', name: 'Eisstab', rarity: 'uncommon', type: 'frost', tags: ['frost', 'projectile', 'split'],
     desc: 'Verschießt einen Eiskristall, der bei Treffern und an Wänden in kühlende Splitter zerbirst.',
     icon: { glyph: 'staff', color: '#bfe9ff' }, projSprite: 'proj_shard', color: '#bfe9ff',
-    base: { damage: 12, cooldown: 0.6, projSpeed: 250, range: 210, size: 4, count: 1, spread: 0.2, pierce: 0, knockback: 60, splinters: 3, splinterDamage: 0.35, chill: 1, splinterChill: 0, splinterPierce: 0 },
+    base: { damage: 13, cooldown: 0.6, projSpeed: 250, range: 210, size: 4, count: 1, spread: 0.2, pierce: 0, knockback: 60, splinters: 3, splinterDamage: 0.35, chill: 1, splinterChill: 0, splinterPierce: 0 },
     levels: [
       { desc: '+1 Splitter, +15 % Schaden', mods: { '+splinters': 1, damage: 1.15 } },
       { desc: '+25 % Schaden', mods: { damage: 1.25 } },

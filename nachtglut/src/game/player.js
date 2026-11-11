@@ -13,9 +13,10 @@ const DASH_BUFFER = 0.15;    // s an early dash press is remembered
 const HAZARD_FIRST = 0.15;   // s on a hazard before the first tick
 const HAZARD_TICK = 0.5;
 const SAFE_INTERVAL = 0.25;  // s between safe-position updates
+const LIFESTEAL_PER_S = 1.5;   // HP/s lifesteal can heal at most (balance: keeps lifesteal stacks from making the player immortal)
 
 /** XP needed to go from `level` to `level + 1`. */
-export function xpNext(level) { return Math.round(18 + 12 * level + 1.6 * level * level); }
+export function xpNext(level) { return Math.round(16 + 9 * level + 1.0 * level * level); }
 
 function safeCall(label, fn) {
   try { return fn(); } catch (err) { console.error(`[player] ${label} failed`, err); return undefined; }
@@ -44,7 +45,7 @@ export class Player {
     this.mods = new Map();
     this.slowMul = 1; this.frozen = false; this.stunned = false;
     this.dmgTakenMul = 1; this.dmgDealtMul = 1; this.tempDamageMul = 1;
-    this.lsBudget = 6;
+    this.lsBudget = LIFESTEAL_PER_S;
     this._hookDepth = 0;
     this.safeX = 0; this.safeY = 0; this._safeT = 0;
     this._hazT = 0; this._hazNext = HAZARD_FIRST;
@@ -114,7 +115,7 @@ export class Player {
       run.pendingBoons++;
       run.stats.levelUps = (run.stats.levelUps || 0) + 1;
       if (w) {
-        w.healPlayer(this.stats.maxHp * 0.08, { silent: true });
+        w.healPlayer(this.stats.maxHp * 0.06, { silent: true });
         w.fx.ring(this.x, this.y, 40, '#ffd35a', 0.5);
         w.fx.burst('light', this.x, this.y, { count: 20, color: '#ffd35a' });
         w.fx.text(this.x, this.y - 16, 'Stufe ' + this.level, '#ffd35a');
@@ -204,7 +205,7 @@ export class Player {
     if (this.fireT > 0) this.fireT = Math.max(0, this.fireT - dt);
     if (this.skill.cd > 0) this.skill.cd = Math.max(0, this.skill.cd - dt);
     if (this.skill.active > 0) this.skill.active = Math.max(0, this.skill.active - dt);
-    this.lsBudget = Math.min(6, this.lsBudget + 6 * dt);
+    this.lsBudget = Math.min(LIFESTEAL_PER_S, this.lsBudget + LIFESTEAL_PER_S * dt);
     this._prevAnim = this.anim;
 
     if (this.alive) {
