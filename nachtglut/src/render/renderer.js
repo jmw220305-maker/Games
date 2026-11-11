@@ -4,7 +4,7 @@
 // HP bars, status pips, off-screen indicators, vignettes, flash, fade → overlay texts.
 // Tolerates a missing/broken art module (placeholder shapes). DOM-free at import time.
 import { TS, TILE, SPIKE_CYCLE, RARITY_INFO, TYPE_COLORS } from '../game/constants.js';
-import { Lighting, glowSprite, shadowSprite, vignetteSprite, makeCanvas, shade } from './lighting.js';
+import { Lighting, glowSprite, shadowSprite, vignetteSprite, makeCanvas, shade, zoneVisible } from './lighting.js';
 import { MenuBg } from './menubg.js';
 
 const TAU = Math.PI * 2;
@@ -245,7 +245,7 @@ export class Renderer {
     // animated tiles
     this.drawDynamic(ctx, room, biome, world, time);
     // ground decals
-    this.drawZones(ctx, world.zones, t);
+    this.drawZones(ctx, world.zones, t, room);
     this.drawEnemyDecals(ctx, world.enemies, t);
     if (fx && fx.drawRings) fx.drawRings(ctx);
     // y-sorted entities
@@ -305,6 +305,13 @@ export class Renderer {
     }
     const d = (fallbackR || 6) * 2;
     return { w: d, h: d };
+  }
+
+  /** Sprite key of an enemy instance (instance override, rime tail segment, def sprite, id). */
+  enemyKey(e) {
+    if (e.sprite) return e.sprite;
+    if (e.data && e.data.tail && e.id === 'boss_rime_segment') return 'boss_rime_tail';
+    return (e.def && e.def.sprite) || e.id;
   }
 
   /**
@@ -521,11 +528,11 @@ export class Renderer {
     }
   }
 
-  drawZones(ctx, zones, t) {
+  drawZones(ctx, zones, t, room) {
     if (!zones || !zones.length) return;
     for (let i = 0; i < zones.length; i++) {
       const z = zones[i];
-      if (z.dead || z.hidden) continue;
+      if (z.dead || !zoneVisible(z, room)) continue;
       const col = z.color || '#ff5a3c';
       const hostile = z.team !== 'player';
       ctx.fillStyle = col;
@@ -745,7 +752,7 @@ export class Renderer {
 
   drawEnemy(ctx, e, t) {
     const def = e.def || {};
-    const key = def.sprite || e.id;
+    const key = this.enemyKey(e);
     const r = e.r || 6;
     let alpha = 1, scale = 1;
     if (e.spawnT > 0) {
@@ -760,7 +767,7 @@ export class Renderer {
     // shadow at the feet (flying: on the ground below the body)
     const sw = sz ? Math.min(sz.w * 0.8, r * 2.8) : r * 2.2;
     const shY = e.flying ? Math.max(e.y + r, dy + h / 2) + 2 : e.y + r;
-    this.shadow(ctx, e.x, shY, sw * (e.flying ? 0.7 : 1), Math.max(3, sw * 0.38), (e.flying ? 0.4 : 0.65) * alpha);
+    if (def.shadow !== false) this.shadow(ctx, e.x, shY, sw * (e.flying ? 0.7 : 1), Math.max(3, sw * 0.38), (e.flying ? 0.4 : 0.65) * alpha);
     const flash = e.frozen ? Math.max(e.flash || 0, 0.38) : e.flash || 0;
     if (has) {
       this.spr(ctx, key, e.x, dy, this.opt(e.anim, e.animT, e.flipX, flash, alpha, scale));
@@ -909,7 +916,7 @@ export class Renderer {
         const e = es[i];
         if (e.dead || e.hidden || e.spawnT > 0) continue;
         if (!this.inView(e.x, e.y, 8)) continue;
-        const key = (e.def && e.def.sprite) || e.id;
+        const key = this.enemyKey(e);
         let top;
         if (this.has(key)) { const h = this.sizeOf(key, e.r).h; top = Math.round(this.unitDrawY(e, h, t) - h / 2 - 3); }
         else top = Math.round(e.y - (e.r || 6) - (e.flying ? 3 : 0) - 3);
@@ -955,7 +962,7 @@ export class Renderer {
     const tg = p && p.target;
     if (tg && !tg.dead && !tg.hidden && p.alive !== false) {
       const r = (tg.r || 6) + 4 + Math.sin(t * 8) * 0.6;
-      const tkey = (tg.def && tg.def.sprite) || tg.id;
+      const tkey = this.enemyKey(tg);
       const th = this.has(tkey) ? this.sizeOf(tkey, tg.r).h : 0;
       const x = Math.round(tg.x), y = Math.round(th ? this.unitDrawY(tg, th, t) : tg.y);
       ctx.fillStyle = '#ffe0a0';

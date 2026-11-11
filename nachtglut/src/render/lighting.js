@@ -152,6 +152,31 @@ export function vignetteSprite(color = '#000000', strength = 1) {
   return c;
 }
 
+const invisibleColors = new Map();
+/** true for 'transparent', rgba(…, 0), #rgb0 and #rrggbb00 — zones in such colours are logic-only. */
+export function isInvisibleColor(c) {
+  if (!c || typeof c !== 'string') return false;
+  let v = invisibleColors.get(c);
+  if (v !== undefined) return v;
+  const s = c.trim().toLowerCase();
+  v = s === 'transparent' || /^#[0-9a-f]{3}0$/.test(s) || /^#[0-9a-f]{6}00$/.test(s) || /^(?:rgba|hsla)\([^)]*[,/]\s*0(?:\.0*)?%?\s*\)$/.test(s);
+  if (invisibleColors.size > 512) invisibleColors.clear();
+  invisibleColors.set(c, v);
+  return v;
+}
+
+/** Zones that are hidden, invisible (transparent colour) or far outside the room are not drawn or lit. */
+export function zoneVisible(z, room) {
+  if (z.hidden || z.invisible || isInvisibleColor(z.color)) return false;
+  if (room) {
+    const m = 64, W = room.w * TS, H = room.h * TS;
+    const x0 = Math.min(z.x, z.x2 ?? z.x) - (z.r || 0), x1 = Math.max(z.x, z.x2 ?? z.x) + (z.r || 0);
+    const y0 = Math.min(z.y, z.y2 ?? z.y) - (z.r || 0), y1 = Math.max(z.y, z.y2 ?? z.y) + (z.r || 0);
+    if (!(x1 > -m && y1 > -m && x0 < W + m && y0 < H + m)) return false;
+  }
+  return true;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Lighting pass
 // ---------------------------------------------------------------------------------------------
@@ -250,9 +275,9 @@ export class Lighting {
       for (let i = 0; i < es.length; i++) {
         const e = es[i];
         if (e.dead || e.hidden) continue;
-        const L = e.def && e.def.light;
+        const L = e.light ?? (e.def && e.def.light);
         const sp = e.spawnT > 0 ? 0.5 : 1;
-        if (L) this.add(e.x, e.y, (L.r || 30) * sp, L.color || e.def.color || '#ffffff', 0.9 * sp, 0.3 * sp);
+        if (L) this.add(e.x, e.y, (L.r || 30) * sp, L.color || (e.def && e.def.color) || '#ffffff', 0.9 * sp, 0.3 * sp);
         else this.add(e.x, e.y, (e.r || 6) * (e.boss ? 3.4 : 2.8), '#ffffff', 0.2 * sp, 0);
       }
     }
@@ -261,7 +286,7 @@ export class Lighting {
     if (zs) {
       for (let i = 0; i < zs.length; i++) {
         const z = zs[i];
-        if (z.dead) continue;
+        if (z.dead || !zoneVisible(z, world.room)) continue;
         let x = z.x, y = z.y, r = z.r || 16;
         if (z.shape === 'line') {
           x = (z.x + z.x2) / 2; y = (z.y + z.y2) / 2;

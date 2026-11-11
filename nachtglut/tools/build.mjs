@@ -36,6 +36,33 @@ const optionalModules = {
   },
 };
 
+/**
+ * Modules that call import() with a variable (e.g. `tryImport(path)` helpers) cannot be bundled as-is and would
+ * try to fetch files at runtime (fails via file://). For such a file, every relative '….js' string literal that
+ * names an existing module is mapped to a static import() and the variable call is routed through that map.
+ */
+const variableImports = {
+  name: 'variable-imports',
+  setup(b) {
+    b.onLoad({ filter: /[\\/]src[\\/].*\.js$/ }, (args) => {
+      const src = fs.readFileSync(args.path, 'utf8');
+      const dynVar = /(^|[^\w$.])import\(\s*(?!['"`])(?!\))/g;
+      if (!dynVar.test(src)) return undefined;
+      const dir = path.dirname(args.path);
+      const lits = new Set();
+      for (const m of src.matchAll(/(['"])(\.\.?\/[^'"\n]+?\.js)\1/g)) {
+        if (fs.existsSync(path.resolve(dir, m[2]))) lits.add(m[2]);
+      }
+      const entries = [...lits].map((l) => `${JSON.stringify(l)}: () => import(${JSON.stringify(l)})`).join(',\n  ');
+      const helper = `const __bundledImports = {\n  ${entries}\n};\n`
+        + 'const __bundledImport = (p) => (Object.prototype.hasOwnProperty.call(__bundledImports, p) ? __bundledImports[p]() : Promise.reject(new Error("module not bundled: " + p)));\n';
+      const body = src.replace(dynVar, (m0, pre) => `${pre}__bundledImport(`);
+      console.log(`  (variable import() in ${path.relative(ROOT, args.path)}: mapped ${lits.size} module path(s))`);
+      return { contents: helper + body, loader: 'js' };
+    });
+  },
+};
+
 const result = await esbuild.build({
   entryPoints: [path.join(ROOT, 'src/main.js')],
   bundle: true,
@@ -46,7 +73,7 @@ const result = await esbuild.build({
   legalComments: 'none',
   write: false,
   logLevel: 'warning',
-  plugins: [optionalModules],
+  plugins: [optionalModules, variableImports],
 });
 let js = result.outputFiles[0].text;
 // never let the bundle close the inline <script> early
