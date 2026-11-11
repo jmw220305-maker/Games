@@ -30,8 +30,8 @@ export function planFloor(rng, index) {
   }
   const fightRooms = N - 2 - nonFight.length;
   const fights = ['elite'];
-  if (rng.chance(index >= 3 ? 0.55 : 0.25) && fightRooms - fights.length >= 3) fights.push('elite');
-  if (rng.chance(index === 1 ? 0.35 : 0.6) && fightRooms - fights.length >= 3) fights.push('challenge');
+  if (rng.chance(index >= 3 ? 0.55 : index === 2 ? 0.25 : 0.15) && fightRooms - fights.length - 1 >= 3) fights.push('elite');
+  if (rng.chance(index === 1 ? 0.35 : 0.6) && fightRooms - fights.length - 1 >= 2) fights.push('challenge');
   const mainLen = Math.max(5, Math.min(9, Math.round(N * 0.5) + rng.int(-1, 1)));
   const loops = index === 1 ? (rng.chance(0.5) ? 1 : 0) : index === 2 ? 1 : rng.int(1, 2);
   const desiredLeaves = nonFight.filter((t) => LEAFY.has(t)).length;
@@ -320,7 +320,14 @@ export function assignTypes(rng, graph, plan) {
   }
   // first elite: right before the boss, or a deep dead end
   const elites = count('elite');
-  place('elite', (i) => (i === pred && preferPred ? 12 : 0) + (isLeaf(i) ? 3 : 0) + nodes[i].depth * 0.4);
+  const leafSpare = () => {
+    const freeLeaves = nodes.filter((nd) => types[nd.id] === null && isLeaf(nd.id)).length;
+    const placed = types.filter((t) => LEAFY.has(t)).length;
+    return freeLeaves > specials.filter((t) => LEAFY.has(t)).length - placed;
+  };
+  const eliteScore = (predBonus) => (i) => (i === pred ? predBonus : 0) + (isLeaf(i) ? (leafSpare() ? 3 : -2) : 0)
+    + (nodes[i].main && nodes[i].depth >= half ? 2 : 0) + nodes[i].depth * 0.4;
+  place('elite', eliteScore(preferPred ? 12 : 1));
   // rest: second half of the path
   place('rest', (i) => (nodes[i].depth >= half ? 6 : -4) + (isLeaf(i) ? 3 : 0) + (nodes[i].main ? 0 : 1) - (i === pred ? 3 : 0));
   // leafy specials
@@ -330,7 +337,7 @@ export function assignTypes(rng, graph, plan) {
   for (let k = 0; k < count('shrine'); k++) place('shrine', leafy(() => 0));
   if (count('forge')) place('forge', leafy((i) => (nodes[i].depth >= 2 ? 1 : 0)));
   for (let k = 1; k < elites; k++) {
-    place('elite', (i) => (i === pred ? 6 : 0) + (isLeaf(i) ? 3 : 0) + nodes[i].depth * 0.5);
+    place('elite', eliteScore(6));
   }
   if (count('challenge')) place('challenge', (i) => (nodes[i].main ? 0 : 2) + (nodes[i].depth >= 2 ? 1 : 0));
   for (let i = 0; i < n; i++) if (types[i] === null) types[i] = 'combat';

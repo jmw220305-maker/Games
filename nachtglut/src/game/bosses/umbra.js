@@ -391,7 +391,7 @@ export const UMBRA_DEFS = {
   boss_umbra: {
     id: 'boss_umbra', name: 'Umbra, der Zwillingsschatten', title: 'Klinge des Schattenkerns',
     desc: 'Ein Schattenduellant, der zwischen den Lichtern springt. Verwundet reißt er sich entzwei – zwei Klingen, ein Leben.',
-    biome: 'void', boss: true, hp: 3000, speed: 72, damage: 20, r: 13, mass: 0, xp: 120, sparks: [70, 95],
+    biome: 'void', boss: true, hp: 3000, speed: 72, damage: 20, r: 14, mass: 0, xp: 120, sparks: [70, 95],
     sprite: 'boss_umbra', color: COL.body, light: { r: 64, color: COL.blade }, shadow: true, contactType: 'shadow',
     ai: 'boss_umbra', aiParams: {},
     hooks: {
@@ -402,7 +402,7 @@ export const UMBRA_DEFS = {
   boss_umbra_twin: {
     id: 'boss_umbra_twin', name: 'Umbras Spiegelschatten', title: 'Die andere Hälfte',
     desc: 'Umbras abgespaltene Hälfte in umgekehrten Farben. Jeder Treffer trifft beide.',
-    biome: 'void', boss: true, hp: 3000, speed: 72, damage: 20, r: 13, mass: 0, xp: 0, sparks: [0, 0],
+    biome: 'void', boss: true, hp: 3000, speed: 72, damage: 20, r: 14, mass: 0, xp: 0, sparks: [0, 0],
     sprite: 'boss_umbra_twin', color: COL.twin, light: { r: 64, color: COL.twin }, shadow: true, contactType: 'shadow',
     ai: 'boss_umbra_twin', aiParams: {},
     hooks: {

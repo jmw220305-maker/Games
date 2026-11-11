@@ -39,6 +39,21 @@ function makePlacer(rng, room, avoidPts) {
       if (P.tile(x + 1, y) === WALL) return 'e';
       return null;
     },
+    /** wall tile that belongs to the room outline (border or next to VOID) */
+    isShell(x, y) {
+      if (P.tile(x, y) !== WALL) return false;
+      if (x <= 0 || y <= 0 || x >= w - 1 || y >= h - 1) return true;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (P.tile(x + dx, y + dy) === TILE.VOID) return true;
+      return false;
+    },
+    /** side of an adjacent outline wall, or null */
+    shellSide(x, y) {
+      if (P.isShell(x, y - 1)) return 'n';
+      if (P.isShell(x, y + 1)) return 's';
+      if (P.isShell(x - 1, y)) return 'w';
+      if (P.isShell(x + 1, y)) return 'e';
+      return null;
+    },
     free(x, y, adj = false) {
       if (x < 1 || y < 1 || x > w - 2 || y > h - 2) return false;
       const i = y * w + x;
@@ -123,14 +138,16 @@ function spreadPick(rng, cands, picked, minD = 0, k = 12) {
 }
 
 function placeTorches(rng, P, n, opts = {}) {
-  const cands = P.cells((x, y) => P.free(x, y) && P.wallSide(x, y));
+  let cands = P.cells((x, y) => P.free(x, y) && P.shellSide(x, y));
+  if (cands.length < n * 3) cands = cands.concat(P.cells((x, y) => P.free(x, y) && !P.shellSide(x, y) && P.wallSide(x, y)));
   const placed = [];
   for (let k = 0; k < n && cands.length; k++) {
     let ok = false;
-    for (let t = 0; t < 4 && !ok; t++) {
-      const c = spreadPick(rng, cands, placed, opts.minD ?? 4, 16);
-      if (!c) break;
-      if (P.add('torch', c[0], c[1], { wall: P.wallSide(c[0], c[1]) })) { placed.push(c); ok = true; }
+    for (let t = 0; t < 6 && !ok && cands.length; t++) {
+      const c = spreadPick(rng, cands, placed, t < 3 ? (opts.minD ?? 4) : 2, 16);
+      if (!c) continue;
+      const side = P.shellSide(c[0], c[1]) || P.wallSide(c[0], c[1]);
+      if (P.add('torch', c[0], c[1], { wall: side })) { placed.push(c); ok = true; }
       else cands.splice(cands.indexOf(c), 1);
     }
   }
@@ -270,13 +287,13 @@ function placeShop(rng, room, P) {
 
 function placeBossTorches(rng, room, P) {
   const pairs = rng.int(2, 4);
-  const cands = P.cells((x, y) => x < room.w / 2 - 1 && P.free(x, y) && P.wallSide(x, y) && P.free(room.w - 1 - x, y));
+  const cands = P.cells((x, y) => x < room.w / 2 - 1 && P.free(x, y) && P.shellSide(x, y) && P.free(room.w - 1 - x, y) && P.shellSide(room.w - 1 - x, y));
   const placed = [];
   for (let k = 0; k < pairs && cands.length; k++) {
     const c = spreadPick(rng, cands, placed, 4, 20);
     if (!c) break;
     const m = room.w - 1 - c[0];
-    const got = P.group([['torch', c[0], c[1], { wall: P.wallSide(c[0], c[1]) }], ['torch', m, c[1], { wall: P.wallSide(m, c[1]) }]]);
+    const got = P.group([['torch', c[0], c[1], { wall: P.shellSide(c[0], c[1]) }], ['torch', m, c[1], { wall: P.shellSide(m, c[1]) }]]);
     if (got) placed.push(c, [m, c[1]]);
     cands.splice(cands.indexOf(c), 1);
     k -= got ? 0 : 1;
@@ -334,7 +351,7 @@ function makeSpawns(rng, room, P, ctx) {
   if (!cands.length) return [];
 
   const area = cands.length;
-  const areaF = Math.max(0.7, Math.min(1.4, area / 190));
+  const areaF = Math.max(0.75, Math.min(1.4, area / 160));
   let mul = 1;
   if (room.type === 'elite') mul = 1.25;
   else if (room.type === 'challenge') mul = 1.6;

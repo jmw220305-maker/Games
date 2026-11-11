@@ -129,6 +129,7 @@ async function boot() {
     sprites,
     renderRoomStatic: tilesMod && tilesMod.renderRoomStatic,
     drawRoomDynamic: tilesMod && tilesMod.drawRoomDynamic,
+    roomLights: tilesMod && tilesMod.roomLights,
   });
 
   if (!gameMod || !gameMod.Game) {

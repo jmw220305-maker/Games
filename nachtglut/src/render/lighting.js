@@ -214,7 +214,7 @@ export class Lighting {
       let r = (p.stats && p.stats.lightRadius) || 110;
       r *= 1 + Math.sin(time * 7.3) * 0.022 + Math.sin(time * 13.1 + 1.7) * 0.014;
       if (p.alive === false) r *= 0.75;
-      this.add(p.x, p.y - 2, r, PLAYER_LIGHT, 1, 0.16);
+      this.add(p.x, p.y - 2, r, PLAYER_LIGHT, 1, 0.2);
     }
     // fx lights (explosions, skills)
     fx = fx || world.fx;

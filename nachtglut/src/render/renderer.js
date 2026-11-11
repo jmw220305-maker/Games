@@ -14,6 +14,8 @@ const LOOK_AHEAD = 14;
 const CAM_LERP = 7;
 const CULL = 28;
 const AFTER_N = 10;
+const DARKNESS_BOOST = 0.12;   // added to biome.darkness: unlit floor ≈ 25-30 % brightness
+const FOG_DARKEN = -0.3;       // the darkness colour is the biome fog pushed toward black
 
 const K_PROP = 0, K_PICKUP = 1, K_ENEMY = 2, K_PLAYER = 3;
 
@@ -65,6 +67,7 @@ export class Renderer {
     this.lighting = new Lighting();
     this.menubg = new MenuBg();
     this.lightingEnabled = true;
+    this.darknessBoost = DARKNESS_BOOST;
     // y-sort list (pooled slots)
     this.slotPool = [];
     this.list = [];
@@ -87,6 +90,8 @@ export class Renderer {
     this.sprites = art.sprites && typeof art.sprites.draw === 'function' && typeof art.sprites.has === 'function' ? art.sprites : null;
     this.renderRoomStatic = typeof art.renderRoomStatic === 'function' ? art.renderRoomStatic : null;
     this.drawRoomDynamic = typeof art.drawRoomDynamic === 'function' ? art.drawRoomDynamic : null;
+    this.lighting.roomLights = typeof art.roomLights === 'function' ? art.roomLights : null;
+    this.lighting.hazards = new WeakMap();
     this.badKeys.clear();
     this.dynBroken = false;
     this.invalidateRooms();
@@ -251,7 +256,8 @@ export class Renderer {
     if (fx && fx.drawParticles) fx.drawParticles(ctx, camX, camY, vw, vh);
     // lighting
     if (this.lightingEnabled) {
-      this.lighting.render(ctx, world, fx, camX, camY, vw, vh, t, biome.darkness ?? 0.6, fog);
+      const dark = clamp((biome.darkness ?? 0.6) + this.darknessBoost, 0, 0.9);
+      this.lighting.render(ctx, world, fx, camX, camY, vw, vh, t, dark, shade(fog, FOG_DARKEN));
     }
     // after lighting: always readable
     ctx.setTransform(1, 0, 0, 1, -camX, -camY);
@@ -299,6 +305,15 @@ export class Renderer {
     }
     const d = (fallbackR || 6) * 2;
     return { w: d, h: d };
+  }
+
+  /**
+   * Sprite centre y for a unit (art convention): ground units stand with their feet at the bottom of the
+   * collision circle (y + r + 1); flying units are centred on (x, y) and bob slightly.
+   */
+  unitDrawY(e, h, t) {
+    if (e.flying) return e.y - 3 + Math.sin(t * 5 + (e.uid || 0)) * 1.2;
+    return e.y - h / 2 + (e.r || 5) + 1;
   }
 
   shadow(ctx, x, y, w, h, alpha) {
@@ -586,7 +601,7 @@ export class Renderer {
         ctx.strokeStyle = ac;
         ctx.lineWidth = 1;
         ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 5 + e.uid);
-        ctx.beginPath(); ctx.ellipse(e.x, e.y + (e.r || 6) * 0.55, r, r * 0.5, 0, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(e.x, e.y + (e.flying ? (e.r || 6) + 2 : (e.r || 6) * 0.8), r, r * 0.5, 0, 0, TAU); ctx.stroke();
         ctx.globalAlpha = 0.14;
         ctx.fillStyle = ac;
         ctx.fill();
@@ -740,28 +755,29 @@ export class Renderer {
     }
     const has = this.has(key);
     const sz = has ? this.sizeOf(key, r) : null;
-    const halfH = sz ? sz.h / 2 : r;
-    const fy = e.flying ? -4 + Math.sin(t * 5 + (e.uid || 0)) * 1.2 : 0;
-    // shadow
+    const h = sz ? sz.h : r * 2;
+    const dy = has ? this.unitDrawY(e, h, t) : e.y + (e.flying ? -3 : 0);
+    // shadow at the feet (flying: on the ground below the body)
     const sw = sz ? Math.min(sz.w * 0.8, r * 2.8) : r * 2.2;
-    this.shadow(ctx, e.x, e.y + (e.flying ? halfH + 1 : halfH * 0.75), sw * (e.flying ? 0.7 : 1), sw * 0.38, (e.flying ? 0.4 : 0.65) * alpha);
+    const shY = e.flying ? Math.max(e.y + r, dy + h / 2) + 2 : e.y + r;
+    this.shadow(ctx, e.x, shY, sw * (e.flying ? 0.7 : 1), Math.max(3, sw * 0.38), (e.flying ? 0.4 : 0.65) * alpha);
     const flash = e.frozen ? Math.max(e.flash || 0, 0.38) : e.flash || 0;
     if (has) {
-      this.spr(ctx, key, e.x, e.y + fy, this.opt(e.anim, e.animT, e.flipX, flash, alpha, scale));
+      this.spr(ctx, key, e.x, dy, this.opt(e.anim, e.animT, e.flipX, flash, alpha, scale));
     } else {
       const col = def.color || '#c0508a';
-      this.disc(ctx, e.x, e.y + fy, r * scale, flash > 0.5 ? '#ffffff' : col, alpha);
+      this.disc(ctx, e.x, dy, r * scale, flash > 0.5 ? '#ffffff' : col, alpha);
       const dir = e.flipX ? -1 : 1;
       ctx.globalAlpha = alpha;
       ctx.fillStyle = e.boss ? '#ffd35a' : '#ffffff';
-      ctx.fillRect(Math.round(e.x + dir * r * 0.3), Math.round(e.y + fy - r * 0.25), 1, 1);
-      ctx.fillRect(Math.round(e.x + dir * r * 0.3 + dir * 2), Math.round(e.y + fy - r * 0.25), 1, 1);
+      ctx.fillRect(Math.round(e.x + dir * r * 0.3), Math.round(dy - r * 0.25), 1, 1);
+      ctx.fillRect(Math.round(e.x + dir * r * 0.3 + dir * 2), Math.round(dy - r * 0.25), 1, 1);
       ctx.globalAlpha = 1;
     }
     // frozen: ice block
     if (e.frozen) {
-      const w = sz ? sz.w : r * 2, h = sz ? sz.h : r * 2;
-      const x = Math.round(e.x - w / 2) - 1, y = Math.round(e.y + fy - h / 2) - 1;
+      const w = sz ? sz.w : r * 2;
+      const x = Math.round(e.x - w / 2) - 1, y = Math.round(dy - h / 2) - 1;
       ctx.globalAlpha = 0.28;
       ctx.fillStyle = '#9fdcff';
       ctx.fillRect(x, y, w + 2, h + 2);
@@ -797,16 +813,16 @@ export class Renderer {
       const a = 0.42 * (1 - age / 0.22);
       if (has) {
         ctx.globalCompositeOperation = 'lighter';
-        this.spr(ctx, key, this.afterX[i], this.afterY[i], this.opt('dash', 0, this.afterF[i] === 1, 1, a, 1));
+        this.spr(ctx, key, this.afterX[i], this.afterY[i] - sz.h / 2 + (p.r || 5) + 1, this.opt('dash', 0, this.afterF[i] === 1, 1, a, 1));
         ctx.globalCompositeOperation = 'source-over';
       } else this.disc(ctx, this.afterX[i], this.afterY[i], p.r || 5, color, a);
     }
-    this.shadow(ctx, p.x, p.y + sz.h * 0.42, Math.min(14, sz.w * 0.85), 4, 0.7);
+    this.shadow(ctx, p.x, p.y + (p.r || 5), Math.min(14, sz.w * 0.85), 4, 0.7);
     let alpha = 1;
     if (p.alive === false) alpha = clamp(run.dyingT != null ? run.dyingT / 1.6 : 0.4, 0.2, 1);
     else if (p.iframes > 0 && !p.dashing) alpha = (t * 18) & 1 ? 0.35 : 1;
     const flash = p.hurtT > 0 ? Math.min(1, p.hurtT / 0.25) : 0;
-    if (has) this.spr(ctx, key, p.x, p.y, this.opt(p.anim || 'idle', p.animT || 0, p.flipX, flash, alpha, 1));
+    if (has) this.spr(ctx, key, p.x, p.y - sz.h / 2 + (p.r || 5) + 1, this.opt(p.anim || 'idle', p.animT || 0, p.flipX, flash, alpha, 1));
     else {
       this.disc(ctx, p.x, p.y, p.r || 5, flash > 0.5 ? '#ffffff' : color, alpha);
       ctx.fillStyle = '#fff3b0';
@@ -894,9 +910,9 @@ export class Renderer {
         if (e.dead || e.hidden || e.spawnT > 0) continue;
         if (!this.inView(e.x, e.y, 8)) continue;
         const key = (e.def && e.def.sprite) || e.id;
-        const halfH = this.has(key) ? this.sizeOf(key, e.r).h / 2 : (e.r || 6);
-        const fy = e.flying ? -4 : 0;
-        let top = Math.round(e.y + fy - halfH - 3);
+        let top;
+        if (this.has(key)) { const h = this.sizeOf(key, e.r).h; top = Math.round(this.unitDrawY(e, h, t) - h / 2 - 3); }
+        else top = Math.round(e.y - (e.r || 6) - (e.flying ? 3 : 0) - 3);
         const elite = e.elite && e.elite.length > 0;
         if (!e.boss && (e.hpBarT > 0 || elite)) {
           const w = clamp(Math.round((e.r || 6) * 2 + 2), 10, 26);
@@ -939,7 +955,9 @@ export class Renderer {
     const tg = p && p.target;
     if (tg && !tg.dead && !tg.hidden && p.alive !== false) {
       const r = (tg.r || 6) + 4 + Math.sin(t * 8) * 0.6;
-      const x = Math.round(tg.x), y = Math.round(tg.y + (tg.flying ? -4 : 0));
+      const tkey = (tg.def && tg.def.sprite) || tg.id;
+      const th = this.has(tkey) ? this.sizeOf(tkey, tg.r).h : 0;
+      const x = Math.round(tg.x), y = Math.round(th ? this.unitDrawY(tg, th, t) : tg.y);
       ctx.fillStyle = '#ffe0a0';
       ctx.globalAlpha = 0.8;
       const L = 3, R = Math.round(r);

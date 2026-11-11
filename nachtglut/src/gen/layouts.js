@@ -26,7 +26,7 @@ export function makeLayoutContext(rng, room, opts) {
       if ((t === WALL || t === PIT) && noBlock[i]) return false;
       if (t === SPIKES || t === HAZARD || t === ICE) {
         if (L.safe || noHaz[i]) return false;
-        if (tiles[i] !== FLOOR && tiles[i] !== ICE && tiles[i] !== HAZARD && tiles[i] !== SPIKES) return false;
+        if (tiles[i] !== FLOOR && tiles[i] !== t) return false;
       }
       tiles[i] = t;
       return true;
@@ -218,13 +218,13 @@ export const LAYOUTS = {
       const { rng } = L;
       const tile = L.frost ? (rng.chance(0.15) ? HAZARD : ICE) : HAZARD;
       const mode = rng.pick(['r', 'x', 'y', 'xy']);
-      const n = rng.int(1, 2) + (L.level > 0.6 ? 1 : 0);
+      const n = Math.max(1, rng.int(1, 2) + (L.level > 0.75 ? 1 : 0) - (mode === 'xy' ? 1 : 0));
       const xb = mode === 'y' ? L.x1 - 3 : Math.floor(L.cx) - 1;
       const yb = mode === 'y' || mode === 'xy' ? Math.floor(L.cy) - 1 : L.y1 - 3;
       for (let k = 0; k < n; k++) {
         const x = rng.int(L.x0 + 3, Math.max(L.x0 + 3, xb)), y = rng.int(L.y0 + 2, Math.max(L.y0 + 2, yb));
-        const r = rng.float(1.2, 1.6 + L.level * 1.4);
-        L.disc(x, y, r * rng.float(1, 1.4), r, tile, mode);
+        const r = rng.float(1.2, 1.5 + L.level * 1.1);
+        L.disc(x, y, r * rng.float(1, 1.35), r, tile, mode);
         if (rng.chance(0.4)) L.sput(x, y, WALL, mode);
       }
     },

@@ -160,7 +160,7 @@ function equip(g, wid, level) {
   return ws;
 }
 
-const SINGLE_DIST = { iron_hammer: 30 };
+const SINGLE_DIST = { iron_hammer: 30, scatter_coal: 36 };
 
 /** Sustained damage per second over `seconds` with the trigger held. mode: 'single' | 'cluster'. */
 function measure(g, wid, level, mode, seconds = 10) {
@@ -231,10 +231,11 @@ test('weapons: swapping / room changes clean up persistent attacks', async () =>
     dummy(w, p.x + 40, p.y);
     for (let i = 0; i < 30; i++) g.update(DT);
     assert.equal(w.projectiles.filter((q) => q.weaponId === 'glaive_orbit' && !q.dead).length, 5, 'L5: 5 blades');
-    p._unequip(ws);
+    p.weapons = [ws, makeWeaponState(WEAPONS.ember_bolt, 1)];
+    p.swapWeapon();
     g.update(DT);
-    assert.equal(w.projectiles.filter((q) => q.weaponId === 'glaive_orbit' && !q.dead).length, 0, 'blades removed on unequip');
-    p._equip(ws);
+    assert.equal(w.projectiles.filter((q) => q.weaponId === 'glaive_orbit' && !q.dead).length, 0, 'blades removed on swap');
+    p.swapWeapon();
     const w2 = enterRoom(g, makeRoom(30, 20));
     for (let i = 0; i < 5; i++) g.update(DT);
     assert.equal(w2.projectiles.filter((q) => q.weaponId === 'glaive_orbit' && !q.dead).length, 5, 'blades respawn after a room change');

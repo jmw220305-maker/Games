@@ -5,7 +5,7 @@ import { makeCanvas, glowSprite, vignetteSprite, shade } from './lighting.js';
 
 const TAU = Math.PI * 2;
 const N_EMBERS = 70;
-const N_FLAMES = 46;
+const N_FLAMES = 80;
 const N_DUST = 70;
 
 // deterministic hash noise (no Math.random in the static layer so resizes look identical)
@@ -20,7 +20,7 @@ function noise1(x, seed) {
   const u = f * f * (3 - 2 * f);
   return a + (b - a) * u;
 }
-const FLAME_RAMP = ['#fffbe0', '#ffe9a0', '#ffd35a', '#ffb347', '#ff8a3c', '#ff5a1f', '#c8321a', '#5a1a10'];
+const FLAME_RAMP = ['#fff6c8', '#ffe27a', '#ffd35a', '#ffb347', '#ff9a3c', '#ff7a2f', '#ff5a1f', '#d8401a', '#a02a14', '#5a1a10'];
 
 export class MenuBg {
   constructor() {
@@ -94,7 +94,7 @@ export class MenuBg {
           g.fillRect(rx, y, 1, 1);
           // strata ledges
           if (h1(y * 31 + 5) > 0.93) {
-            g.fillStyle = `rgba(255,140,80,${(0.05 + warm * 0.18).toFixed(3)})`;
+            g.fillStyle = `rgba(255,140,80,${(0.03 + warm * 0.1).toFixed(3)})`;
             g.fillRect(Math.max(0, lx - 18 - Math.round(h1(y) * 20)), y, 18, 1);
             g.fillRect(rx + 2, y, 14 + Math.round(h1(y + 9) * 18), 1);
           }
@@ -130,12 +130,13 @@ export class MenuBg {
   }
 
   _spawnFlame(f) {
-    f.x = this.fireX + (Math.random() - 0.5) * 9;
+    const u = Math.random() - 0.5;
+    f.x = this.fireX + u * 13;
     f.y = this.fireY + 1;
     f.vx = (Math.random() - 0.5) * 6;
-    f.vy = -(14 + Math.random() * 22);
-    f.life = f.t = 0.35 + Math.random() * 0.45;
-    f.s = Math.random() < 0.5 ? 2 : 3;
+    f.vy = -(16 + Math.random() * 26) * (1 - Math.abs(u) * 0.9); // taller in the middle
+    f.life = f.t = 0.4 + Math.random() * 0.5;
+    f.s = Math.random() < 0.4 ? 2 : 3;
   }
 
   _spawnEmber(e, anywhere) {
@@ -192,7 +193,7 @@ export class MenuBg {
       ctx.drawImage(glowSprite('#ffd35a'), fx - r2, fy - r2 - 4, r2 * 2, r2 * 2);
     }
     // flames
-    let spawn = dt * 70;
+    let spawn = dt * 120;
     for (let i = 0; i < N_FLAMES; i++) {
       const f = this.flames[i];
       if (f.t <= 0) { if (spawn >= 1 || (spawn > 0 && Math.random() < spawn)) { this._spawnFlame(f); spawn -= 1; } else continue; }
@@ -200,7 +201,7 @@ export class MenuBg {
       if (f.t <= 0) continue;
       f.x += (f.vx + Math.sin(t * 9 + i) * 4) * dt;
       f.y += f.vy * dt;
-      f.x += (fx - f.x) * dt * 2.5; // pull toward the centre: tapered flame
+      f.x += (fx - f.x) * dt * 3.2; // pull toward the centre: tapered flame
       const k = 1 - f.t / f.life;
       const ci = Math.min(FLAME_RAMP.length - 1, Math.floor(k * FLAME_RAMP.length));
       const s = k > 0.6 ? 1 : f.s;

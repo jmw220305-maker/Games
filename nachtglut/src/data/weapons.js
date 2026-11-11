@@ -152,8 +152,8 @@ function lanceTrail(w, ws, p) {
   if (len < 8) return;
   weaponZone(w, ws, {
     shape: 'line', x: d.sx, y: d.sy, x2: p.x, y2: p.y, width: 10 * w.player.stats.projSize,
-    duration: 1.4, tick: 0.45, color: '#ff6a1f', type: 'fire',
-  }, ws.stats.damage * 0.16, { status: wStatus(w, 'burn', 3, 2, { chance: 0.35 }) });
+    duration: 1.2, tick: 0.4, color: '#ff6a1f', type: 'fire',
+  }, ws.stats.damage * 0.09, { status: wStatus(w, 'burn', 3, 2, { chance: 0.3 }) });
 }
 
 // magma_mortar
@@ -230,7 +230,9 @@ function riftUpdate(w, p, dt) {
   const d = p.data, st = d.ws.stats;
   if (Math.abs(p.vx) + Math.abs(p.vy) > 0.5) p.angle = Math.atan2(p.vy, p.vx);
   const k = Math.max(0.18, 1 - p.age / Math.max(0.1, p.life) * 0.9);
-  const sp = d.stuck ? 0 : d.s0 * k;
+  // the rift latches on: it nearly stops while it is grinding an enemy
+  const grinding = !!w.findNearestEnemy(p.x, p.y, p.r + 10);
+  const sp = d.stuck ? 0 : d.s0 * k * (grinding ? 0.25 : 1);
   p.vx = Math.cos(p.angle) * sp; p.vy = Math.sin(p.angle) * sp;
   const R = st.pullRadius * w.player.stats.projSize;
   for (const e of w.enemiesInRadius(p.x, p.y, R)) {
@@ -274,9 +276,14 @@ function spawnBlade(w, ws, player) {
   return w.spawnProjectile({
     x: player.x, y: player.y, vx: 0, vy: 0, r: ws.stats.size * player.stats.projSize, damage: 0,
     team: 'player', owner: player, weaponId: ws.def.id, ghost: true, pierce: Infinity, life: 1e9,
-    hitInterval: ws.stats.hitInterval, knockback: 0, sprite: 'proj_blade', color: ws.def.color, scale: player.stats.projSize, spin: 0,
+    hitInterval: ws.stats.hitInterval * 0.5, knockback: 0, sprite: 'proj_blade', color: ws.def.color, scale: player.stats.projSize, spin: 0,
     light: { r: 16, color: '#d8e0ea' },
     onHit(w2, p, e) {
+      // per-enemy interval shared by all blades: more blades cover more enemies, not more hits on one
+      const d = ws.data, last = d.hitT && d.hitT.get(e);
+      if (!d.hitT) d.hitT = new WeakMap();
+      if (last != null && w2.time >= last && w2.time - last < ws.stats.hitInterval) return;
+      d.hitT.set(e, w2.time);
       const ps = w2.player.stats;
       playerDamage(w2, ws, e, ws.stats.damage, { knockback: { x: e.x - w2.player.x, y: e.y - w2.player.y, force: ws.stats.knockback * ps.knockback } });
       w2.fx.burst('spark', e.x, e.y, { count: 3, color: '#e8eef5' });
@@ -357,7 +364,7 @@ export const WEAPONS = {
     id: 'ember_bolt', name: 'Glutbolzen', rarity: 'common', type: 'fire', tags: ['fire', 'projectile'],
     desc: 'Ein verlässlicher Bolzen aus gebündelter Glut. Setzt Gegner gelegentlich in Brand.',
     icon: { glyph: 'flame', color: '#ff8a3c' }, projSprite: 'proj_bolt', color: '#ffb347',
-    base: { damage: 7.6, cooldown: 0.34, projSpeed: 280, range: 230, size: 3, count: 1, spread: 0.16, pierce: 0, knockback: 50, burnChance: 0.15, burnPower: 4, split: 0 },
+    base: { damage: 7.2, cooldown: 0.34, projSpeed: 280, range: 230, size: 3, count: 1, spread: 0.16, pierce: 0, knockback: 50, burnChance: 0.15, burnPower: 4, split: 0 },
     levels: [
       { desc: '+25 % Schaden', mods: { damage: 1.25 } },
       { desc: '+18 % Feuerrate, Bolzen durchschlagen 1 Gegner', mods: { cooldown: 0.85, '+pierce': 1 } },
@@ -379,12 +386,12 @@ export const WEAPONS = {
     id: 'scatter_coal', name: 'Streukohle', rarity: 'common', type: 'fire', tags: ['fire', 'projectile', 'shotgun'],
     desc: 'Ein Fächer glühender Kohlesplitter. Verheerend aus nächster Nähe, harter Rückstoß.',
     icon: { glyph: 'ember', color: '#ff6a1f' }, projSprite: 'proj_shard', color: '#ff7a2f',
-    base: { damage: 4.4, cooldown: 0.72, projSpeed: 300, range: 125, size: 2.5, count: 5, spread: 0.5, jitter: 0.05, pierce: 0, knockback: 70, burnChance: 0 },
+    base: { damage: 4.8, cooldown: 0.72, projSpeed: 300, range: 125, size: 2.5, count: 5, spread: 0.5, jitter: 0.05, pierce: 0, knockback: 70, burnChance: 0 },
     levels: [
-      { desc: '+1 Splitter', mods: { '+count': 1 } },
       { desc: '+25 % Schaden', mods: { damage: 1.25 } },
-      { desc: 'Glühende Splitter: durchschlagen 1 Gegner, 20 % Brandchance', mods: { '+pierce': 1, '+burnChance': 0.2 } },
-      { desc: '+2 Splitter, +15 % Feuerrate', mods: { '+count': 2, cooldown: 0.87 } },
+      { desc: '+1 Splitter, Splitter fliegen 20 % weiter', mods: { '+count': 1, range: 1.2 } },
+      { desc: 'Glühende Splitter: durchschlagen 1 Gegner, 25 % Brandchance, +10 % Schaden', mods: { '+pierce': 1, '+burnChance': 0.25, damage: 1.1 } },
+      { desc: '+2 Splitter, +20 % Feuerrate, +10 % Schaden', mods: { '+count': 2, cooldown: 0.83, damage: 1.1 } },
     ],
     fire(w, player, ws, aim) {
       const st = ws.stats;
@@ -405,19 +412,21 @@ export const WEAPONS = {
     id: 'flame_lance', name: 'Flammenlanze', rarity: 'uncommon', type: 'fire', tags: ['fire', 'projectile', 'pierce'],
     desc: 'Eine blitzschnelle Lanze aus weißer Glut, die mehrere Gegner durchbohrt.',
     icon: { glyph: 'sword', color: '#ff9a3c' }, projSprite: 'proj_beam', color: '#ff9a3c',
-    base: { damage: 15.5, cooldown: 0.62, projSpeed: 520, range: 240, size: 3.5, count: 1, spread: 0.24, pierce: 2, knockback: 45, trail: 0 },
+    base: { damage: 15.5, cooldown: 0.62, projSpeed: 520, range: 240, size: 3.5, count: 1, spread: 0.6, pierce: 2, knockback: 45, trail: 0 },
     levels: [
       { desc: '+25 % Schaden', mods: { damage: 1.25 } },
       { desc: 'Glutspur: Die Lanze hinterlässt eine brennende Linie', mods: { '+trail': 1 } },
       { desc: 'Durchschlägt alle Gegner, +15 % Feuerrate', mods: { '+pierce': 99, cooldown: 0.87 } },
-      { desc: 'Dreizack: +2 Lanzen im Fächer, +10 % Schaden', mods: { '+count': 2, damage: 1.1 } },
+      { desc: 'Dreizack: +2 Lanzen im weiten Fächer, +10 % Schaden', mods: { '+count': 2, damage: 1.1 } },
     ],
     fire(w, player, ws, aim) {
-      const shots = playerVolley(w, ws, aim.angle, {
-        trail: 'ember', scale: 1.35 * player.stats.projSize, light: { r: 30, color: '#ff9a3c' },
-        onExpire: (w2, p) => lanceTrail(w2, ws, p),
-      });
-      for (const p of shots) p.data.sx = p.x, p.data.sy = p.y;
+      const shots = playerVolley(w, ws, aim.angle, { trail: 'ember', scale: 1.35 * player.stats.projSize, light: { r: 30, color: '#ff9a3c' } });
+      // only the centre lance leaves the burning line
+      const mid = shots[(shots.length - 1) >> 1];
+      if (mid && ws.stats.trail) {
+        mid.data.sx = mid.x; mid.data.sy = mid.y;
+        mid.onExpire = (w2, p) => lanceTrail(w2, ws, p);
+      }
       w.fx.burst('ember', player.x + Math.cos(aim.angle) * 8, player.y + Math.sin(aim.angle) * 8, { count: 5, angle: aim.angle, spread: 0.3, speed: 160 });
     },
   },
@@ -427,12 +436,12 @@ export const WEAPONS = {
     id: 'spark_chain', name: 'Funkenkette', rarity: 'uncommon', type: 'shock', tags: ['shock', 'chain'],
     desc: 'Ein Blitz, der von Gegner zu Gegner springt und sie unter Schock setzt.',
     icon: { glyph: 'bolt', color: '#ffe75a' }, projSprite: 'proj_orb', color: '#ffe75a',
-    base: { damage: 10.5, cooldown: 0.5, range: 165, jumps: 3, jumpRange: 72, falloff: 0.85, shockChance: 0.25, knockback: 25 },
+    base: { damage: 10.5, cooldown: 0.5, range: 165, jumps: 3, jumpRange: 72, falloff: 0.8, shockChance: 0.25, knockback: 25 },
     levels: [
-      { desc: '+1 Sprung, +10 % Schaden', mods: { '+jumps': 1, damage: 1.1 } },
+      { desc: '+1 Sprung, +15 % Schaden', mods: { '+jumps': 1, damage: 1.15 } },
       { desc: '+25 % Schaden', mods: { damage: 1.25 } },
       { desc: 'Überladung: Blitze schocken immer, +40 % Sprungweite, +15 % Feuerrate', mods: { '+shockChance': 1, jumpRange: 1.4, cooldown: 0.87 } },
-      { desc: 'Gewitter: +2 Sprünge ohne Schadensverlust, +15 % Schaden', mods: { '+jumps': 2, '+falloff': 0.15, damage: 1.15 } },
+      { desc: 'Gewitter: +2 Sprünge ohne Schadensverlust, +15 % Schaden', mods: { '+jumps': 2, '+falloff': 0.2, damage: 1.15 } },
     ],
     fire(w, player, ws, aim) {
       const st = ws.stats, ps = player.stats, color = ws.def.color;
@@ -469,9 +478,9 @@ export const WEAPONS = {
     id: 'magma_mortar', name: 'Magmamörser', rarity: 'rare', type: 'fire', tags: ['fire', 'explosive', 'projectile', 'area'],
     desc: 'Schleudert einen Magmaklumpen auf den Zielpunkt. Er explodiert und hinterlässt eine brennende Lache.',
     icon: { glyph: 'bomb', color: '#ff5a1f' }, projSprite: 'proj_blob', color: '#ff5a1f',
-    base: { damage: 17, cooldown: 1.1, range: 190, radius: 34, flight: 0.6, puddle: 1.6, puddleDamage: 2.5, cluster: 0, knockback: 120 },
+    base: { damage: 15, cooldown: 1.1, range: 190, radius: 34, flight: 0.6, puddle: 1.6, puddleDamage: 2.2, cluster: 0, knockback: 120 },
     levels: [
-      { desc: '+25 % Explosionsradius', mods: { radius: 1.25 } },
+      { desc: '+25 % Explosionsradius, +10 % Schaden', mods: { radius: 1.25, damage: 1.1, puddleDamage: 1.1 } },
       { desc: '+25 % Schaden', mods: { damage: 1.25, puddleDamage: 1.25 } },
       { desc: 'Streumagma: Die Explosion schleudert 3 Brocken umher', mods: { '+cluster': 3 } },
       { desc: '−20 % Abklingzeit, Lachen brennen 50 % länger', mods: { cooldown: 0.8, puddle: 1.5 } },
@@ -511,8 +520,8 @@ export const WEAPONS = {
     levels: [
       { desc: '+20 % Feuerrate', mods: { cooldown: 0.83 } },
       { desc: 'Nadeln durchschlagen 1 Gegner, +15 % Schaden', mods: { '+pierce': 1, damage: 1.15 } },
-      { desc: 'Kältebiss: +40 % Schaden gegen unterkühlte und gefrorene Gegner', mods: { '+shatter': 0.4 } },
-      { desc: '+1 Nadel pro Salve (je −25 % Schaden), +15 % Kältechance', mods: { '+count': 1, damage: 0.75, '+chillChance': 0.15 } },
+      { desc: 'Kältebiss: +35 % Schaden gegen unterkühlte und gefrorene Gegner', mods: { '+shatter': 0.35 } },
+      { desc: '+1 Nadel pro Salve (je −35 % Schaden), +15 % Kältechance', mods: { '+count': 1, damage: 0.65, '+chillChance': 0.15 } },
     ],
     fire(w, player, ws, aim) {
       const st = ws.stats;
@@ -591,10 +600,10 @@ export const WEAPONS = {
     icon: { glyph: 'mushroom', color: '#9be35a' }, projSprite: 'proj_spore', color: '#9be35a',
     base: { damage: 5, cooldown: 0.85, projSpeed: 120, range: 185, size: 4, count: 1, spread: 0.3, pierce: 0, knockback: 20, homing: 1.2, cloud: 26, cloudTime: 2.2, cloudDamage: 1, poison: 1, poisonStacks: 1, seeds: 0 },
     levels: [
-      { desc: '+30 % Wolkengröße', mods: { cloud: 1.3 } },
+      { desc: '+30 % Wolkengröße, +10 % Schaden', mods: { cloud: 1.3, damage: 1.1, cloudDamage: 1.1, poison: 1.1 } },
       { desc: '+25 % Schaden und Giftstärke', mods: { damage: 1.25, cloudDamage: 1.25, poison: 1.25 } },
-      { desc: 'Sporenteilung: Platzende Sporen streuen 2 kleine Sporen', mods: { '+seeds': 2 } },
-      { desc: 'Fäulnis: Gift stapelt doppelt so schnell, Wolken halten 40 % länger', mods: { '+poisonStacks': 1, cloudTime: 1.4 } },
+      { desc: 'Sporenteilung: Platzende Sporen streuen 2 kleine Sporen, +10 % Schaden', mods: { '+seeds': 2, damage: 1.1, cloudDamage: 1.1, poison: 1.1 } },
+      { desc: 'Fäulnis: Gift stapelt doppelt so schnell und wirkt 20 % stärker, Wolken halten 40 % länger', mods: { '+poisonStacks': 1, cloudTime: 1.4, poison: 1.2 } },
     ],
     fire(w, player, ws, aim) {
       playerVolley(w, ws, aim.angle, {
@@ -609,12 +618,12 @@ export const WEAPONS = {
     id: 'rift_orb', name: 'Rissorb', rarity: 'rare', type: 'shadow', tags: ['shadow', 'projectile', 'area', 'control'],
     desc: 'Ein langsamer Riss in der Wirklichkeit. Er saugt Gegner an, zermahlt sie und fällt in sich zusammen.',
     icon: { glyph: 'spiral', color: '#9a6bff' }, projSprite: 'proj_orb', color: '#9a6bff',
-    base: { damage: 4, cooldown: 1.4, projSpeed: 85, range: 175, size: 7, count: 1, spread: 0.5, pierce: 0, knockback: 0, hitInterval: 0.25, pull: 260, pullRadius: 58, implode: 12, implodeRadius: 44, stun: 0 },
+    base: { damage: 4, cooldown: 1.4, projSpeed: 85, range: 175, size: 7, count: 1, spread: 0.15, pierce: 0, knockback: 0, hitInterval: 0.25, pull: 260, pullRadius: 58, implode: 12, implodeRadius: 44, stun: 0 },
     levels: [
       { desc: '+25 % Sogradius', mods: { pullRadius: 1.25 } },
       { desc: '+25 % Schaden', mods: { damage: 1.25, implode: 1.25 } },
-      { desc: 'Kollaps: Die Implosion ist doppelt so stark und betäubt kurz', mods: { implode: 2, '+stun': 0.6 } },
-      { desc: 'Doppelriss: +1 Orb', mods: { '+count': 1 } },
+      { desc: 'Kollaps: Die Implosion ist 75 % stärker und betäubt kurz', mods: { implode: 1.75, '+stun': 0.6 } },
+      { desc: 'Doppelriss: +1 Orb (je −30 % Schaden)', mods: { '+count': 1, damage: 0.7, implode: 0.7 } },
     ],
     fire(w, player, ws, aim) {
       const ps = player.stats;
@@ -632,7 +641,7 @@ export const WEAPONS = {
     id: 'iron_hammer', name: 'Eisenhammer', rarity: 'common', type: 'phys', tags: ['phys', 'melee', 'knockback'],
     desc: 'Ein schwerer Schwung im Halbkreis vor dir. Schleudert Gegner weit zurück.',
     icon: { glyph: 'hammer', color: '#c9d1d9' }, projSprite: 'proj_hammer', color: '#c9d1d9',
-    base: { damage: 22, cooldown: 0.85, range: 40, arc: 2.1, knockback: 260, wave: 0, stun: 0, quake: 0 },
+    base: { damage: 21, cooldown: 0.85, range: 40, arc: 2.1, knockback: 260, wave: 0, stun: 0, quake: 0 },
     levels: [
       { desc: '+20 % Schaden', mods: { damage: 1.2 } },
       { desc: 'Schockwelle: Jeder Schlag sendet eine Bodenwelle nach vorn', mods: { '+wave': 1 } },
@@ -677,14 +686,14 @@ export const WEAPONS = {
   // -------------------------------------------------------------------------------------------
   glaive_orbit: {
     id: 'glaive_orbit', name: 'Kreisklingen', rarity: 'rare', type: 'phys', tags: ['phys', 'orbit', 'melee'],
-    desc: 'Klingen kreisen unablässig um dich. Halte Feuer, um den Kreis zu weiten.',
+    desc: 'Klingen kreisen unablässig um dich und schneiden jeden Gegner höchstens alle 0,4 s. Halte Feuer, um den Kreis zu weiten.',
     icon: { glyph: 'ring', color: '#d8e0ea' }, projSprite: 'proj_blade', color: '#d8e0ea',
     manual: true,
-    base: { damage: 13, count: 2, radius: 34, extend: 1.75, range: 72, spin: 4.5, size: 5, hitInterval: 0.4, knockback: 90, cooldown: 0 },
+    base: { damage: 13.5, count: 2, radius: 22, extend: 2.4, range: 72, spin: 4.5, size: 6, hitInterval: 0.4, knockback: 90, cooldown: 0 },
     levels: [
       { desc: '+1 Klinge', mods: { '+count': 1 } },
-      { desc: '+25 % Schaden, +15 % Kreisradius', mods: { damage: 1.25, radius: 1.15 } },
-      { desc: '+1 Klinge, Klingen kreisen 20 % schneller', mods: { '+count': 1, spin: 1.2 } },
+      { desc: '+25 % Schaden, Klingen 20 % größer', mods: { damage: 1.25, size: 1.2 } },
+      { desc: '+1 Klinge, Klingen kreisen 20 % schneller, Trefferintervall −15 %', mods: { '+count': 1, spin: 1.2, hitInterval: 0.85 } },
       { desc: 'Klingensturm: +1 Klinge, +15 % Schaden', mods: { '+count': 1, damage: 1.15 } },
     ],
     update(w, player, ws, dt, held) {
@@ -705,7 +714,7 @@ export const WEAPONS = {
         const ang = d.ang + (i / d.blades.length) * TAU;
         b.r = st.size * ps.projSize;
         b.scale = ps.projSize;
-        b.hitInterval = st.hitInterval;
+        b.hitInterval = st.hitInterval * 0.5;
         pin(b, player.x + Math.cos(ang) * R, player.y + Math.sin(ang) * R, Math.cos(ang + Math.PI / 2) * v, Math.sin(ang + Math.PI / 2) * v, dt);
       }
       // one "attack" per revolution while enemies are close (audio + onFire relics)
@@ -727,9 +736,9 @@ export const WEAPONS = {
     base: { damage: 2.3, tick: 0.1, range: 105, heal: 0.05, healCap: 2.5, beams: 1, secondary: 0.6, reap: 0, cooldown: 0.1, knockback: 0 },
     levels: [
       { desc: '+20 % Schaden und Reichweite', mods: { damage: 1.2, range: 1.2 } },
-      { desc: 'Zweiter Strahl: Saugt zusätzlich an einem weiteren Gegner (60 %)', mods: { '+beams': 1 } },
+      { desc: 'Zweiter Strahl: Saugt zusätzlich an einem weiteren Gegner (60 %), +10 % Schaden', mods: { '+beams': 1, damage: 1.1 } },
       { desc: '+25 % Schaden, doppelte Heilung', mods: { damage: 1.25, heal: 2, healCap: 2 } },
-      { desc: 'Seelenernte: Gegner, die am Strahl sterben, explodieren in Seelenfeuer, +10 % Schaden', mods: { '+reap': 1, damage: 1.1 } },
+      { desc: 'Seelenernte: Gegner, die am Strahl sterben, explodieren in Seelenfeuer, +15 % Schaden', mods: { '+reap': 1, damage: 1.15 } },
     ],
     update(w, player, ws, dt, held, aim) {
       const st = ws.stats, ps = player.stats, d = ws.data;
@@ -787,11 +796,11 @@ export const WEAPONS = {
     desc: 'Halten zum Spannen. Je länger, desto härter der Pfeil – voll gespannt zerbirst er in Sterne.',
     icon: { glyph: 'bow', color: '#fff3b0' }, projSprite: 'proj_bolt', color: '#fff3b0',
     manual: true,
-    base: { damage: 25, charge: 0.85, minCharge: 0.2, recover: 0.12, cooldown: 0.85, projSpeed: 380, range: 280, size: 3, count: 1, spread: 0.12, pierce: 1, knockback: 130, stars: 5, starDamage: 0.3, starHoming: 0 },
+    base: { damage: 23.5, charge: 0.85, minCharge: 0.2, recover: 0.12, cooldown: 0.85, projSpeed: 380, range: 280, size: 3, count: 1, spread: 0.12, pierce: 1, knockback: 130, stars: 5, starDamage: 0.3, starHoming: 0 },
     levels: [
       { desc: '+20 % Schaden', mods: { damage: 1.2 } },
       { desc: '−20 % Spannzeit', mods: { charge: 0.8, cooldown: 0.8 } },
-      { desc: 'Sternenregen: +3 Sterne, Sterne suchen Ziele', mods: { '+stars': 3, '+starHoming': 3.5 } },
+      { desc: 'Sternenregen: +3 Sterne, Sterne suchen Ziele, +15 % Schaden', mods: { '+stars': 3, '+starHoming': 3.5, damage: 1.15 } },
       { desc: 'Kometenpfeil: Voll gespannt durchschlägt er +2 Gegner, +20 % Schaden', mods: { '+pierce': 2, damage: 1.2 } },
     ],
     update(w, player, ws, dt, held, aim) {
@@ -825,10 +834,10 @@ export const WEAPONS = {
     icon: { glyph: 'staff', color: '#bfe9ff' }, projSprite: 'proj_shard', color: '#bfe9ff',
     base: { damage: 12, cooldown: 0.6, projSpeed: 250, range: 210, size: 4, count: 1, spread: 0.2, pierce: 0, knockback: 60, splinters: 3, splinterDamage: 0.35, chill: 1, splinterChill: 0, splinterPierce: 0 },
     levels: [
-      { desc: '+1 Splitter', mods: { '+splinters': 1 } },
+      { desc: '+1 Splitter, +15 % Schaden', mods: { '+splinters': 1, damage: 1.15 } },
       { desc: '+25 % Schaden', mods: { damage: 1.25 } },
-      { desc: 'Tiefenfrost: Der Kristall kühlt doppelt, auch Splitter kühlen', mods: { '+chill': 1, '+splinterChill': 1 } },
-      { desc: '+1 Splitter, Splitter durchschlagen 1 Gegner, +15 % Feuerrate', mods: { '+splinters': 1, '+splinterPierce': 1, cooldown: 0.87 } },
+      { desc: 'Tiefenfrost: Der Kristall kühlt doppelt, auch Splitter kühlen, +15 % Schaden', mods: { '+chill': 1, '+splinterChill': 1, damage: 1.15 } },
+      { desc: '+1 Splitter, Splitter durchschlagen 1 Gegner, +25 % Feuerrate', mods: { '+splinters': 1, '+splinterPierce': 1, cooldown: 0.8 } },
     ],
     fire(w, player, ws, aim) {
       const st = ws.stats;

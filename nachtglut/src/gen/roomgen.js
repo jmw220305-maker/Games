@@ -198,6 +198,18 @@ export function openRatio(tiles, mask) {
   return inside ? open / inside : 0;
 }
 
+/** shares of damaging tiles (SPIKES + HAZARD) and of ICE among interior cells */
+export function dangerRatios(tiles, mask) {
+  let inside = 0, hurt = 0, ice = 0;
+  for (let i = 0; i < tiles.length; i++) {
+    if (!mask[i]) continue;
+    inside++;
+    if (tiles[i] === TILE.SPIKES || tiles[i] === TILE.HAZARD) hurt++;
+    else if (tiles[i] === ICE) ice++;
+  }
+  return { hurt: inside ? hurt / inside : 0, ice: inside ? ice / inside : 0 };
+}
+
 /**
  * Build the static part of a room.
  * spec = { type, index, biome (id), sides: string[] }
@@ -255,6 +267,8 @@ export function buildRoom(rng, spec) {
     }
     if (!repairConnectivity(tiles, w, h, mask, starts)) continue;
     if (openRatio(tiles, mask) < MIN_OPEN) continue;
+    const danger = dangerRatios(tiles, mask);
+    if (danger.hurt > 0.08 + 0.025 * index || danger.ice > 0.38) continue;
     if (playerStart && tiles[playerStart.ty * w + playerStart.tx] !== FLOOR) continue;
     if (bossSpawn && tiles[bossSpawn.ty * w + bossSpawn.tx] !== FLOOR) continue;
     return { w, h, tiles, mask, doors, shape, layout, playerStart, bossSpawn };
