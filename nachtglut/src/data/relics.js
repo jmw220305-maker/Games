@@ -795,9 +795,9 @@ const LIST = [
     icon: { glyph: 'mask', color: SHADOW }, tags: ['dash', 'crit', 'shadow'],
     hooks: {
       ...dashEndHooks((ctx) => {
-        const p = ctx.player, now = ctx.run ? ctx.run.time : 0;
+        const p = ctx.player;
         // balance: an internal cooldown so dash spam + dash-cooldown stacking cannot chain the i-frames forever
-        if (!(now - (ctx.state.veilT ?? -99) < 1.5)) { ctx.state.veilT = now; p.iframes = Math.max(p.iframes || 0, 0.5); }
+        if (ready(ctx, 'veilT', 1.5)) p.iframes = Math.max(p.iframes || 0, 0.5);
         ctx.state.crit = true;
         if (ctx.w) ctx.w.fx.burst('shadow', p.x, p.y, { count: 10 });
       }),

@@ -13,7 +13,7 @@ const DASH_BUFFER = 0.15;    // s an early dash press is remembered
 const HAZARD_FIRST = 0.15;   // s on a hazard before the first tick
 const HAZARD_TICK = 0.5;
 const SAFE_INTERVAL = 0.25;  // s between safe-position updates
-const LIFESTEAL_PER_S = 1.5;   // HP/s lifesteal can heal at most (balance: keeps lifesteal stacks from making the player immortal)
+const LIFESTEAL_PER_S = 3.5;   // HP/s lifesteal can heal at most (balance: keeps lifesteal stacks from making the player immortal)
 
 /** XP needed to go from `level` to `level + 1`. */
 export function xpNext(level) { return Math.round(16 + 9 * level + 1.0 * level * level); }

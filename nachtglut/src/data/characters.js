@@ -369,7 +369,7 @@ export const CHARACTERS = {
     desc: 'Webt Kälte in jeden Angriff. Stärkere und längere Zustände – unterkühlte Gegner zerbrechen unter ihren Händen.',
     sprite: 'char_weaver', color: '#8fd8ff',
     baseMods: [
-      { stat: 'maxHp', add: 0 }, { stat: 'statusPower', mul: 1.25 }, { stat: 'statusDuration', mul: 1.2 },
+      { stat: 'statusPower', mul: 1.25 }, { stat: 'statusDuration', mul: 1.2 },
       { stat: 'chillChance', add: 0.12 }, { stat: 'frostDamage', mul: 1.2 },
     ],
     weapon: 'ice_staff',
@@ -397,7 +397,7 @@ export const CHARACTERS = {
     id: 'revenant', name: 'Aschenkind', title: 'Aus der Asche geboren',
     desc: 'Wenig Leben, aber unstillbarer Hunger: Lebensraub, Regeneration und die Kraft, das eigene Leben zu verbrennen.',
     sprite: 'char_revenant', color: '#c9c2b8',
-    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'lifesteal', add: 0.015 }, { stat: 'regen', add: 0.05 }, { stat: 'healPower', mul: 1.15 }],
+    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'lifesteal', add: 0.03 }, { stat: 'regen', add: 0.15 }, { stat: 'healPower', mul: 1.15 }],
     weapon: 'soul_siphon',
     skill: {
       id: 'ash_rebirth', name: 'Aschegeburt', cooldown: 10, duration: 0.4,
