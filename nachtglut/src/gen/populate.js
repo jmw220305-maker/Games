@@ -1,6 +1,6 @@
 // Room population: props by room type and enemy waves (spawn budget, packs, elites, spread placement).
 import { TILE } from '../game/constants.js';
-import { doorInfo, chebField, flood, countWalkable } from './util.js';
+import { doorInfo, chebField, flood } from './util.js';
 
 const { FLOOR, WALL } = TILE;
 
@@ -31,7 +31,10 @@ function makePlacer(rng, room, avoidPts) {
       if (x >= 0 && y >= 0 && x < w && y < h) avoid[y * w + x] = 1;
     }
   }
-  const totalWalk = countWalkable(tiles);
+  // Connectivity is checked by flooding from ONE door: flooding from all doors at once would accept a prop row
+  // that splits the room into two halves, each reachable from "some" door (QA: shrine statues sealing a door).
+  const start = entrances.length ? [entrances[0]] : entrances;
+  const totalWalk = flood(tiles, w, h, start).count;
   let occWalk = 0;
   const props = [];
   const P = {
@@ -72,7 +75,7 @@ function makePlacer(rng, room, avoidPts) {
       if (!P.free(x, y, adj)) return null;
       const i = y * w + x;
       occ[i] = 1;
-      if (flood(tiles, w, h, entrances, occ).count !== totalWalk - occWalk - 1) { occ[i] = 0; return null; }
+      if (flood(tiles, w, h, start, occ).count !== totalWalk - occWalk - 1) { occ[i] = 0; return null; }
       occWalk++;
       const p = { kind, tx: x, ty: y, ...extra };
       props.push(p);

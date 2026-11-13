@@ -120,7 +120,14 @@ export function validateRoom(room, opts = {}) {
   let occWalk = 0;
   for (let i = 0; i < tiles.length; i++) if (occ[i] && isWalkable(tiles[i])) occWalk++;
   const withProps = flood(tiles, w, h, entrances, occ);
-  if (withProps.count !== walk - occWalk) E(`props block paths (${withProps.count}/${walk - occWalk} reachable)`);
+  // from every door on its own (a flood from all doors at once misses props that split the room in two)
+  for (const side of SIDES) {
+    const d = room.doors[side];
+    if (!d) continue;
+    const ent = entrances.filter(([x, y]) => doorCells(side, d).some(([cx, cy]) => Math.abs(cx - x) + Math.abs(cy - y) === 1));
+    const fromDoor = flood(tiles, w, h, ent, occ);
+    if (fromDoor.count !== walk - occWalk) { E(`props block paths from door ${side} (${fromDoor.count}/${walk - occWalk} reachable)`); break; }
+  }
   if (ps) {
     if (tiles[ps.ty * w + ps.tx] !== FLOOR) E('playerStart not on FLOOR');
     if (occ[ps.ty * w + ps.tx]) E('prop on playerStart');
