@@ -463,6 +463,8 @@ test('player: hazards and spikes hurt, doors change rooms', () => {
   p.x = 3.5 * TS; p.y = 3.5 * TS;
   const hits = listen('player:hit');
   steps(g, 15);
+  assert.equal(hits.length, 0, 'brushing a hazard for 0.25 s is free (grace)');
+  steps(g, 9);
   assert.equal(hits.length, 1);
   assert.equal(hits[0].type, BIOMES.ash.hazardType);
   assert.ok(p.statuses[BIOMES.ash.hazardStatus]);

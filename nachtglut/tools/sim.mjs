@@ -227,8 +227,10 @@ export class Bot {
       this.strafeT -= dt;
       if (this.strafeT <= 0) { this.strafeT = 1.2 + (this.t % 0.7); this.strafe = -this.strafe; }
       if (!w.lineOfSight(p.x, p.y, near.x, near.y) || nd > want * 1.4) {
-        const tx = Math.floor(near.x / this.TS), ty = Math.floor(near.y / this.TS);
-        this.pathTo(w, `enemy:${near.uid}:${tx},${ty}`, (x, y) => Math.max(Math.abs(x - tx), Math.abs(y - ty)) <= 2);
+        const tx = Math.floor(near.x / this.TS), ty = Math.floor(near.y / this.TS), TS = this.TS;
+        // goal: a tile in range WITH line of sight (stationary enemies behind pillars, QA: combat stalls)
+        this.pathTo(w, `enemy:${near.uid}:${tx},${ty}`, (x, y) => Math.max(Math.abs(x - tx), Math.abs(y - ty)) <= 4
+          && w.lineOfSight((x + 0.5) * TS, (y + 0.5) * TS, near.x, near.y));
         const f = this.follow(w);
         if (f) { mx += f.x; my += f.y; } else { mx += ux; my += uy; }
       } else if (nd < want * 0.6) {
@@ -318,7 +320,9 @@ export class Bot {
       return;
     }
     let f = this.follow(w) || { x: 0, y: 0 };
-    if (prop && this.pathI >= this.path.length - 1 && Math.hypot(f.x, f.y) < 0.1) {
+    // last path tile reached: walk straight at the prop (tile-centre steering would oscillate between two
+    // pedestals that are equally close, so the other one keeps the interact prompt — QA: shop stalls)
+    if (prop && this.pathI >= this.path.length - 1) {
       const dx = prop.x - p.x, dy = prop.y - p.y, l = Math.hypot(dx, dy) || 1;
       f = { x: dx / l, y: dy / l };
     }

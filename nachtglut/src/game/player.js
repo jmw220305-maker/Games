@@ -10,7 +10,7 @@ const ICE_ACCEL = 260;       // px/s² on ice (slippery)
 const DASH_TIME = 0.16;      // s
 const DASH_BASE = 105;       // px per dash at dashDistance 1
 const DASH_BUFFER = 0.15;    // s an early dash press is remembered
-const HAZARD_FIRST = 0.15;   // s on a hazard before the first tick
+const HAZARD_FIRST = 0.3;    // s on a hazard before the first tick (walking across one tile takes ~0.17 s: free)
 const HAZARD_TICK = 0.5;
 const SAFE_INTERVAL = 0.25;  // s between safe-position updates
 const LIFESTEAL_PER_S = 3.5;   // HP/s lifesteal can heal at most (balance: keeps lifesteal stacks from making the player immortal)
@@ -375,7 +375,7 @@ export class Player {
   /** Doors, hazards, spikes, safe position. Returns true when the room is being left. */
   _tileEffects(w, dt) {
     const run = this.run;
-    if (this.dashing) return false;
+    if (this.dashing) { this._hazT = 0; this._hazNext = HAZARD_FIRST; return false; } // airborne: hazard grace restarts on landing
     const tx = Math.floor(this.x / TS), ty = Math.floor(this.y / TS);
     const tile = w.tileAt(tx, ty);
     if (tile === TILE.DOOR && !w.locked) {
@@ -393,9 +393,11 @@ export class Player {
       if (this._hazT >= this._hazNext) {
         this._hazNext += HAZARD_TICK;
         const b = w.biome || {};
+        // the hazard refreshes its status but never stacks it (stacking poison moss out-damaged the moss itself)
+        const had = b.hazardStatus && this.statuses[b.hazardStatus];
         w.damagePlayer(4 + 2 * fl, {
           type: b.hazardType || 'fire', hazard: true,
-          status: b.hazardStatus ? { id: b.hazardStatus, duration: 2.5, power: 2 + fl } : null,
+          status: b.hazardStatus ? { id: b.hazardStatus, duration: 2.5, power: 2 + fl, stacks: had ? 0 : 1 } : null,
         });
       }
     } else { this._hazT = 0; this._hazNext = HAZARD_FIRST; }
