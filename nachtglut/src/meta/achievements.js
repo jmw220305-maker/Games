@@ -81,7 +81,7 @@ const DEFS = [
   { id: 'weapon_max', cat: 'collection', name: 'Meisterschmied', desc: 'Schmiede eine Waffe auf Stufe 5.', icon: ico('hammer', '#ffb347'), reward: 40 },
 
   // --- Kurioses ---------------------------------------------------------------------------------
-  { id: 'die_first_room', cat: 'curious', name: 'Ein kurzer Abstieg', desc: 'Falle in den Aschegruben, bevor du einen einzigen Raum gesäubert hast.', icon: ico('bone', GREY), reward: 10, secret: true },
+  { id: 'die_first_room', cat: 'curious', name: 'Ein kurzer Abstieg', desc: 'Falle in den Aschegruben, bevor du einen einzigen Raum gesäubert hast.', icon: ico('bone', GREY), reward: 0, secret: true },
   { id: 'sparks_500', cat: 'curious', name: 'Funkenhort', desc: 'Besitze 500 Funken gleichzeitig.', icon: ico('coin', GOLD), reward: 40 },
   { id: 'curses_3', cat: 'curious', name: 'Dreifach verflucht', desc: 'Trage drei Flüche gleichzeitig.', icon: ico('mask', '#c04bd6'), reward: 40, secret: true },
   { id: 'level_15', cat: 'curious', name: 'Glühende Seele', desc: 'Erreiche in einem Abstieg Stufe 15.', icon: ico('orb', '#8fd8ff'), reward: 40 },

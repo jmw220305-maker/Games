@@ -23,7 +23,7 @@ npm start            # Dev-Server auf http://localhost:8080
 |---|---|---|---|
 | Bewegen | WASD / Pfeiltasten | linker Stick | linker Daumen (virtueller Stick) |
 | Zielen & Schießen | Maus + Linksklick | rechter Stick + RT | automatisch (Auto-Zielen) |
-| Ausweichen (Dash) | Leertaste / Shift | A / LT | Dash-Knopf |
+| Sprint (Ausweichen, kurz unverwundbar) | Leertaste / Shift | A / LT | Sprint-Knopf |
 | Fähigkeit | Q / F / Rechtsklick | X / LB | Fähigkeits-Knopf |
 | Waffe wechseln | R / Tab | Y | Wechsel-Knopf |
 | Interagieren | E / Enter | B | Interagieren-Knopf |
