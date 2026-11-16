@@ -12,6 +12,11 @@ import { instantiateProps, updateProps, damageProp, onRoomCleared as propsOnRoom
 
 const noop = () => {};
 /** No-op fx implementation for headless runs. */
+/** Damage number text: whole numbers, one decimal (German comma) only for tiny hits. */
+export function dmgLabel(v) {
+  return v < 1.95 ? (Math.round(v * 10) / 10).toString().replace('.', ',') : Math.round(v).toString();
+}
+
 export const NULL_FX = Object.freeze({
   burst: noop, text: noop, ring: noop, beam: noop, lightning: noop, shake: noop, flash: noop, light: noop, hitstop: noop,
   update: noop, clear: noop, hitstopT: 0,
@@ -526,7 +531,7 @@ export class World {
     if (info.crit) run.stats.critHits++;
     const killed = enemy.hp <= 0;
     if (!info.silent || info.dot) {
-      this.fx.text(enemy.x + (info.dot ? this.rng.float(-4, 4) : 0), enemy.y - enemy.r - 4, dmg < 10 ? (Math.round(dmg * 10) / 10).toString() : Math.round(dmg).toString(),
+      this.fx.text(enemy.x + (info.dot ? this.rng.float(-4, 4) : 0), enemy.y - enemy.r - 4, dmgLabel(dmg),
         info.crit ? '#ffe75a' : TYPE_COLORS[type] || '#fff', { crit: !!info.crit, small: !!info.dot, damage: true });
     }
     if (!info.silent) this.fx.burst('hit', enemy.x, enemy.y, { color: TYPE_COLORS[type], count: info.crit ? 7 : 4 });

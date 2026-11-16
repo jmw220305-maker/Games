@@ -54,8 +54,8 @@ function makeText() {
   return { alive: false, x: 0, y: 0, ox: 0, oy: 0, vx: 0, age: 0, life: 1, str: '', color: '#fff', size: 1, crit: false, damage: false, small: false, player: false, value: 0, pop: 0 };
 }
 
-function fmtNum(v) {
-  return v < 10 ? (Math.round(v * 10) / 10).toString() : Math.round(v).toString();
+function fmtNum(v) { // same format as world.dmgLabel: whole numbers, German decimal comma for tiny hits
+  return v < 1.95 ? (Math.round(v * 10) / 10).toString().replace('.', ',') : Math.round(v).toString();
 }
 
 export class Fx {
@@ -184,7 +184,7 @@ export class Fx {
     const crit = !!o.crit, small = !!o.small;
     // merge rapid damage numbers on nearly the same spot
     if (o.damage) {
-      const v = parseFloat(str);
+      const v = parseFloat(str.replace(',', '.'));
       if (Number.isFinite(v)) {
         const win = small ? 0.5 : 0.2, dx = small ? 18 : 12, dy = small ? 16 : 12;
         for (let i = 0; i < MAX_TEXTS; i++) {

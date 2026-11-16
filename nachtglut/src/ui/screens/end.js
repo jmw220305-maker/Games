@@ -61,9 +61,19 @@ export function createEnd(ui, params = {}) {
   if (!recap.childElementCount) recap.appendChild(h('div.empty.small', { text: 'Ohne Relikte und Segen – nur Glut und Willen.' }));
 
   // ---- ash breakdown -----------------------------------------------------------------------
-  const parts = Array.isArray(s.ashParts) && s.ashParts.length ? s.ashParts
+  const achDef = (a) => a.def || (content.ACHIEVEMENTS && content.ACHIEVEMENTS[a.id]) || { name: a.id };
+  const achAsh = (def) => { const r = def && def.reward; const v = typeof r === 'number' ? r : r && r.ash; return Number.isFinite(v) && v > 0 ? v : 0; };
+  const runAch = params.achievements || [];
+  let parts = Array.isArray(s.ashParts) && s.ashParts.length ? s.ashParts.slice()
     : [{ label: (s.ash || 0) > 0 ? 'Asche' : 'Zu früh erloschen – kaum Asche geblieben', amount: s.ash || 0, kind: 'total' }];
-  const total = Number.isFinite(s.ash) ? s.ash : parts.reduce((a, p) => a + (p.amount || 0), 0);
+  let total = Number.isFinite(s.ash) ? s.ash : parts.reduce((a, p) => a + (p.amount || 0), 0);
+  // achievement rewards are credited separately; list them so "Gesamt" matches the growth of the stock (QA)
+  const bonus = runAch.reduce((a, x) => a + achAsh(achDef(x)), 0);
+  if (bonus > 0) {
+    if (!(s.ash > 0) && parts.length === 1 && parts[0].kind === 'total') parts = [];
+    parts.push({ kind: 'achievements', label: runAch.length === 1 ? 'Erfolg errungen' : `Erfolge errungen (${runAch.length})`, amount: bonus });
+    total += bonus;
+  }
   const lines = parts.map((p) => {
     const val = h('span.ash-amt', { text: '0' });
     const el = h('div.ash-line' + (p.amount < 0 ? '.neg' : ''), h('span.ash-lbl', { text: text(p.label) }), val);
@@ -82,9 +92,11 @@ export function createEnd(ui, params = {}) {
     const label = u.type === 'character' ? `Neuer Glutträger: ${u.name}` : u.type === 'weapon' ? `Neue Waffe im Schacht: ${u.name}` : u.type === 'difficulty' ? `Glutstufe ${u.id}: ${u.name}` : `Freigeschaltet: ${u.name}`;
     unl.push(h('div.unlock-row', icon(UNLOCK_ICON[u.type] || { glyph: 'star', color: '#ffd35a' }, 24, { name: u.name }), h('span', { text: label })));
   }
-  for (const a of params.achievements || []) {
-    const def = a.def || (content.ACHIEVEMENTS && content.ACHIEVEMENTS[a.id]) || { name: a.id };
-    unl.push(h('div.unlock-row.ach', icon(def.icon || { glyph: 'crown', color: '#ffd35a' }, 24, { name: def.name }), h('span', { text: `Erfolg: ${def.name}` })));
+  for (const a of runAch) {
+    const def = achDef(a);
+    const r = achAsh(def);
+    unl.push(h('div.unlock-row.ach', icon(def.icon || { glyph: 'crown', color: '#ffd35a' }, 24, { name: def.name }), h('span', { text: `Erfolg: ${def.name}` }),
+      r ? h('span.unlock-ash', { text: `+${fmtInt(r)} Asche` }) : null));
   }
   const unlockBox = unl.length ? h('div.end-unlocks.panel', sectionTitle('Neu entfacht'), unl) : null;
 

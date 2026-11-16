@@ -12,6 +12,7 @@ const LANDSCAPE_H = 270, LANDSCAPE_MAX_W = 560;
 const PORTRAIT_W = 240, PORTRAIT_MAX_H = 520;
 const LOOK_AHEAD = 14;
 const CAM_LERP = 7;
+const CAM_PAD_TOP = 26, CAM_PAD_BOTTOM = 18, CAM_PAD_X = 10; // logical px the camera may show beyond big rooms
 const CULL = 28;
 const AFTER_N = 10;
 const DARKNESS_BOOST = 0.12;   // added to biome.darkness: unlit floor ≈ 25-30 % brightness
@@ -205,8 +206,10 @@ export class Renderer {
       ty += Math.sin(aim) * LOOK_AHEAD * 0.8 + clamp((p.vy || 0) * 0.1, -10, 10);
     }
     let cx = tx - this.w / 2, cy = ty - this.h / 2;
-    cx = RW <= this.w ? (RW - this.w) / 2 : clamp(cx, 0, RW - this.w);
-    cy = RH <= this.h ? (RH - this.h) / 2 : clamp(cy, 0, RH - this.h);
+    // big rooms may scroll a little past their edges so a player at the top/bottom wall stays clear of the
+    // HUD panels (QA: the player hid under the vitals panel / boss bar at the top of boss arenas)
+    cx = RW <= this.w ? (RW - this.w) / 2 : clamp(cx, -CAM_PAD_X, RW - this.w + CAM_PAD_X);
+    cy = RH <= this.h ? (RH - this.h) / 2 : clamp(cy, -CAM_PAD_TOP, RH - this.h + CAM_PAD_BOTTOM);
     if (snap || !(this.cam.x === this.cam.x)) { this.cam.x = cx; this.cam.y = cy; return; }
     const k = 1 - Math.exp(-dt * CAM_LERP);
     this.cam.x += (cx - this.cam.x) * k;
@@ -770,7 +773,10 @@ export class Renderer {
     const sw = sz ? Math.min(sz.w * 0.8 * es, r * 2.8 * es) : r * 2.2;
     const shY = e.flying ? Math.max(e.y + r, dy + h / 2) + 2 : e.y + r;
     if (def.shadow !== false) this.shadow(ctx, e.x, shY, sw * (e.flying ? 0.7 : 1), Math.max(3, sw * 0.38), (e.flying ? 0.4 : 0.65) * alpha);
-    const flash = e.frozen ? Math.max(e.flash || 0, 0.38) : e.flash || 0;
+    // hit flash: short and partial (squared falloff, softer on bosses) — under sustained fire a full-white flash
+    // kept enemies permanently white and hid their wind-up animations (QA)
+    const hf = e.flash > 0 ? e.flash * e.flash * (e.boss ? 0.45 : 0.7) : 0;
+    const flash = e.frozen ? Math.max(hf, 0.38) : hf;
     if (has) {
       this.spr(ctx, key, e.x, dy, this.opt(e.anim, e.animT, e.flipX, flash, alpha, scale));
     } else {

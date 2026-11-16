@@ -515,7 +515,8 @@
 .char-card.locked .char-name { color: var(--ash); }
 .char-portrait { position: relative; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle at 50% 60%, rgba(255, 140, 60, 0.25), rgba(0, 0, 0, 0.5) 70%); border: 1px solid var(--line); flex: 0 0 auto; }
 .lock-badge { position: absolute; right: -4px; bottom: -4px; padding: 2px; border-radius: 50%; background: #1a120e; border: 1px solid var(--line-2); }
-.char-name { font-family: var(--f-head); font-weight: 700; font-size: 0.98rem; color: var(--parch); }
+.char-card-text { min-width: 0; }
+.char-name { font-family: var(--f-head); font-weight: 700; font-size: 0.98rem; color: var(--parch); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .char-title { font-size: 0.8rem; color: var(--parch-2); }
 .char-detail { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; min-height: 300px; }
 .cd-head { display: flex; gap: 16px; align-items: flex-start; }
@@ -615,7 +616,8 @@
   .setup-config { grid-column: auto; display: flex; }
   .char-card { min-height: 52px; padding: 4px 8px; }
   .char-portrait { width: 40px; height: 40px; }
-  .char-portrait .ico { --ico: 36px !important; }
+  .char-portrait > .ico { --ico: 36px !important; } /* not the lock badge's key (QA: it covered the portrait) */
+  .char-card .char-name { font-size: 0.84rem; }
   .cd-portrait { width: 72px; height: 72px; }
   .screen-setup .screen-body { padding-bottom: calc(80px + var(--sab)); }
   .btn-go { min-height: 48px; }
@@ -990,6 +992,7 @@
 .end-unlocks { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .unlock-row { display: flex; align-items: center; gap: 8px; color: #ffe2b8; animation: unlock-in 0.5s ease-out both; }
 .unlock-row.ach { color: #ffd35a; }
+.unlock-ash { margin-left: auto; padding-left: 8px; font-family: var(--f-head); font-weight: 700; font-size: 0.85rem; color: #ffb36a; white-space: nowrap; }
 @keyframes unlock-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .end-actions { position: sticky; bottom: 0; z-index: 2; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 10px 0 calc(4px + var(--sab)); background: linear-gradient(0deg, rgba(8, 5, 4, 0.96) 55%, rgba(8, 5, 4, 0)); }
 .end-actions .btn { min-width: 200px; min-height: 52px; font-size: 1.05rem; }
