@@ -5,7 +5,7 @@ export const content = {
   CHARACTERS: {}, WEAPONS: {}, RELICS: {}, BOONS: {}, ENEMIES: {}, BOSSES: {}, AFFIXES: {},
   BIOMES: {}, FLOOR_ORDER: ['ash', 'fungal', 'frost', 'void', 'core'],
   BASE_STATS: null, computeStats: null,
-  STATUS: null,
+  STATUS: null, statusGlossary: null,
   sprites: null,
   ACHIEVEMENTS: null, achievements: null, codex: null,
   STAT_LABELS: null, formatStatValue: null,
@@ -49,6 +49,7 @@ export function loadContent() {
       tryImport('combat', () => import('../game/combat.js')),
     ]);
     if (combat && combat.STATUS) content.STATUS = combat.STATUS;
+    if (combat && typeof combat.statusGlossary === 'function') content.statusGlossary = combat.statusGlossary;
     if (registry) {
       for (const k of ['CHARACTERS', 'WEAPONS', 'RELICS', 'BOONS', 'ENEMIES', 'BOSSES', 'AFFIXES']) {
         if (registry[k]) content[k] = registry[k];

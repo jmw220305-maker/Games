@@ -430,7 +430,9 @@ const strOr = (v, fb) => (typeof v === 'string' && v.trim() ? v : fb);
  * the blood / lifesteal mechanics. → [{ id, kind: 'status'|'mechanic', name, desc, color, icon, stacks?, playerStacks?, burstName?, burstDesc? }]
  */
 export function statusGlossary(STATUS) {
-  const live = STATUS && typeof STATUS === 'object' ? STATUS : {};
+  // accepts core's statusGlossary() rows ([{ id, name, desc, burstName, … }]) or the STATUS map itself
+  const live = Array.isArray(STATUS) ? Object.fromEntries(STATUS.filter((r) => r && r.id).map((r) => [r.id, r]))
+    : STATUS && typeof STATUS === 'object' ? STATUS : {};
   const ids = [...STATUS_ORDER, ...Object.keys(live).filter((id) => !STATUS_ORDER.includes(id))];
   const rows = [];
   for (const id of ids) {
