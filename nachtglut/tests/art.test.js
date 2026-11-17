@@ -13,7 +13,8 @@ const CHARACTERS = ['bearer', 'shadow', 'warden', 'weaver', 'revenant'];
 const PROPS = ['prop_chest', 'prop_chest_rare', 'prop_chest_cursed', 'prop_chest_open', 'prop_pedestal', 'prop_shrine', 'prop_forge',
   'prop_fountain', 'prop_fountain_empty', 'prop_portal', 'prop_barrel', 'prop_barrel_explosive', 'prop_crystal', 'prop_torch',
   'prop_statue', 'prop_bones', 'prop_stalagmite', 'prop_mushroom'];
-const PICKUPS = ['pickup_spark', 'pickup_xp', 'pickup_heart', 'pickup_ash', 'pickup_shield'];
+const PICKUPS = ['pickup_spark', 'pickup_xp', 'pickup_heart', 'pickup_ash', 'pickup_shield', 'pickup_blood'];
+const STATUS_ICONS = ['icon_bleed', 'icon_frenzy'];
 const PROJECTILES = ['proj_orb', 'proj_bolt', 'proj_shard', 'proj_dagger', 'proj_disc', 'proj_spore', 'proj_blob', 'proj_needle',
   'proj_wave', 'proj_star', 'proj_skull', 'proj_beam', 'proj_hammer', 'proj_blade'];
 const GLYPHS = ['flame', 'ember', 'skull', 'heart', 'shield', 'boot', 'eye', 'sword', 'dagger', 'hammer', 'bow', 'staff', 'orb', 'star',
@@ -35,7 +36,7 @@ test('modules import without a DOM', () => {
 test('registry contains every required key', () => {
   const keys = new Set(SPRITE_KEYS);
   const required = [
-    ...CHARACTERS.map((c) => 'char_' + c), ...ENEMIES, ...BOSSES, ...PROPS, ...PICKUPS, ...PROJECTILES, ...GLYPHS.map((g) => 'glyph_' + g),
+    ...CHARACTERS.map((c) => 'char_' + c), ...ENEMIES, ...BOSSES, ...PROPS, ...PICKUPS, ...STATUS_ICONS, ...PROJECTILES, ...GLYPHS.map((g) => 'glyph_' + g),
   ];
   const missing = required.filter((k) => !keys.has(k) || !sprites.has(k));
   assert.deepEqual(missing, []);
@@ -82,6 +83,30 @@ test('every frame of every sprite renders a non-empty, correctly sized buffer', 
     }
   }
   assert.ok(frames > 300);
+});
+
+test('blood orb (§12.3): pulsing dark-red droplet, readable size, distinct from the heart', () => {
+  const info = sprites.info('pickup_blood');
+  assert.ok(info.anims.idle.n >= 2 && info.anims.idle.n <= 4, '2-4 frame pulse');
+  assert.ok(info.w >= 8 && info.w <= 14 && info.h >= 8 && info.h <= 14, 'pickup sized');
+  const frames = [];
+  for (let i = 0; i < info.anims.idle.n; i++) frames.push(DEFS.get('pickup_blood').anims.idle.render(i));
+  assert.ok(frames.some((f) => f.d.some((c, i) => c !== frames[0].d[i])), 'the core pulses between frames');
+  // dominated by reds: most opaque pixels have r far above g and b
+  let red = 0, all = 0;
+  for (const c of frames[0].d) {
+    if (c >>> 24 < 200) continue;
+    all++;
+    const r = c & 255, g = (c >>> 8) & 255, b = (c >>> 16) & 255;
+    if (r > g * 1.6 && r > b * 1.4) red++;
+  }
+  assert.ok(red / all > 0.6, `blood red (${red}/${all})`);
+  assert.notDeepEqual(frames[0].d, DEFS.get('pickup_heart').anims.idle.render(0).d);
+  for (const k of STATUS_ICONS) {
+    const s = sprites.info(k);
+    assert.ok(s && s.w <= 16 && s.h <= 16, `${k} icon size`);
+    assert.equal(s.tint, false, `${k} keeps its own colours`);
+  }
 });
 
 test('sprite sizes are in the expected ranges', () => {

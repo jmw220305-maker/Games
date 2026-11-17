@@ -5,6 +5,7 @@ export const content = {
   CHARACTERS: {}, WEAPONS: {}, RELICS: {}, BOONS: {}, ENEMIES: {}, BOSSES: {}, AFFIXES: {},
   BIOMES: {}, FLOOR_ORDER: ['ash', 'fungal', 'frost', 'void', 'core'],
   BASE_STATS: null, computeStats: null,
+  STATUS: null,
   sprites: null,
   ACHIEVEMENTS: null, achievements: null, codex: null,
   STAT_LABELS: null, formatStatValue: null,
@@ -36,7 +37,7 @@ let loading = null;
 export function loadContent() {
   if (loading) return loading;
   loading = (async () => {
-    const [registry, biomes, stats, sprites, achievements, codex, progression, tracker] = await Promise.all([
+    const [registry, biomes, stats, sprites, achievements, codex, progression, tracker, combat] = await Promise.all([
       tryImport('registry', () => import('../game/registry.js')),
       tryImport('biomes', () => import('../data/biomes.js')),
       tryImport('stats', () => import('../game/stats.js')),
@@ -45,7 +46,9 @@ export function loadContent() {
       tryImport('codex', () => import('../meta/codex.js')),
       tryImport('progression', () => import('../meta/progression.js')),
       tryImport('tracker', () => import('../meta/tracker.js')),
+      tryImport('combat', () => import('../game/combat.js')),
     ]);
+    if (combat && combat.STATUS) content.STATUS = combat.STATUS;
     if (registry) {
       for (const k of ['CHARACTERS', 'WEAPONS', 'RELICS', 'BOONS', 'ENEMIES', 'BOSSES', 'AFFIXES']) {
         if (registry[k]) content[k] = registry[k];

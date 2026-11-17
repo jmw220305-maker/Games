@@ -40,8 +40,27 @@ const PRESETS = {
   death: { count: 12, colors: ['#ffffff'], tint: 'replace', speed: [30, 135], life: [0.35, 0.8], size: [1, 3], gravity: 70, drag: 3, add: false, shrink: true, shape: SQ, up: 25, extra: [['smoke', 0.3], ['ember', 0.4]] },
   spawn: { count: 8, colors: ['#ffffff'], tint: 'replace', speed: [15, 55], life: [0.35, 0.7], size: [1, 2], gravity: -60, drag: 2, add: true, shrink: true, shape: TWINKLE, glow: true, jitter: 8 },
   gold: { count: 7, colors: ['#ffe27a', '#ffd35a', '#fff6c8', '#ffb347'], tint: 'mix', speed: [30, 95], life: [0.3, 0.65], size: [1, 1], gravity: 90, drag: 2, add: true, shrink: false, shape: TWINKLE, glow: true, up: 30 },
+  // §12 status payoffs
+  // Aderlass: a heavy spray of dark blood whose droplets arc up and rain down, plus a dark mist
+  hemorrhage: { count: 24, colors: ['#5a0810', '#8f0f1c', '#c41e2e', '#e8323f', '#ff4a56'], tint: 'none', speed: [60, 210], life: [0.4, 0.9], size: [1, 3], gravity: 330, drag: 2.2, add: false, shrink: false, shape: SQ, up: 80, jitter: 3, extra: [['bloodmist', 0.25]] },
+  bloodmist: { count: 6, colors: ['#5a0810', '#3a0408', '#7a0c18'], tint: 'none', speed: [10, 42], life: [0.6, 1.2], size: [3, 6], gravity: -8, drag: 2, add: false, alpha: 0.55, grow: 2, shape: SOFT, jitter: 5 },
+  // single droplet falling off a bleeding unit (throttled by the renderer)
+  blood_drip: { count: 1, colors: ['#a3121f', '#7a0c18', '#d42434'], tint: 'none', speed: [2, 9], life: [0.3, 0.55], size: [1, 1], gravity: 190, drag: 1, add: false, shrink: false, shape: SQ, jitter: 3 },
+  // Gifteruption: toxic puffs flung outward that brake into a ring around the spread radius
+  eruption: { count: 18, colors: ['#5fae2a', '#8fe04a', '#3f7a1e', '#b8f070'], tint: 'mix', speed: [105, 160], life: [0.55, 1.05], size: [3, 5], gravity: -10, drag: 3, add: false, alpha: 0.72, grow: 2.2, shape: SOFT, jitter: 3, extra: [['poison', 0.6]] },
 };
 export const FX_PRESETS = Object.freeze(Object.keys(PRESETS));
+
+const MAX_MOTES = 64;
+const DRAIN_DUR = 0.35;
+const BURST_LOOK = {
+  bleed: { label: 'Aderlass', color: '#ff5a64', ring: '#d01c2c', light: '#ff2a3a' },
+  poison: { label: 'Gifteruption', color: '#b8f070', ring: '#8fe04a', light: '#7ad83a' },
+  shock: { label: 'Entladung', color: '#fff3a0', ring: '#fff6c8', light: '#ffe75a' },
+};
+const ERUPT_RADIUS = 48;
+const CHAIN_RANGE = 80;
+const CHAIN_MAX = 4;
 
 const rand = Math.random;
 const rr = (a, b) => a + (b - a) * rand();
@@ -79,6 +98,12 @@ export class Fx {
     for (let i = 0; i < MAX_BOLTS; i++) this.bolts.push({ t: 0, dur: 1, x0: 0, y0: 0, x1: 0, y1: 0, color: '#fff', n: 0, pts: new Float32Array(BOLT_PTS * 2), jt: 0 });
     this.lightPool = [];
     for (let i = 0; i < MAX_LIGHTS; i++) this.lightPool.push({ t: 0, dur: 1, x: 0, y: 0, r: 0, color: '#fff' });
+    // life-drain motes (fx.drain): fly from a point and home onto a moving target
+    this.motes = [];
+    for (let i = 0; i < MAX_MOTES; i++) this.motes.push({ t: 0, dur: 1, delay: 0, x0: 0, y0: 0, cx: 0, cy: 0, tx: 0, ty: 0, x: 0, y: 0, px: 0, py: 0, target: null, color: '#fff', size: 1, arrived: false });
+    this.liveMotes = 0;
+    /** optional (amount, target) callback per drain — the renderer forwards it to the bus as `fx:drain` (audio) */
+    this.onDrain = null;
     // shake
     this.shakeAmp = 0; this.shakeT = 0; this.shakeDur = 0;
     this.shakeX = 0; this.shakeY = 0;
@@ -305,6 +330,118 @@ export class Fx {
     this.hitstopT = Math.max(this.hitstopT, Math.min(0.3, seconds));
   }
 
+  /**
+   * Life drain (lifesteal / vampirism feedback): a few glowing motes leave (x0, y0) on a curved path and home onto
+   * the moving `target` (usually the player) over ~0.35 s. Pooled; the oldest mote is reused when the pool is full.
+   */
+  drain(x0, y0, target, color, amount) {
+    if (!(x0 === x0) || !(y0 === y0)) return;
+    if (this.onDrain) { try { this.onDrain(amount, target); } catch { /* listeners never break gameplay */ } }
+    const s = this._s();
+    let n = Math.round(1.5 + Math.min(4.5, (amount > 0 ? amount : 1) * 0.45));
+    if (s && s.reducedMotion) n = Math.max(1, Math.round(n * 0.6));
+    const tgt = target && target.x === target.x ? target : null;
+    const tx = tgt ? tgt.x : x0, ty = tgt ? tgt.y - 3 : y0 - 12;
+    const dx = tx - x0, dy = ty - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    for (let i = 0; i < n; i++) {
+      const m = this._slot(this.motes);
+      const side = (i & 1 ? 1 : -1) * (0.35 + rand() * 0.45);
+      const bulge = Math.min(36, 10 + len * 0.3);
+      m.x0 = m.x = m.px = x0 + (rand() - 0.5) * 6;
+      m.y0 = m.y = m.py = y0 + (rand() - 0.5) * 6 - 2;
+      // control point: sideways + a little upward, so each mote arcs before diving in
+      m.cx = x0 + dx * 0.25 + nx * bulge * side;
+      m.cy = y0 + dy * 0.25 + ny * bulge * side - 8 - rand() * 6;
+      m.tx = tx; m.ty = ty;
+      m.target = tgt;
+      m.color = color || '#ff3a4a';
+      m.size = amount >= 6 && i === 0 ? 2 : 1;
+      m.arrived = false;
+      m.delay = i * 0.035 + rand() * 0.03;
+      m.dur = m.t = DRAIN_DUR * (0.85 + rand() * 0.3) + m.delay;
+    }
+  }
+
+  /**
+   * Visual payoff for `status:burst` { target, id, x, y, damage, radius?, chain? }. `world` (optional) supplies nearby
+   * enemies for the discharge chain when the payload does not list the chained targets.
+   */
+  statusBurst(p, world) {
+    if (!p) return;
+    const tg = p.target || null;
+    const x = Number.isFinite(p.x) ? p.x : tg ? tg.x : NaN;
+    const y = Number.isFinite(p.y) ? p.y : tg ? tg.y : NaN;
+    if (!(x === x) || !(y === y)) return;
+    const look = BURST_LOOK[p.id];
+    if (!look) return;
+    const r = (tg && tg.r) || 6;
+    const big = tg && tg.boss ? 1.6 : 1;
+    if (p.id === 'bleed') {
+      this.ring(x, y, (r + 20) * big, look.ring, 0.42);
+      this.ring(x, y, (r + 9) * big, '#ff8a8e', 0.22);
+      this.burst('hemorrhage', x, y - 3, { count: 26 });
+      this.burst('blood', x, y - 2, { count: 10, angle: -Math.PI / 2, spread: 2.4, speed: 150 });
+      this.light(x, y, 58 * big, look.light, 0.32);
+      this.shake(2.6, 0.2);
+    } else if (p.id === 'poison') {
+      const R = p.radius > 0 ? p.radius : ERUPT_RADIUS;
+      this.ring(x, y, R, look.ring, 0.55);
+      this.ring(x, y, R * 0.5, '#d8ff9a', 0.3);
+      this.burst('eruption', x, y, { count: 20 });
+      this.light(x, y, R + 14, look.light, 0.45);
+      this.shake(1.6, 0.14);
+    } else {
+      // Entladung: bright flash at the origin, then the bolt jumps along the chain
+      this.light(x, y, 74 * big, '#fff6c8', 0.26);
+      this.ring(x, y, (r + 13) * big, look.ring, 0.24);
+      this.burst('light', x, y, { count: 10, color: '#fffbe0', speed: 120 });
+      this.burst('shock', x, y, { count: 12 });
+      const chain = this._chain(p, tg, x, y, world);
+      let px = x, py = y;
+      for (let i = 0; i < chain.length; i++) {
+        const c = chain[i];
+        this.lightning(px, py, c.x, c.y, i === 0 ? '#fff3a0' : '#ffe75a');
+        px = c.x; py = c.y;
+      }
+      this.shake(2, 0.14);
+    }
+    this.text(x, y - r - 13, look.label, look.color, { small: true });
+  }
+
+  /** Points the discharge jumps through: payload.chain/targets when given, else the nearest enemies hop by hop. */
+  _chain(p, origin, x, y, world) {
+    const given = Array.isArray(p.chain) ? p.chain : Array.isArray(p.targets) ? p.targets : Array.isArray(p.hits) ? p.hits : null;
+    const out = [];
+    if (given) {
+      for (let i = 0; i < given.length && out.length < 8; i++) {
+        const c = given[i];
+        if (c && c !== origin && Number.isFinite(c.x) && Number.isFinite(c.y)) out.push(c);
+      }
+      return out;
+    }
+    const es = world && Array.isArray(world.enemies) ? world.enemies : null;
+    if (!es) return out;
+    let cx = x, cy = y;
+    const used = new Set();
+    if (origin) used.add(origin);
+    while (out.length < CHAIN_MAX) {
+      let best = null, bd = CHAIN_RANGE * CHAIN_RANGE;
+      for (let i = 0; i < es.length; i++) {
+        const e = es[i];
+        if (!e || e.dead || e.hidden || e.untargetable || e.spawnT > 0 || used.has(e)) continue;
+        const d = (e.x - cx) * (e.x - cx) + (e.y - cy) * (e.y - cy);
+        if (d < bd) { bd = d; best = e; }
+      }
+      if (!best) break;
+      used.add(best);
+      out.push(best);
+      cx = best.x; cy = best.y;
+    }
+    return out;
+  }
+
   /** Current flash overlay alpha (0 when none). */
   get flashAlpha() {
     return this.flashT > 0 && this.flashDur > 0 ? this.flashMax * (this.flashT / this.flashDur) : 0;
@@ -370,6 +507,32 @@ export class Fx {
       b.jt -= dt;
       if (b.jt <= 0) { b.jt = 0.045; this._jag(b); }
     }
+    // drain motes: quadratic curve from the source via the control point onto the (moving) target
+    let lm = 0;
+    for (let i = 0; i < MAX_MOTES; i++) {
+      const m = this.motes[i];
+      if (m.t <= 0) continue;
+      if (m.arrived) { // it was drawn on the target last frame: free the slot
+        if (m.target && (m.size > 1 || rand() < 0.4)) this.burst('heal', m.tx, m.ty, { count: 1, color: m.color });
+        m.t = 0; m.target = null; m.arrived = false;
+        continue;
+      }
+      m.t -= dt;
+      lm++;
+      const el = m.dur - m.t;
+      if (el < m.delay) continue;
+      const tg = m.target;
+      if (tg && tg.x === tg.x && tg.y === tg.y) { m.tx = tg.x; m.ty = tg.y - 3; }
+      const u = Math.min(1, (el - m.delay) / Math.max(0.01, m.dur - m.delay));
+      const e = 0.25 * u + 0.75 * u * u;
+      const a = (1 - e) * (1 - e), b = 2 * (1 - e) * e, c = e * e;
+      m.px = m.x; m.py = m.y;
+      m.x = a * m.x0 + b * m.cx + c * m.tx;
+      m.y = a * m.y0 + b * m.cy + c * m.ty;
+      // the step that reaches the end lands exactly on the target and stays drawable for that frame
+      if (u >= 1 || m.t <= 0) { m.arrived = true; m.t = Math.max(m.t, 1e-4); }
+    }
+    this.liveMotes = lm;
   }
 
   /** Remove everything (room change). */
@@ -377,7 +540,9 @@ export class Fx {
     for (let i = 0; i < MAX_PARTICLES; i++) this.parts[i].t = 0;
     for (let i = 0; i < MAX_TEXTS; i++) this.texts[i].alive = false;
     for (const pool of this._pools) for (const it of pool) it.t = 0;
+    for (const m of this.motes) { m.t = 0; m.target = null; m.arrived = false; }
     this.liveParticles = 0;
+    this.liveMotes = 0;
     this.hitstopT = 0;
     this.shakeT = 0; this.shakeX = 0; this.shakeY = 0; this.shakeAmp = 0;
   }
@@ -386,7 +551,9 @@ export class Fx {
   stats() {
     let texts = 0;
     for (const t of this.texts) if (t.alive) texts++;
-    return { particles: this.liveParticles, texts };
+    let motes = 0;
+    for (const m of this.motes) if (m.t > 0) motes++;
+    return { particles: this.liveParticles, texts, motes };
   }
 
   // ------------------------------------------------------------------------------------------
@@ -471,6 +638,28 @@ export class Fx {
         ctx.fillRect(px - 1, py + (s >> 1) - 0, s + 2, 1);
         ctx.fillRect(px + (s >> 1), py - 1, 1, s + 2);
       } else ctx.fillRect(px, py, s, s);
+    }
+    // drain motes (additive): soft halo, short streak, hot core
+    if (this.liveMotes > 0) {
+      for (let i = 0; i < MAX_MOTES; i++) {
+        const m = this.motes[i];
+        if (m.t <= 0 || m.dur - m.t < m.delay) continue;
+        const k = m.t / m.dur;
+        const a = k > 0.85 ? (1 - k) / 0.15 : 1;
+        const spr = glowSprite(m.color);
+        if (spr) {
+          const d = 6 + m.size * 3;
+          ctx.globalAlpha = 0.55 * a;
+          ctx.drawImage(spr, m.x - d / 2, m.y - d / 2, d, d);
+        }
+        ctx.globalAlpha = 0.85 * a;
+        ctx.strokeStyle = m.color;
+        ctx.lineWidth = m.size;
+        ctx.beginPath(); ctx.moveTo(m.px, m.py); ctx.lineTo(m.x, m.y); ctx.stroke();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#ffd6da';
+        ctx.fillRect(Math.round(m.x - m.size / 2), Math.round(m.y - m.size / 2), m.size, m.size);
+      }
     }
     // beams
     ctx.lineCap = 'round';

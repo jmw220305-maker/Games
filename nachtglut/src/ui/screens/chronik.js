@@ -1,7 +1,7 @@
 // Chronik: codex (Gegner, Bosse, Relikte, Segen, Waffen), Erfolge, Statistik, Verlauf.
 import { h, clear, icon, sfx } from '../dom.js';
 import { content, biomeFor } from '../content.js';
-import { fmtInt, fmtTime, fmtDate, rarityInfo, text, descAt, LIFETIME_STATS, formatLifetime, completion } from '../format.js';
+import { fmtInt, fmtTime, fmtDate, rarityInfo, text, descAt, LIFETIME_STATS, formatLifetime, completion, statusGlossary } from '../format.js';
 import { screenShell, tabBar, progressBar, sectionTitle } from './common.js';
 
 const TABS = [
@@ -10,6 +10,7 @@ const TABS = [
   { id: 'relics', label: 'Relikte' },
   { id: 'boons', label: 'Segen' },
   { id: 'weapons', label: 'Waffen' },
+  { id: 'states', label: 'Zustände' },
   { id: 'achievements', label: 'Erfolge' },
   { id: 'stats', label: 'Statistik' },
   { id: 'history', label: 'Verlauf' },
@@ -128,6 +129,39 @@ export function createChronik(ui) {
     return h('div.cx-tab', head, h('div.cx-split', grid, det));
   }
 
+  // ---- status glossary ---------------------------------------------------------------------
+  function glossaryCard(e) {
+    const meta = [];
+    if (e.stacks) meta.push(`bis ${e.stacks} ${e.id === 'shock' ? 'Ladungen' : 'Stapel'}`);
+    if (e.playerStacks) meta.push(`bei dir bis ${e.playerStacks}`);
+    return h('div.gl-card.panel' + (e.burstName ? '.has-burst' : ''), { style: { '--gc': e.color }, attrs: { tabindex: '0' } },
+      h('div.gl-head',
+        h('div.gl-icon', icon(e.icon, 32, { name: e.name })),
+        h('div.gl-names',
+          h('div.gl-name', { text: e.name }),
+          meta.length ? h('div.gl-meta', { text: meta.join(' · ') }) : null)),
+      e.desc ? h('p.gl-desc', { text: e.desc }) : null,
+      e.burstName ? h('div.gl-burst',
+        h('div.gl-burst-head', h('span.gl-burst-kicker', { text: 'Schwelle' }), h('span.gl-burst-name', { text: e.burstName })),
+        e.burstDesc ? h('p.gl-burst-desc', { text: e.burstDesc }) : null) : null);
+  }
+
+  function statesTab() {
+    const rows = statusGlossary(content.STATUS);
+    const st = rows.filter((r) => r.kind === 'status');
+    const payoff = st.filter((r) => r.burstName);
+    const plain = st.filter((r) => !r.burstName);
+    const mech = rows.filter((r) => r.kind === 'mechanic');
+    return h('div.gl-tab',
+      h('p.gl-intro', { text: 'Stapelnde Zustände entladen sich, sobald sie ihre Schwelle erreichen – alle Stapel werden dabei verbraucht.' }),
+      sectionTitle('Zustände mit Schwelle'),
+      h('div.gl-grid', payoff.map(glossaryCard)),
+      sectionTitle('Blut & Lebensraub'),
+      h('div.gl-grid', mech.map(glossaryCard)),
+      sectionTitle('Weitere Zustände'),
+      h('div.gl-grid.compact', plain.map(glossaryCard)));
+  }
+
   // ---- achievements ------------------------------------------------------------------------
   function achievementsTab() {
     const s = save();
@@ -224,6 +258,7 @@ export function createChronik(ui) {
     clear(content_);
     let node;
     switch (tab) {
+      case 'states': node = statesTab(); break;
       case 'achievements': node = achievementsTab(); break;
       case 'stats': node = statsTab(); break;
       case 'history': node = historyTab(); break;

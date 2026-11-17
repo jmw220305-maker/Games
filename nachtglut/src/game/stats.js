@@ -10,6 +10,8 @@ export const BASE_STATS = Object.freeze({
   burnChance: 0, chillChance: 0, poisonChance: 0, shockChance: 0, statusPower: 1, statusDuration: 1,
   fireDamage: 1, frostDamage: 1, poisonDamage: 1, shockDamage: 1, shadowDamage: 1, physDamage: 1, lightDamage: 1,
   shopDiscount: 0, healPower: 1, bossDamage: 1, eliteDamage: 1,
+  // §12 status mechanics v2
+  bleedChance: 0, bleedDamage: 1, vampirism: 0, bloodOrbHeal: 4, frenzyMax: 10,
 });
 
 export const STAT_NAMES = Object.freeze(Object.keys(BASE_STATS));
@@ -23,8 +25,9 @@ const LIMITS = {
   lifesteal: [0, 0.5], thorns: [0, 999], lightRadius: [40, 320],
   burnChance: [0, 1], chillChance: [0, 1], poisonChance: [0, 1], shockChance: [0, 1], statusPower: [0.1, 20], statusDuration: [0.2, 6],
   shopDiscount: [0, 0.6], healPower: [0, 6], bossDamage: [0.1, 20], eliteDamage: [0.1, 20],
+  bleedChance: [0, 1], bleedDamage: [0.1, 20], vampirism: [0, 0.25], bloodOrbHeal: [0, 40], frenzyMax: [0, 30],
 };
-const INT_STATS = new Set(['pierce', 'bounce', 'multishot', 'dashCharges']);
+const INT_STATS = new Set(['pierce', 'bounce', 'multishot', 'dashCharges', 'frenzyMax']);
 
 /**
  * @param {Iterable<Array<{stat:string, add?:number, mul?:number}>>} modLists

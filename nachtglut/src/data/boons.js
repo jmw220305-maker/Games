@@ -1,8 +1,21 @@
 // Level-up boons ("Segen"). See docs/ARCHITECTURE.md §6.5. `mods(stacks)` scales with the boon's stack count,
 // hooks read `ctx.stacks`. `rarity` sets the roll weight (common / uncommon / rare).
 import { TYPE_COLORS } from '../game/constants.js';
+import { bleedAffinity as bleedAff, bloodAffinity as bloodAff } from './relics.js';
 
 const pct = (v) => Math.round(v * 100);
+/** German decimal: 1.5 -> "1,5", 3 -> "3". */
+const dec = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+// lazy wrappers: relics.js may still be evaluating when this module runs (registry import cycle)
+const bleedAffinity = (p) => bleedAff(p);
+const bloodAffinity = (p) => bloodAff(p);
+
+/** Extra damage on top of a §12 status burst: `mul` × the burst damage (proc: false, never re-bursts). */
+function burstBonus(ctx, b, mul, type) {
+  const w = ctx.w, e = b.enemy;
+  if (!w || !e || e.dead || !(b.damage > 0)) return;
+  w.damageEnemy(e, b.damage * mul, { type, source: 'relic', proc: false, silent: true });
+}
 
 /**
  * Boon desc: a function of the stack (run.js / ui descAt call desc(n)) whose toString() is the generic sentence,
@@ -167,6 +180,61 @@ const LIST = [
     desc: per('+12 % Statusstärke und +10 % Statusdauer pro Stufe.', (n) => `+${12 * n} % / +${10 * n} %`),
     icon: { glyph: 'spiral', color: '#c04bd6' }, tags: ['status'],
     mods: (n) => [{ stat: 'statusPower', mul: 1 + 0.12 * n }, { stat: 'statusDuration', mul: 1 + 0.1 * n }],
+  },
+
+  // --- §12: Blutung, Gifteruption, Entladung, Vampirismus, Blutrausch ----------------------
+  {
+    id: 'boon_bleed', name: 'Aderschnitt', rarity: 'common', maxStacks: 4,
+    desc: per('+6 % Blutungschance pro Stufe.', (n) => `+${6 * n} %`),
+    icon: { glyph: 'claw', color: '#d6304a' }, tags: ['bleed', 'status'],
+    mods: (n) => [{ stat: 'bleedChance', add: 0.06 * n }],
+  },
+  {
+    id: 'boon_deep_wounds', name: 'Tiefe Wunden', rarity: 'uncommon', maxStacks: 4,
+    desc: per('+15 % Blutungsschaden pro Stufe (auch Aderlass).', (n) => `+${15 * n} %`),
+    icon: { glyph: 'drop', color: '#b0203a' }, tags: ['bleed', 'status'],
+    requires: bleedAffinity,
+    mods: (n) => [{ stat: 'bleedDamage', mul: 1 + 0.15 * n }],
+  },
+  {
+    id: 'boon_vampirism', name: 'Vampirismus', rarity: 'uncommon', maxStacks: 4,
+    desc: per('Kills heilen dich um 1,5 % der max. Leben des Gegners pro Stufe.', (n) => `${dec(1.5 * n)} % Vampirismus`),
+    icon: { glyph: 'fang', color: '#b0203a' }, tags: ['heal', 'vampirism'],
+    mods: (n) => [{ stat: 'vampirism', add: 0.015 * n }],
+  },
+  {
+    id: 'boon_virulence', name: 'Virulenz', rarity: 'uncommon', maxStacks: 3,
+    desc: per('+4 % Giftchance pro Stufe. Gifteruptionen verursachen +25 % Schaden pro Stufe.', (n) => `+${4 * n} % / +${25 * n} %`),
+    icon: { glyph: 'spiral', color: TYPE_COLORS.poison }, tags: ['poison', 'status'],
+    mods: (n) => [{ stat: 'poisonChance', add: 0.04 * n }],
+    hooks: { onStatusBurst(ctx, b) { if (b.id === 'poison') burstBonus(ctx, b, 0.25 * ctx.stacks, 'poison'); } },
+  },
+  {
+    id: 'boon_overload', name: 'Überladung', rarity: 'uncommon', maxStacks: 3,
+    desc: per('+4 % Schockchance pro Stufe. Entladungen verursachen +25 % Schaden pro Stufe.', (n) => `+${4 * n} % / +${25 * n} %`),
+    icon: { glyph: 'bolt', color: '#fff27a' }, tags: ['shock', 'status'],
+    mods: (n) => [{ stat: 'shockChance', add: 0.04 * n }],
+    hooks: { onStatusBurst(ctx, b) { if (b.id === 'shock') burstBonus(ctx, b, 0.25 * ctx.stacks, 'shock'); } },
+  },
+  {
+    id: 'boon_bloodlust', name: 'Blutgier', rarity: 'uncommon', maxStacks: 4,
+    desc: per('+2 maximale Blutrausch-Stapel und +1 Heilung pro Blutkugel pro Stufe.', (n) => `+${2 * n} Stapel, +${n} Heilung`),
+    icon: { glyph: 'heart', color: '#d6304a' }, tags: ['blood', 'frenzy', 'heal'],
+    requires: bloodAffinity,
+    mods: (n) => [{ stat: 'frenzyMax', add: 2 * n }, { stat: 'bloodOrbHeal', add: n }],
+  },
+  {
+    id: 'boon_frenzy_crit', name: 'Rauschblut', rarity: 'common', maxStacks: 3,
+    desc: per('Jeder Blutrausch-Stapel gewährt +0,5 % Krit-Chance pro Stufe.', (n) => `+${dec(0.5 * n)} % je Stapel`),
+    icon: { glyph: 'eye', color: '#ff4f5a' }, tags: ['blood', 'frenzy', 'crit'],
+    requires: bloodAffinity,
+    hooks: {
+      dynamicMods(ctx) {
+        const f = ctx.player && ctx.player.frenzy;
+        const n = (f && f.stacks) || 0;
+        return n > 0 ? [{ stat: 'critChance', add: 0.005 * ctx.stacks * n }] : null;
+      },
+    },
   },
 
   // --- fortune -----------------------------------------------------------------------------

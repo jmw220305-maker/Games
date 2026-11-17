@@ -25,7 +25,7 @@ import {
 const GLYPHS = new Set(('flame ember skull heart shield boot eye sword dagger hammer bow staff orb star sun moon snowflake drop bolt leaf '
   + 'mushroom bone crown coin key hourglass feather fang claw ring gem book potion bomb wing anchor chain mirror mask candle lantern compass '
   + 'dice scale thorn spiral cross hand tooth horn').split(' '));
-const START_WEAPONS = ['ember_bolt', 'scatter_coal', 'flame_lance', 'frost_needle', 'sun_disc', 'iron_hammer', 'shadow_daggers', 'ice_staff', 'spore_launcher'];
+const START_WEAPONS = ['ember_bolt', 'scatter_coal', 'flame_lance', 'frost_needle', 'sun_disc', 'iron_hammer', 'shadow_daggers', 'ice_staff', 'spore_launcher', 'blood_sickle'];
 
 // ---------------------------------------------------------------------------------------------
 // localStorage stubs
@@ -472,7 +472,7 @@ describe('unlock rules', () => {
   });
 
   test('weapons', () => {
-    assert.equal(WEAPON_IDS.length, 15);
+    assert.equal(WEAPON_IDS.length, 17);
     assert.deepEqual(Object.keys(WEAPON_UNLOCKS).sort(), [...WEAPON_IDS].sort());
     const s = defaultSave();
     assert.deepEqual(unlockedWeapons(s).sort(), [...START_WEAPONS].sort());
@@ -492,7 +492,10 @@ describe('unlock rules', () => {
     assert.ok(!isWeaponUnlocked(s, 'glaive_orbit'));
     s.stats.highestDifficultyWon = 1;
     assert.ok(isWeaponUnlocked(s, 'glaive_orbit'));
-    assert.equal(unlockedWeapons(s).length, 15);
+    assert.ok(!isWeaponUnlocked(s, 'thorn_crossbow'), 'Dornenarmbrust needs 25 Aderlass');
+    s.counters.bleedBursts = 25;
+    assert.ok(isWeaponUnlocked(s, 'thorn_crossbow'));
+    assert.equal(unlockedWeapons(s).length, 17);
     assert.ok(isWeaponUnlocked(s, 'some_future_weapon'), 'unknown ids are not gated');
   });
 
@@ -812,8 +815,8 @@ describe('achievements', () => {
   });
   afterEach(() => { disposeA(); disposeT(); });
 
-  test('36–45 well-formed achievements', () => {
-    assert.ok(ACHIEVEMENT_LIST.length >= 36 && ACHIEVEMENT_LIST.length <= 45, `count ${ACHIEVEMENT_LIST.length}`);
+  test('36–52 well-formed achievements', () => {
+    assert.ok(ACHIEVEMENT_LIST.length >= 36 && ACHIEVEMENT_LIST.length <= 52, `count ${ACHIEVEMENT_LIST.length}`);
     const ids = new Set();
     for (const a of ACHIEVEMENT_LIST) {
       assert.ok(!ids.has(a.id)); ids.add(a.id);

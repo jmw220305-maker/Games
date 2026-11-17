@@ -11,6 +11,9 @@ import {
   freeSpotNear, spawnsBlocked,
 } from '../game/ai/util.js';
 
+// §12: `bloodless: true` = cannot bleed (constructs, spirits, crystals, slimes, spores/fungus).
+// `hitStatus: { id, states?, duration, power, stacks }` = status a contact hit inflicts while the AI is in one of `states`
+// (needs `hooks.onSpawn: hitStatusSpawn`); zone/projectile attacks put their status on the zone/projectile instead.
 const def = (o) => ({
   r: 6, mass: 1, flying: false, xp: 3, sparks: [0, 2], light: null, shadow: true, aiParams: {},
   resist: {}, immune: [], untargetable: false, contact: true, hooks: {}, ...o, sprite: o.sprite || o.id, ai: o.ai || o.id,
@@ -24,6 +27,8 @@ export const ENEMIES = {
     hp: 22, speed: 54, damage: 9, r: 6, mass: 0.8, xp: 2, sparks: [1, 2], color: '#a89a8e',
     resist: { fire: 0.25, frost: -0.2 },
     aiParams: { lungeRange: 56, windup: 0.42, lungeSpeed: 190, lungeTime: 0.28, cooldown: 1.5 },
+    hitStatus: { id: 'bleed', states: ['lunge', 'recover'], duration: 4, power: 0.8, stacks: 1 },
+    hooks: { onSpawn: hitStatusSpawn },
   }),
   cinder_bat: def({
     id: 'cinder_bat', name: 'Zunderflatterer', biome: 'ash',
@@ -46,7 +51,7 @@ export const ENEMIES = {
     desc: 'Ein wandelnder Kohlesack mit glimmender Lunte. Wer klug ist, hält Abstand.',
     hp: 25, speed: 60, damage: 0, contact: false, r: 6.5, mass: 0.9, xp: 3, sparks: [1, 3], color: '#4d3f42',
     light: { r: 18, color: '#ff6a1f' },
-    resist: { fire: 0.5 },
+    resist: { fire: 0.5 }, bloodless: true,
     aiParams: { fuseRange: 30, fuse: 0.7, radius: 36, blast: 18, deathFuse: 0.45, deathRadius: 30, deathBlast: 12 },
     hooks: { onDeath: sootBomberDeath },
   }),
@@ -55,7 +60,7 @@ export const ENEMIES = {
     desc: 'Ein uralter Schmelzofen, der noch immer Glut in alle Richtungen speit.',
     hp: 69, speed: 0, damage: 0, contact: false, r: 8, mass: 0, xp: 5, sparks: [1, 4], color: '#806a5e',
     light: { r: 34, color: '#ff6a1f' },
-    resist: { fire: 0.6, poison: 0.5, frost: -0.2 }, immune: ['burn', 'poison'],
+    resist: { fire: 0.6, poison: 0.5, frost: -0.2 }, immune: ['burn', 'poison'], bloodless: true,
     aiParams: { range: 250, windup: 0.5, cooldown: 2.4, shots: 6, projSpeed: 78, projDamage: 9, rot: 0.27, projCap: 24, stationary: true },
   }),
   slag_brute: def({
@@ -76,7 +81,7 @@ export const ENEMIES = {
     desc: 'Ein wandelnder Bovist. Wer ihn zerplatzen lässt, atmet sein Gift.',
     hp: 34, speed: 30, damage: 12, r: 6, mass: 0.7, xp: 3, sparks: [0, 2], color: '#8a5fd0',
     light: { r: 18, color: '#9be35a' }, contactType: 'poison',
-    resist: { poison: 0.6, fire: -0.25 }, immune: ['poison'],
+    resist: { poison: 0.6, fire: -0.25 }, immune: ['poison'], bloodless: true,
     aiParams: { puffRange: 38, puffR: 28, puffDamage: 10, windup: 0.5, cooldown: 2.0, cloudR: 30, cloudDur: 3, cloudDamage: 7 },
     hooks: { onDeath: sporePuffDeath },
   }),
@@ -93,7 +98,7 @@ export const ENEMIES = {
     desc: 'Schleudert schwere Sporenkapseln, die als giftige Pfützen zerplatzen.',
     hp: 55, speed: 34, damage: 12, r: 7, mass: 1.2, xp: 5, sparks: [1, 3], color: '#35706c',
     light: { r: 20, color: '#59e0b0' },
-    resist: { poison: 0.6, fire: -0.25 }, immune: ['poison'],
+    resist: { poison: 0.6, fire: -0.25 }, immune: ['poison'], bloodless: true,
     aiParams: { min: 100, max: 160, windup: 0.5, flight: 0.9, puddleR: 20, puddleDur: 2.6, puddleDamage: 8, cooldown: 2.8 },
   }),
   vine_lasher: def({
@@ -108,7 +113,7 @@ export const ENEMIES = {
     desc: 'Ein pulsierender Sack, aus dem unablässig neue Schwärme schlüpfen.',
     hp: 110, speed: 0, damage: 10, r: 9, mass: 0, xp: 8, sparks: [2, 4], color: '#523592',
     light: { r: 26, color: '#9be35a' }, contactType: 'poison',
-    resist: { poison: 0.7, fire: -0.35 }, immune: ['poison'],
+    resist: { poison: 0.7, fire: -0.35 }, immune: ['poison'], bloodless: true,
     aiParams: { cap: 6, cooldown: 5, windup: 0.7, batch: [2, 3], pulseDamage: 10, stationary: true },
   }),
   mire_stalker: def({
@@ -116,7 +121,7 @@ export const ENEMIES = {
     desc: 'Gräbt sich durch den Morast und taucht genau dort auf, wo du eben noch standest.',
     hp: 98, speed: 52, damage: 16, r: 7, mass: 1.5, xp: 9, sparks: [2, 5], color: '#4a5e52',
     resist: { poison: 0.5, phys: 0.1 },
-    aiParams: { tunnelSpeed: 78, emerge: 0.65, biteR: 24, biteDamage: 21, surface: 2.4, maxTunnel: 4.5 },
+    aiParams: { tunnelSpeed: 78, emerge: 0.65, biteR: 24, biteDamage: 21, biteBleed: 1.5, surface: 2.4, maxTunnel: 4.5 },
   }),
 
   // ------------------------------------------------------------------------------------------- frost (floor 3)
@@ -125,7 +130,7 @@ export const ENEMIES = {
     desc: 'Ein kaltes Licht, das dich umkreist und dir die Wärme aus den Gliedern saugt.',
     hp: 49, speed: 62, damage: 15, r: 5, mass: 0.5, flying: true, xp: 5, sparks: [1, 3], color: '#8fd8ff',
     light: { r: 30, color: '#8fd8ff' }, contactType: 'frost',
-    resist: { frost: 0.35, fire: -0.3 }, immune: ['chill', 'freeze'],
+    resist: { frost: 0.35, fire: -0.3 }, immune: ['chill', 'freeze'], bloodless: true,
     aiParams: { orbit: 88, angSpeed: 0.9, windup: 0.45, cooldown: 2.1, projSpeed: 95, projDamage: 18 },
   }),
   glacier_slime: def({
@@ -133,7 +138,7 @@ export const ENEMIES = {
     desc: 'Eine zitternde Masse aus Schmelzwasser. Zerschlagen teilt sie sich.',
     hp: 91, speed: 44, damage: 20, r: 8, mass: 1.6, xp: 6, sparks: [1, 3], color: '#5fa6d6',
     light: { r: 18, color: '#a8e2ff' }, contactType: 'frost',
-    resist: { frost: 0.25, fire: -0.25, phys: 0.1 },
+    resist: { frost: 0.25, fire: -0.25, phys: 0.1 }, bloodless: true,
     aiParams: { hop: 46, rest: 0.55, squash: 0.38, hopTime: 0.4, split: 2, splitInto: 'glacier_slime_small' },
     hooks: { onDeath: glacierSlimeDeath },
   }),
@@ -141,7 +146,7 @@ export const ENEMIES = {
     id: 'glacier_slime_small', name: 'Gletscherklecks', biome: 'frost', ai: 'glacier_slime',
     desc: 'Ein abgesprengter Rest eines Gletscherschleims — klein, aber hartnäckig.',
     hp: 29, speed: 50, damage: 14, r: 5, mass: 0.7, xp: 1, sparks: [0, 1], color: '#a8e2ff', contactType: 'frost',
-    resist: { frost: 0.25, fire: -0.25 },
+    resist: { frost: 0.25, fire: -0.25 }, bloodless: true,
     aiParams: { hop: 32, rest: 0.4, squash: 0.35, hopTime: 0.3, split: 0 },
   }),
   rime_wolf: def({
@@ -150,6 +155,8 @@ export const ENEMIES = {
     hp: 58, speed: 80, damage: 20, r: 6.5, mass: 1.1, xp: 5, sparks: [1, 3], color: '#b8cce0',
     resist: { frost: 0.25, fire: -0.25 },
     aiParams: { orbit: 74, windup: 0.45, lungeSpeed: 240, lungeMax: 140, cooldown: 2.4 },
+    hitStatus: { id: 'bleed', states: ['lunge', 'recover'], duration: 4, power: 1.5, stacks: 1 },
+    hooks: { onSpawn: hitStatusSpawn },
   }),
   shard_archer: def({
     id: 'shard_archer', name: 'Splitterschütze', biome: 'frost',
@@ -171,7 +178,7 @@ export const ENEMIES = {
     desc: 'Ein wandelnder Gletscher. Jeder seiner Schläge lässt den Boden splittern.',
     hp: 377, speed: 26, damage: 16, r: 10, mass: 5, xp: 12, sparks: [2, 5], color: '#a8e2ff',
     light: { r: 20, color: '#bfeaff' }, contactType: 'frost',
-    resist: { frost: 0.35, phys: 0.2, fire: -0.3 }, immune: ['chill', 'freeze', 'stun'],
+    resist: { frost: 0.35, phys: 0.2, fire: -0.3 }, immune: ['chill', 'freeze', 'stun'], bloodless: true,
     aiParams: { slamRange: 80, slamWind: 0.75, slamDamage: 18, waveDamage: 15, waveGrow: 120, waveDur: 0.85, throwCd: 3.8, throwDamage: 15, cooldown: 2.6 },
   }),
 
@@ -188,7 +195,7 @@ export const ENEMIES = {
     id: 'shade', name: 'Schemen', biome: 'void',
     desc: 'Halb hier, halb nicht. Nur wenn er zuschlägt, ist er verwundbar.',
     hp: 80, speed: 64, damage: 18, r: 6, mass: 0.8, flying: true, xp: 6, sparks: [1, 3], color: '#7a5ab8', contactType: 'shadow',
-    resist: { shadow: 0.6, light: -0.4 },
+    resist: { shadow: 0.6, light: -0.4 }, bloodless: true,
     aiParams: { strike: 42, windup: 0.45, arc: 1.5, damage: 20, recover: 1.0, maxPhase: 3.2 },
   }),
   void_eye: def({
@@ -196,7 +203,7 @@ export const ENEMIES = {
     desc: 'Ein schwebendes Auge, dessen Blick wie eine Klinge durch den Raum schneidet.',
     hp: 126, speed: 30, damage: 14, r: 7, mass: 0.6, flying: true, xp: 9, sparks: [2, 4], color: '#b07cff',
     light: { r: 30, color: '#e04bd0' }, contactType: 'shadow',
-    resist: { shadow: 0.5, light: -0.3 },
+    resist: { shadow: 0.5, light: -0.3 }, bloodless: true,
     aiParams: { min: 90, max: 170, charge: 1.0, sweep: 1.1, sweepTime: 1.6, damage: 20, width: 9, cooldown: 3.6, range: 260 },
   }),
   rift_mage: def({
@@ -217,7 +224,7 @@ export const ENEMIES = {
     light: { r: 16, color: '#b07cff' },
     resist: { shadow: 0.5, light: -0.3 }, immune: ['stun'],
     aiParams: {
-      dashMax: 140, windup: 0.55, dashSpeed: 300, dashLen: 130, dashDamage: 23,
+      dashMax: 140, windup: 0.55, dashSpeed: 300, dashLen: 130, dashDamage: 23, dashBleed: 2,
       bashRange: 38, bashWind: 0.45, bashDamage: 18, turn: 2.4, recover: 0.9, cooldown: 2.4, block: 0.8, shieldArc: 1.05,
     },
     hooks: { onHit: echoShieldHit },
@@ -236,7 +243,7 @@ export const ENEMIES = {
     desc: 'Ein Bruchstück der erloschenen Sonne, das noch immer Licht in Spiralen verschleudert.',
     hp: 200, speed: 28, damage: 15, r: 7, mass: 0.8, flying: true, xp: 11, sparks: [2, 4], color: '#ffd35a',
     light: { r: 40, color: '#ffd35a' }, contactType: 'light',
-    resist: { light: 0.6, fire: 0.3, shadow: -0.3 }, immune: ['burn'],
+    resist: { light: 0.6, fire: 0.3, shadow: -0.3 }, immune: ['burn'], bloodless: true,
     aiParams: { min: 90, max: 160, windup: 0.6, arms: 3, interval: 0.16, duration: 1.6, rot: 0.33, projSpeed: 80, projDamage: 14, cooldown: 2.6, projCap: 32 },
   }),
   ash_revenant: def({
@@ -257,16 +264,19 @@ export const SUMMON_FODDER = { ash: 'ash_crawler', fungal: 'rot_swarm', frost: '
 
 const has = (e, id) => !!(e && e.elite && e.elite.indexOf(id) >= 0);
 
-// One shared `player:hit` listener drives the on-hit affixes (vampiric heal, venomous poison, icy chill).
+// One shared `player:hit` listener drives the on-hit affixes (vampiric heal, venomous poison, icy chill,
+// lacerating bleed) and the defs' `hitStatus` (a status some melee attacks inflict, e.g. a bleeding bite).
 let hitWorld = null;
 let hitSubscribed = false;
 function onPlayerHit(pl) {
-  const src = pl && pl.source, w = hitWorld;
-  if (!w || !src || !src.elite || !src.elite.length || pl.dot || !(pl.amount > 0)) return;
+  const src = pl && pl.source;
+  if (!src || pl.dot || !(pl.amount > 0)) return;
+  const w = (src.data && src.data.af_w) || hitWorld;
+  const hs = src.def && src.def.hitStatus;
+  if (!w || (!(src.elite && src.elite.length) && !hs)) return;
   if (has(src, 'vampiric') && !src.dead) {
-    const heal = Math.min(src.maxHp - src.hp, Math.max(pl.amount * 1.5, src.maxHp * 0.06));
+    const heal = w.healEnemy(src, Math.max(pl.amount * 1.5, src.maxHp * 0.06));
     if (heal > 0) {
-      src.hp += heal;
       w.fx.text(src.x, src.y - src.r - 6, `+${Math.round(heal)}`, '#d6304a', { small: true });
       w.fx.burst('blood', src.x, src.y, { count: 5, color: '#d6304a' });
     }
@@ -274,10 +284,17 @@ function onPlayerHit(pl) {
   if (w.player && w.player.alive && w.player.hp > 0) {
     if (has(src, 'venomous')) w.applyStatus(w.player, 'poison', { duration: 3, power: 1.5 });
     if (has(src, 'icy')) w.applyStatus(w.player, 'chill', { duration: 2 });
+    if (has(src, 'lacerating')) w.applyStatus(w.player, 'bleed', { duration: 4, stacks: 2, power: 1 * (src.dmgMul ?? 1) });
+    if (hs && (!hs.states || hs.states.includes(src.state))) {
+      w.applyStatus(w.player, hs.id, { duration: hs.duration ?? 4, stacks: hs.stacks ?? 1, power: (hs.power ?? 1) * (src.dmgMul ?? 1) });
+    }
   }
 }
-function ensureHitListener(w) {
+/** onSpawn hook for enemies with a `hitStatus`. */
+function hitStatusSpawn(w, e) { ensureHitListener(w, e); }
+function ensureHitListener(w, e) {
   hitWorld = w;
+  if (e && e.data) e.data.af_w = w;
   const l = bus.map && typeof bus.map.get === 'function' ? bus.map.get('player:hit') : null;
   if (bus.map) { if (!l || !l.includes(onPlayerHit)) bus.on('player:hit', onPlayerHit); }
   else if (!hitSubscribed) { bus.on('player:hit', onPlayerHit); hitSubscribed = true; }
@@ -312,7 +329,7 @@ export const AFFIXES = {
   },
   icy: {
     id: 'icy', name: 'Eisig', color: '#8fd8ff', desc: 'Treffer lassen erstarren; zerbirst beim Tod in einer Frostnova.',
-    apply(w, e) { ensureHitListener(w); },
+    apply(w, e) { ensureHitListener(w, e); },
     onDeath(w, e) {
       zone(w, e, {
         shape: 'circle', x: e.x, y: e.y, r: 50, delay: 0.6, duration: 0.15, damage: 10, type: 'frost',
@@ -342,8 +359,12 @@ export const AFFIXES = {
     },
   },
   vampiric: {
-    id: 'vampiric', name: 'Vampirisch', color: '#d6304a', desc: 'Heilt sich, wenn es dich trifft.',
-    apply(w, e) { ensureHitListener(w); },
+    id: 'vampiric', name: 'Vampirisch', color: '#d6304a', desc: 'Heilt sich, wenn es dich trifft (vergiftet nur halb so stark).',
+    apply(w, e) { ensureHitListener(w, e); },
+  },
+  lacerating: {
+    id: 'lacerating', name: 'Zerfleischend', color: '#9a1020', desc: 'Jeder Treffer lässt dich bluten (2 Stapel).',
+    apply(w, e) { ensureHitListener(w, e); },
   },
   shielded: {
     id: 'shielded', name: 'Abschirmend', color: '#6aa9ff', desc: 'Ein Schild schluckt Schaden und lädt sich wieder auf.',
@@ -399,7 +420,7 @@ export const AFFIXES = {
   },
   venomous: {
     id: 'venomous', name: 'Giftig', color: '#9be35a', desc: 'Jeder Treffer vergiftet.',
-    apply(w, e) { ensureHitListener(w); },
+    apply(w, e) { ensureHitListener(w, e); },
   },
   summoner: {
     id: 'summoner', name: 'Beschwörend', color: '#c04bd6', desc: 'Ruft regelmäßig Diener herbei.',

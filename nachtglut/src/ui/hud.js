@@ -4,20 +4,25 @@
 import { h, clear, icon, setText, toggleClass, setVar, sfx } from './dom.js';
 import { attachTooltip, tipContent } from './tooltip.js';
 import { content, biomeFor } from './content.js';
-import { fmtInt, fmtTime, approach, clamp01, rarityInfo, text, descAt } from './format.js';
+import { fmtInt, fmtTime, approach, clamp01, rarityInfo, text, descAt, STATUS_LOOK } from './format.js';
 import { drawMap, mapSignature, ROOM_ICON } from './minimap.js';
 
-const STATUS_ICON = {
-  burn: { glyph: 'flame', color: '#ff8a3c', name: 'Brand' },
-  poison: { glyph: 'drop', color: '#9be35a', name: 'Gift' },
-  chill: { glyph: 'snowflake', color: '#8fd8ff', name: 'Kälte' },
-  freeze: { glyph: 'snowflake', color: '#dff4ff', name: 'Gefroren' },
-  slow: { glyph: 'hourglass', color: '#b9b3a8', name: 'Verlangsamt' },
-  weak: { glyph: 'skull', color: '#b07cff', name: 'Geschwächt' },
-  shock: { glyph: 'bolt', color: '#ffe75a', name: 'Schock' },
-  stun: { glyph: 'star', color: '#ffe75a', name: 'Betäubt' },
-  mark: { glyph: 'eye', color: '#ff6a5a', name: 'Markiert' },
-};
+const FRENZY_DUR = 4;   // §12.3: Blutrausch lasts 4 s, refreshed by each new stack
+const FRENZY_DMG = 3, FRENZY_SPEED = 2; // % per stack
+
+/** Live status name / description (STATUS in combat.js) with the UI fallback. */
+function statusInfo(id) {
+  const look = STATUS_LOOK[id] || {};
+  const d = (content.STATUS && content.STATUS[id]) || {};
+  return {
+    icon: look.icon || { glyph: 'orb', color: d.color || '#d8c8b0' },
+    color: look.color || d.color || '#d8c8b0',
+    name: (typeof d.name === 'string' && d.name) || look.name || id,
+    short: look.short || '',
+    desc: (typeof d.desc === 'string' && d.desc) || look.desc || '',
+    stacking: !!look.stacks,
+  };
+}
 
 const r2 = (v) => Math.round(v * 100) / 100;
 
@@ -31,6 +36,21 @@ export function createHud(ui) {
   el.shieldFill = h('div.bar-fill.bar-shield');
   el.hpText = h('span.bar-text');
   el.hp = h('div.hpbar', { attrs: { role: 'meter', 'aria-label': 'Leben' } }, h('div.bar-track', el.hpLag, el.hpFill, el.shieldFill, h('div.bar-gloss')), el.hpText);
+  // Blutrausch counter: stacks inside a ring that drains with the remaining time; only shown while > 0
+  el.frenzyNum = h('span.fz-num', { text: '0' });
+  el.frenzy = h('div.frenzy', { attrs: { 'aria-label': 'Blutrausch' } }, h('span.fz-ring'), el.frenzyNum);
+  attachTooltip(el.frenzy, () => {
+    const p = player();
+    const n = (p && p.frenzy && p.frenzy.stacks) || 0;
+    return tipContent({ name: 'Blutrausch', icon: 'icon_frenzy', detail: `${n} Stapel`,
+      desc: `+${n * FRENZY_DMG} % Schaden · +${n * FRENZY_SPEED} % Lauftempo. Jede Blutkugel gibt einen Stapel und erneuert die Dauer.` });
+  });
+  el.hpRow = h('div.hp-row', el.hp, el.frenzy);
+  // one-shot bar animations must not mask the low-HP pulse afterwards
+  el.hp.addEventListener('animationend', (e) => {
+    if (e.animationName === 'hp-heal') el.hp.classList.remove('heal');
+    else if (e.animationName === 'hp-hit') el.hp.classList.remove('hit');
+  });
   el.lvl = h('span.lvl', { text: '1' });
   el.xpFill = h('div.bar-fill.bar-xp');
   el.xp = h('div.xprow', h('span.lvl-badge', h('span.lvl-label', { text: 'Stufe' }), el.lvl), h('div.xpbar', h('div.bar-track', el.xpFill)));
@@ -38,7 +58,7 @@ export function createHud(ui) {
   el.sparks = h('div.sparks', { title: 'Funken' }, icon({ glyph: 'coin', color: '#ffcf5a' }, 20, { name: 'F' }), el.sparkNum);
   el.dash = h('div.dash-pips', { title: 'Sprintladungen' });
   el.statusRow = h('div.status-mini');
-  el.vitals = h('div.hud-vitals.panel-lite', el.hp, el.xp, h('div.hud-row', el.sparks, el.dash, el.statusRow));
+  el.vitals = h('div.hud-vitals.panel-lite', el.hpRow, el.xp, h('div.hud-row', el.sparks, el.dash, el.statusRow));
 
   // ---- weapons + skill -------------------------------------------------------------------
   el.weapons = h('div.weapons');
@@ -106,7 +126,8 @@ export function createHud(ui) {
   el.fxLayer = h('div.hud-fx', el.lowhp, el.hitflash);
 
   // ---------------------------------------------------------------------------------------
-  const last = { sparks: 0, sparkTarget: -1, hpLag: 1, bossLag: 1, mapSig: '', mapT: 0, weaponSig: '', perkSig: '', statusSig: '', bossRef: null, notchSig: '' };
+  const last = { sparks: 0, sparkTarget: -1, hpLag: 1, bossLag: 1, mapSig: '', mapT: 0, weaponSig: '', perkSig: '', statusSig: '', bossRef: null, notchSig: '',
+    hp: -1, healAcc: 0, healCd: 0, frenzy: 0 };
   let mapOpen = false;
 
   function player() { return game.run && game.run.player; }
@@ -129,6 +150,20 @@ export function createHud(ui) {
     const low = p.alive !== false && hp > 0 && hp / maxHp <= 0.3;
     toggleClass(el.lowhp, 'on', low);
     toggleClass(el.hp, 'low', low);
+    // trickle heals (lifesteal, vampirism, blood orbs) make the bar shimmer so the gain is readable
+    if (last.hp >= 0 && hp > last.hp) last.healAcc += hp - last.hp;
+    last.hp = hp;
+    last.healCd -= dt;
+    if (last.healAcc >= 1 && last.healCd <= 0 && p.alive !== false) {
+      last.healAcc = 0;
+      last.healCd = 0.7;
+      el.hp.classList.remove('heal');
+      void el.hp.offsetWidth;
+      el.hp.classList.add('heal');
+    } else if (last.healCd <= -2) last.healAcc = 0;
+    const bleeding = !!(p.statuses && p.statuses.bleed && (p.statuses.bleed.t ?? 1) > 0);
+    toggleClass(el.hp, 'bleeding', bleeding);
+    updateFrenzy(p);
 
     const xpNext = Math.max(1, p.xpNext || 1);
     setVar(el.xpFill, '--f', r2(clamp01((p.xp || 0) / xpNext)));
@@ -164,20 +199,47 @@ export function createHud(ui) {
       toggleClass(pip, 'full', i < charges);
     }
 
-    // mini status icons
+    // mini status icons (with stack counts and a tooltip; bleed explains its healing malus)
     const st = p.statuses || {};
-    const ids = Object.keys(st).filter((k) => st[k] && (st[k].t ?? 1) > 0 && STATUS_ICON[k]);
-    const sig = ids.join(',');
+    const ids = Object.keys(st).filter((k) => st[k] && (st[k].t ?? 1) > 0 && STATUS_LOOK[k]);
+    const stackOf = (id) => Math.max(1, Math.round((st[id] && st[id].stacks) || 1));
+    const sig = ids.map((id) => `${id}:${stackOf(id)}`).join(',');
     if (sig !== last.statusSig) {
       last.statusSig = sig;
       clear(el.statusRow);
       clear(el.playerStatus);
       for (const id of ids) {
-        const s = STATUS_ICON[id];
-        el.statusRow.appendChild(h('span.status-ico', { title: s.name }, icon(s, 18, { name: s.name })));
-        el.playerStatus.appendChild(h('span.status-ico', icon(s, 16, { name: s.name })));
+        const s = statusInfo(id);
+        const n = stackOf(id);
+        const badge = () => (s.stacking && n > 1 ? h('span.status-stk', { text: n }) : null);
+        const ico = h('span.status-ico' + (id === 'bleed' ? '.bleed' : ''), { attrs: { 'aria-label': s.name } }, icon(s.icon, 18, { name: s.name }), badge());
+        ico.style.pointerEvents = 'auto';
+        attachTooltip(ico, () => tipContent({ name: s.name, icon: s.icon, detail: [s.stacking && n > 1 ? `${n} Stapel` : '', id === 'bleed' ? s.short : ''].filter(Boolean).join(' · '), desc: s.desc }));
+        el.statusRow.appendChild(ico);
+        el.playerStatus.appendChild(h('span.status-ico' + (id === 'bleed' ? '.bleed' : ''), icon(s.icon, 16, { name: s.name }), badge()));
       }
     }
+  }
+
+  function updateFrenzy(p) {
+    const fr = p.frenzy;
+    const n = fr && fr.stacks > 0 && p.alive !== false ? Math.round(fr.stacks) : 0;
+    toggleClass(el.frenzy, 'on', n > 0);
+    if (!n) { last.frenzy = 0; return; }
+    const dur = fr.dur || fr.duration || FRENZY_DUR;
+    setVar(el.frenzy, '--f', r2(clamp01((fr.t ?? dur) / dur)));
+    if (n !== last.frenzy) {
+      setText(el.frenzyNum, n);
+      if (n > last.frenzy) {
+        el.frenzy.classList.remove('pop');
+        void el.frenzy.offsetWidth;
+        el.frenzy.classList.add('pop');
+      }
+      last.frenzy = n;
+    }
+    const max = (p.stats && p.stats.frenzyMax) || 10;
+    toggleClass(el.frenzy, 'max', n >= max);
+    toggleClass(el.frenzy, 'ending', Number.isFinite(fr.t) && fr.t < 1);
   }
 
   function weaponSig(p) {
@@ -387,6 +449,8 @@ export function createHud(ui) {
     reset() {
       last.sparkTarget = -1;
       last.hpLag = 1;
+      last.hp = -1; last.healAcc = 0; last.frenzy = 0;
+      toggleClass(el.frenzy, 'on', false);
       last.weaponSig = last.perkSig = last.statusSig = last.mapSig = '';
       last.bossRef = null;
       el.skill.__built = '';

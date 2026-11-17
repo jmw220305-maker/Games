@@ -241,6 +241,8 @@ export const FUNGAL_AI = {
             zone(w, e, {
               shape: 'circle', x: e.x, y: e.y, r: a.biteR, delay: a.emerge, duration: 0.12,
               damage: a.biteDamage, knockback: 160, color: '#5a964a',
+              // §12: the bite tears a bleeding wound
+              status: a.biteBleed ? { id: 'bleed', duration: 4, power: a.biteBleed * (e.dmgMul ?? 1) } : undefined,
             });
           }
           break;

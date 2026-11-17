@@ -441,6 +441,12 @@ const bossKills = (save, id) => {
   const b = save && save.codex && save.codex.bosses ? save.codex.bosses[id] : null;
   return b && Number.isFinite(b.kills) ? b.kills : 0;
 };
+const counter = (save, key) => {
+  const v = save && save.counters ? save.counters[key] : 0;
+  return Number.isFinite(v) ? v : 0;
+};
+/** Lifetime Aderlass count (`save.counters.bleedBursts`, counted by meta/achievements.js on `status:burst`). */
+export const ADERLASS_UNLOCK = 25;
 const wonAt = (save) => {
   const v = save && save.stats ? save.stats.highestDifficultyWon : -1;
   return Number.isFinite(v) ? v : -1;
@@ -460,7 +466,8 @@ export const CHARACTER_UNLOCKS = Object.freeze({
 
 /** Weapon ids in roster order (ARCHITECTURE §6.3). */
 export const WEAPON_IDS = Object.freeze(['ember_bolt', 'scatter_coal', 'flame_lance', 'spark_chain', 'magma_mortar', 'frost_needle',
-  'shadow_daggers', 'sun_disc', 'spore_launcher', 'rift_orb', 'iron_hammer', 'glaive_orbit', 'soul_siphon', 'star_bow', 'ice_staff']);
+  'shadow_daggers', 'sun_disc', 'spore_launcher', 'rift_orb', 'iron_hammer', 'glaive_orbit', 'soul_siphon', 'star_bow', 'ice_staff',
+  'blood_sickle', 'thorn_crossbow']);
 
 const START = { default: true, text: 'Von Beginn an im Schacht zu finden.', progress: () => [1, 1] };
 
@@ -481,6 +488,11 @@ export const WEAPON_UNLOCKS = Object.freeze({
   glaive_orbit: { id: 'glaive_orbit', name: 'Klingenkreis', text: 'Gewinne einen Abstieg auf Glutstufe 1 oder höher.', progress: (s) => [Math.max(0, wonAt(s)), 1] },
   soul_siphon: { id: 'soul_siphon', name: 'Seelensauger', text: 'Falle zehnmal im Schacht.', progress: (s) => [stat(s, 'deaths'), 10] },
   star_bow: { id: 'star_bow', name: 'Sternenbogen', text: 'Gewinne einen Abstieg.', progress: (s) => [stat(s, 'wins'), 1] },
+  blood_sickle: { id: 'blood_sickle', name: 'Blutsichel', ...START },
+  thorn_crossbow: {
+    id: 'thorn_crossbow', name: 'Dornenarmbrust', text: `Löse insgesamt ${ADERLASS_UNLOCK}-mal einen Aderlass aus.`,
+    progress: (s) => [counter(s, 'bleedBursts'), ADERLASS_UNLOCK],
+  },
 });
 
 // Optional authoritative display names (filled from the content registries by the tracker).

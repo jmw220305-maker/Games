@@ -342,6 +342,7 @@ export const SUN_DEFS = {
     biome: 'core', boss: true, hp: 5600, speed: 0, damage: 24, r: 24, mass: 0, flying: true, xp: 0, sparks: [0, 0],
     sprite: 'boss_sun', color: COL.gold, light: { r: 110, color: COL.ember }, shadow: false, contactType: 'fire',
     ai: 'boss_sun', aiParams: {},
+    bloodless: true, // §12: a dead star does not bleed
     hooks: {
       onHit: sunOnHit,
       onDeath(w, e) { removeParts(w, e); },
@@ -352,5 +353,6 @@ export const SUN_DEFS = {
     biome: 'core', boss: false, hp: 170, speed: 0, damage: 12, r: 8, mass: 0, flying: true, xp: 0, sparks: [0, 0],
     sprite: 'boss_sun_core', color: COL.core, light: { r: 34, color: COL.core }, shadow: false, contactType: 'fire',
     ai: 'boss_sun_core', aiParams: {},
+    bloodless: true,
   },
 };

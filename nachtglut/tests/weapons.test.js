@@ -14,7 +14,7 @@ import { bus } from '../src/core/events.js';
 const DT = 1 / 60;
 
 const WEAPON_IDS = ['ember_bolt', 'scatter_coal', 'flame_lance', 'spark_chain', 'magma_mortar', 'frost_needle', 'shadow_daggers', 'sun_disc',
-  'spore_launcher', 'rift_orb', 'iron_hammer', 'glaive_orbit', 'soul_siphon', 'star_bow', 'ice_staff'];
+  'spore_launcher', 'rift_orb', 'iron_hammer', 'glaive_orbit', 'soul_siphon', 'star_bow', 'ice_staff', 'blood_sickle', 'thorn_crossbow'];
 const CHARACTER_IDS = ['bearer', 'shadow', 'warden', 'weaver', 'revenant'];
 const GLYPHS = new Set(('flame ember skull heart shield boot eye sword dagger hammer bow staff orb star sun moon snowflake drop bolt leaf mushroom '
   + 'bone crown coin key hourglass feather fang claw ring gem book potion bomb wing anchor chain mirror mask candle lantern compass dice scale '
@@ -27,7 +27,7 @@ const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
 // ---------------------------------------------------------------------------------------------
 // Static validation
 // ---------------------------------------------------------------------------------------------
-test('weapons: roster is exactly the 15 authoritative ids', () => {
+test('weapons: roster is exactly the 17 authoritative ids', () => {
   assert.deepEqual(Object.keys(WEAPONS).sort(), [...WEAPON_IDS].sort());
 });
 
@@ -99,8 +99,10 @@ test('characters: roster, fields, starting weapons, skills, passives', () => {
 // ---------------------------------------------------------------------------------------------
 // Headless harness (real Game)
 // ---------------------------------------------------------------------------------------------
+// bloodless: Aderlass deals a share of max HP, which would dwarf everything on a 1e7-HP dummy
+// (bleed weapons are measured against realistic dummies in tests/content-mechanics.test.js)
 ENEMIES.wtest_dummy = {
-  id: 'wtest_dummy', name: 'Übungspuppe', desc: '', biome: 'ash', hp: 1e7, speed: 0, damage: 0, r: 6, mass: 0,
+  id: 'wtest_dummy', name: 'Übungspuppe', desc: '', biome: 'ash', hp: 1e7, speed: 0, damage: 0, r: 6, mass: 0, bloodless: true,
   xp: 0, sparks: [0, 0], sprite: 'wtest_dummy', color: '#888888', ai: 'wtest_none', aiParams: {},
 };
 AI.wtest_none = { update() {} };
@@ -160,7 +162,7 @@ function equip(g, wid, level) {
   return ws;
 }
 
-const SINGLE_DIST = { iron_hammer: 30, scatter_coal: 36 };
+const SINGLE_DIST = { iron_hammer: 30, scatter_coal: 36, blood_sickle: 28 };
 
 /** Sustained damage per second over `seconds` with the trigger held. mode: 'single' | 'cluster'. */
 function measure(g, wid, level, mode, seconds = 10) {

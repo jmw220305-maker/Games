@@ -387,7 +387,7 @@ export const RIME_DEFS = {
     biome: 'frost', boss: false, hp: 9999, speed: 0, damage: 14, r: 10, mass: 0, flying: true, xp: 0, sparks: [0, 0],
     sprite: 'boss_rime_segment', color: COL.deep, light: { r: 26, color: COL.body }, shadow: true, contactType: 'frost',
     ai: 'boss_rime_segment', aiParams: {},
-    untargetable: true,
+    untargetable: true, bloodless: true, // §12: armour plates, no blood
     immune: ['burn', 'poison', 'chill', 'freeze', 'shock', 'mark', 'stun', 'weak', 'slow'],
     hooks: {
       onHit(w, s, hit) { forwardHit(w, s, s.data.owner, hit, SEGMENT_FORWARD); },

@@ -2,7 +2,7 @@
 import { bus as globalBus } from '../core/events.js';
 import { BIOMES } from '../data/biomes.js';
 import { persistSave, ensureSaveShape } from './save.js';
-import { UPGRADE_LIST, upgradeLevel, isCharacterUnlocked, CHARACTER_UNLOCKS, WEAPON_IDS } from './progression.js';
+import { UPGRADE_LIST, upgradeLevel, isCharacterUnlocked, CHARACTER_UNLOCKS, WEAPON_IDS, ADERLASS_UNLOCK } from './progression.js';
 
 export const ACHIEVEMENT_CATEGORIES = Object.freeze({
   progress: 'Fortschritt',
@@ -20,6 +20,14 @@ const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const ico = (glyph, color) => Object.freeze({ glyph, color });
 
 const GOLD = '#ffd35a', EMBER = '#ff8a3c', RED = '#ff6a5a', ICE = '#8fd8ff', VIOLET = '#b07cff', GREEN = '#7dff9a', GREY = '#c9c2b8';
+const BLOOD = '#d6304a';
+
+/** §12 lifetime counters in `save.counters`, bumped on `status:burst` (by status id). */
+export const BURST_COUNTERS = Object.freeze({ bleed: 'bleedBursts', poison: 'poisonBursts', shock: 'shockBursts' });
+/** Lifetime bursts needed for the three burst achievements (Aderlass also unlocks the Dornenarmbrust). */
+export const BURST_GOAL = ADERLASS_UNLOCK;
+/** HP healed through blood orbs in one run for »Nachtmahl«. */
+export const BLOOD_FEAST_GOAL = 300;
 
 // `check(save)` (optional): evaluated against the save state; makes achievements retroactive.
 const DEFS = [
@@ -65,13 +73,22 @@ const DEFS = [
   { id: 'big_hit', cat: 'skill', name: 'Vernichtender Schlag', desc: 'Verursache mit einem einzigen Treffer mindestens 500 Schaden.', icon: ico('hammer', EMBER), reward: 40 },
   { id: 'boss_low_hp', cat: 'skill', name: 'Am seidenen Faden', desc: 'Besiege einen Boss mit weniger als 10 % Leben.', icon: ico('heart', RED), reward: 50, secret: true },
   { id: 'win_cursed', cat: 'skill', name: 'Fluchträger', desc: 'Gewinne einen Abstieg mit mindestens zwei Flüchen.', icon: ico('skull', '#c04bd6'), reward: 100 },
+  // §12 status mechanics: lifetime threshold payoffs + Blutrausch / blood orbs
+  { id: 'aderlass_25', cat: 'skill', name: 'Aderlasser', desc: `Löse insgesamt ${BURST_GOAL}-mal einen Aderlass aus. Schaltet die Dornenarmbrust frei.`, icon: ico('drop', BLOOD), reward: 30,
+    check: (s) => num(s.counters.bleedBursts) >= BURST_GOAL },
+  { id: 'eruption_25', cat: 'skill', name: 'Seuchenherd', desc: `Löse insgesamt ${BURST_GOAL} Gifteruptionen aus.`, icon: ico('mushroom', '#9be35a'), reward: 30,
+    check: (s) => num(s.counters.poisonBursts) >= BURST_GOAL },
+  { id: 'discharge_25', cat: 'skill', name: 'Blitzableiter', desc: `Löse insgesamt ${BURST_GOAL} Entladungen aus.`, icon: ico('bolt', '#ffe75a'), reward: 30,
+    check: (s) => num(s.counters.shockBursts) >= BURST_GOAL },
+  { id: 'frenzy_max', cat: 'skill', name: 'Im Blutrausch', desc: 'Steigere den Blutrausch auf seine volle Stapelzahl.', icon: ico('fang', '#ff4f5a'), reward: 30 },
+  { id: 'blood_feast', cat: 'curious', name: 'Nachtmahl', desc: `Heile in einem einzigen Abstieg ${BLOOD_FEAST_GOAL} Leben durch Blutkugeln.`, icon: ico('potion', '#b0203a'), reward: 40 },
 
   // --- Sammlung ---------------------------------------------------------------------------------
   { id: 'relics_25', cat: 'collection', name: 'Sammler', desc: 'Entdecke 25 verschiedene Relikte.', icon: ico('gem', '#5fd38d'), reward: 40,
     check: (s) => Object.keys(s.codex.relics).length >= 25 },
   { id: 'relics_50', cat: 'collection', name: 'Reliktkundiger', desc: 'Entdecke 50 verschiedene Relikte.', icon: ico('gem', '#6aa9ff'), reward: 100,
     check: (s) => Object.keys(s.codex.relics).length >= 50 },
-  { id: 'weapons_all', cat: 'collection', name: 'Waffenmeister', desc: 'Führe jede der 15 Waffen mindestens einmal.', icon: ico('sword', '#e8e2d4'), reward: 150,
+  { id: 'weapons_all', cat: 'collection', name: 'Waffenmeister', desc: `Führe jede der ${WEAPON_IDS.length} Waffen mindestens einmal.`, icon: ico('sword', '#e8e2d4'), reward: 150,
     check: (s) => WEAPON_IDS.every((id) => num(s.codex.weapons[id]) > 0) },
   { id: 'enemies_all', cat: 'collection', name: 'Bestiarium', desc: 'Entdecke jede Gegnerart des Schachts.', icon: ico('book', EMBER), reward: 100,
     check: (s) => ROSTER_ENEMY_IDS.every((id) => s.codex.enemies[id] && s.codex.enemies[id].seen) },
@@ -185,7 +202,7 @@ export function initAchievements(game, opts = {}) {
   // per-run counters
   let rs = null;
   function resetRun(r) {
-    rs = { run: r || null, started: !!r, streak: 0, floorHit: false, purchases: 0, bossActive: false, bossDamaged: false };
+    rs = { run: r || null, started: !!r, streak: 0, floorHit: false, purchases: 0, bossActive: false, bossDamaged: false, orbHeal: 0, lastHeal: 0, lastHealT: null };
   }
   resetRun(null);
   function state() {
@@ -234,7 +251,8 @@ export function initAchievements(game, opts = {}) {
   const curses = (p) => (p && Array.isArray(p.relics) ? p.relics.filter((r) => r && r.def && r.def.rarity === 'curse').length : 0);
   const relicsHeld = (p) => (p && Array.isArray(p.relics) ? p.relics.filter((r) => r && r.def && r.def.rarity !== 'curse').length : 0);
   const checkSparks = () => { const r = run(); if (r && r.player && num(r.player.sparks) >= 500) unlock('sparks_500'); };
-  const bump = (key) => { const s = save(); if (s) s.counters[key] = num(s.counters[key]) + 1; };
+  const bump = (key) => { const s = save(); if (!s) return 0; s.counters[key] = num(s.counters[key]) + 1; return s.counters[key]; };
+  const runTime = () => { const r = run(); return r && typeof r.time === 'number' ? r.time : null; };
 
   const handlers = {
     'run:start'(p) {
@@ -300,7 +318,33 @@ export function initAchievements(game, opts = {}) {
     'prop:open'(p) {
       if (p && p.kind === 'barrel') { bump('barrels'); checkSave(); }
     },
-    'pickup:collect'(p) { if (p && p.kind === 'spark') checkSparks(); },
+    'pickup:collect'(p) {
+      if (p && p.kind === 'spark') checkSparks();
+      // blood orb heal = the player:heal emitted in the same step, just before this pickup event
+      const st = state();
+      if (p && p.kind === 'blood' && st.lastHeal > 0 && st.lastHealT === runTime()) {
+        st.orbHeal += st.lastHeal;
+        if (st.orbHeal >= BLOOD_FEAST_GOAL) unlock('blood_feast');
+      }
+      st.lastHeal = 0;
+    },
+    'player:heal'(p) {
+      const st = state();
+      st.lastHeal = p ? num(p.amount) : 0;
+      st.lastHealT = runTime();
+    },
+    'status:burst'(p) {
+      const key = p && BURST_COUNTERS[p.id];
+      if (!key) return;
+      const n = bump(key);
+      if (n === BURST_GOAL) checkSave();
+    },
+    'player:frenzy'(p) {
+      const stacks = p ? num(p.stacks) : 0;
+      const r = run();
+      const max = r && r.player && r.player.stats ? num(r.player.stats.frenzyMax) : 10;
+      if (stacks >= 10 && stacks >= max) unlock('frenzy_max');
+    },
     'shop:buy'() { state().purchases++; },
     'relic:gain'(p) {
       if (p && p.def && p.def.rarity === 'legendary') unlock('legendary');

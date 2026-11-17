@@ -208,7 +208,11 @@ export const VOID_AI = {
             go(e, 'dash');
             d.trav = 0;
             attackEvent(w, e, 'charge');
-            d.hit = zone(w, e, { shape: 'circle', x: e.x, y: e.y, r: e.r + 5, follow: e, delay: 0, duration: 1, damage: a.dashDamage, knockback: 200, type: 'shadow', color: SHADOW });
+            d.hit = zone(w, e, {
+              shape: 'circle', x: e.x, y: e.y, r: e.r + 5, follow: e, delay: 0, duration: 1, damage: a.dashDamage, knockback: 200, type: 'shadow', color: SHADOW,
+              // §12: the lance-like charge leaves a bleeding wound
+              status: a.dashBleed ? { id: 'bleed', duration: 4, power: a.dashBleed * (e.dmgMul ?? 1) } : undefined,
+            });
           }
           break;
         case 'dash': {

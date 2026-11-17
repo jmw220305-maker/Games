@@ -2,7 +2,10 @@
 import { bus } from '../core/events.js';
 import { TS, TILE, SPIKE_CYCLE } from './constants.js';
 import { computeStats } from './stats.js';
-import { updateStatuses, makeWeaponState, recalcWeapon, weaponCooldown, MAX_WEAPON_LEVEL } from './combat.js';
+import {
+  updateStatuses, makeWeaponState, recalcWeapon, weaponCooldown, MAX_WEAPON_LEVEL,
+  PLAYER_BLEED_HEAL_MUL, VAMP_PER_S, FRENZY_TIME, FRENZY_DAMAGE, FRENZY_SPEED,
+} from './combat.js';
 import { runHooks } from './perks.js';
 
 const ACCEL = 1400;          // px/s² normal ground
@@ -46,6 +49,10 @@ export class Player {
     this.slowMul = 1; this.frozen = false; this.stunned = false;
     this.dmgTakenMul = 1; this.dmgDealtMul = 1; this.tempDamageMul = 1;
     this.lsBudget = LIFESTEAL_PER_S;
+    this.vampBudget = VAMP_PER_S;            // §12.2 vampirism heal budget (HP, refills VAMP_PER_S per s)
+    this.frenzy = { stacks: 0, t: 0 };       // §12.3 Blutrausch
+    this.healAcc = 0; this.healTextT = 0;    // aggregated lifesteal/vampirism heal number
+    this.bleeding = false;
     this._hookDepth = 0;
     this.safeX = 0; this.safeY = 0; this._safeT = 0;
     this._hazT = 0; this._hazNext = HAZARD_FIRST;
@@ -98,6 +105,37 @@ export class Player {
     if (this.dash.cd > s.dashCooldown) this.dash.cd = s.dashCooldown;
     this.skill.cdMax = this.skill.def ? (this.skill.def.cooldown || 0) * s.skillCooldown : 0;
     return s;
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Blutrausch (§12.3): core mod source 'frenzy', +3 % damage / +2 % moveSpeed per stack
+  // -------------------------------------------------------------------------------------------
+  /** Add Blutrausch stacks (capped at stats.frenzyMax) and refresh its timer. Returns the stack count. */
+  addFrenzy(n = 1) {
+    const f = this.frenzy;
+    const max = this.stats.frenzyMax;
+    if (!this.alive || !(n > 0) || !(max > 0)) return f.stacks;
+    f.t = FRENZY_TIME;
+    const next = Math.min(max, f.stacks + Math.floor(n));
+    if (next !== f.stacks) this._setFrenzy(next);
+    const st = this.run.stats;
+    if (f.stacks > (st.frenzyPeak || 0)) st.frenzyPeak = f.stacks;
+    return f.stacks;
+  }
+
+  _setFrenzy(n) {
+    this.frenzy.stacks = n;
+    if (n > 0) this.addMod('frenzy', [{ stat: 'damage', mul: 1 + FRENZY_DAMAGE * n }, { stat: 'moveSpeed', mul: 1 + FRENZY_SPEED * n }]);
+    else this.removeMods('frenzy');
+    bus.emit('player:frenzy', { stacks: n });
+  }
+
+  _updateFrenzy(dt) {
+    const f = this.frenzy;
+    if (f.stacks <= 0) return;
+    f.t -= dt;
+    if (f.t <= 0) { f.t = 0; this._setFrenzy(0); }
+    else if (f.stacks > this.stats.frenzyMax) this._setFrenzy(Math.max(0, this.stats.frenzyMax));
   }
 
   // -------------------------------------------------------------------------------------------
@@ -206,11 +244,16 @@ export class Player {
     if (this.skill.cd > 0) this.skill.cd = Math.max(0, this.skill.cd - dt);
     if (this.skill.active > 0) this.skill.active = Math.max(0, this.skill.active - dt);
     this.lsBudget = Math.min(LIFESTEAL_PER_S, this.lsBudget + LIFESTEAL_PER_S * dt);
+    this.vampBudget = Math.min(VAMP_PER_S, this.vampBudget + VAMP_PER_S * dt);
     this._prevAnim = this.anim;
 
     if (this.alive) {
       updateStatuses(w, this, dt);
-      if (this.alive && s.regen > 0 && this.hp < s.maxHp && !run.ended) this.hp = Math.min(s.maxHp, this.hp + s.regen * dt);
+      if (this.alive && s.regen > 0 && this.hp < s.maxHp && !run.ended) {
+        this.hp = Math.min(s.maxHp, this.hp + s.regen * dt * (this.statuses.bleed ? PLAYER_BLEED_HEAL_MUL : 1));
+      }
+      this._updateFrenzy(dt);
+      this._flushHealText(w, dt);
     }
     if (run.ended || !this.alive) {
       this.dashing = false; this.flying = false;
@@ -285,6 +328,15 @@ export class Player {
     else if (Math.hypot(this.vx, this.vy) > 8) anim = 'walk';
     this._setAnim(anim, dt);
     this.flipX = Math.cos(this.aim) < 0;
+  }
+
+  /** One floating "+N" per second for the silent lifesteal/vampirism heals (World.drainFeedback). */
+  _flushHealText(w, dt) {
+    if (this.healTextT > 0) this.healTextT -= dt;
+    if (this.healTextT > 0 || !(this.healAcc >= 1)) return;
+    w.fx.text(this.x, this.y - 14, `+${Math.round(this.healAcc)}`, '#ff6f86', { player: true, small: true, heal: true });
+    this.healAcc = 0;
+    this.healTextT = 1;
   }
 
   _setAnim(anim, dt) {

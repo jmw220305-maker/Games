@@ -5,6 +5,7 @@ import {
   fmtInt, fmtDec, fmtPct, fmtSignedPct, fmtTime, fmtDuration, plural, text, descAt, rarityInfo,
   statLabel, formatStat, statTrend, describeMod, mapLayout, pickDirectional, approach, statProfile,
   completion, LIFETIME_STATS, formatLifetime, STAT_INFO, STAT_GROUPS, clamp01, MINUS,
+  statusGlossary, STATUS_LOOK, STATUS_ORDER, BLOOD_MECHANICS,
 } from '../src/ui/format.js';
 
 test('number formatting is German', () => {
@@ -138,4 +139,56 @@ test('DOM-dependent UI modules import without a DOM', async () => {
   // init without a document is a harmless no-op
   assert.equal(ui.ui.init({}), ui.ui);
   ui.ui.update(0.016);
+});
+
+test('§12 stats have labels in the fallback character sheet', () => {
+  for (const k of ['bleedChance', 'bleedDamage', 'vampirism', 'bloodOrbHeal', 'frenzyMax']) {
+    assert.ok(STAT_INFO[k], k);
+    assert.ok(STAT_GROUPS.some((g) => g.keys.includes(k)), `${k} grouped`);
+  }
+  assert.equal(formatStat('vampirism', 0.05), '5 %');
+  assert.equal(formatStat('bleedDamage', 1.3), '130 %');
+  assert.equal(describeMod({ stat: 'bleedChance', add: 0.1 }), '+10 % Blutungschance');
+});
+
+test('status glossary (Chronik → Zustände) merges live STATUS over German fallbacks', async () => {
+  // without game data: complete fallback in display order, then the blood mechanics
+  const fb = statusGlossary(null);
+  assert.deepEqual(fb.filter((r) => r.kind === 'status').map((r) => r.id), STATUS_ORDER);
+  assert.deepEqual(fb.filter((r) => r.kind === 'mechanic').map((r) => r.name), ['Lebensraub', 'Vampirismus', 'Blutkugeln', 'Blutrausch']);
+  const byId = Object.fromEntries(fb.map((r) => [r.id, r]));
+  assert.equal(byId.bleed.burstName, 'Aderlass');
+  assert.equal(byId.poison.burstName, 'Gifteruption');
+  assert.equal(byId.shock.burstName, 'Entladung');
+  assert.equal(byId.burn.burstName, null);
+  for (const r of fb) {
+    assert.ok(r.name && r.desc && r.icon && /^#/.test(r.color), r.id);
+    if (r.burstName) assert.ok(r.burstDesc, `${r.id} payoff text`);
+  }
+  // live data wins, unknown extra statuses are appended, null bursts stay empty
+  const live = statusGlossary({
+    bleed: { name: 'Blutung', desc: 'Live-Text', burstName: 'Aderlass', burstDesc: 'Live-Schwelle', maxStacks: 10, burstAt: 10, playerMaxStacks: 5 },
+    burn: { name: 'Brand', desc: 'Feuer', burstName: null, burstDesc: null, maxStacks: 1 },
+    doom: { name: 'Verdammnis', desc: 'Neu', color: '#123456', maxStacks: 3 },
+  });
+  const L = Object.fromEntries(live.map((r) => [r.id, r]));
+  assert.equal(L.bleed.desc, 'Live-Text');
+  assert.equal(L.bleed.burstDesc, 'Live-Schwelle');
+  assert.equal(L.bleed.stacks, 10);
+  assert.equal(L.bleed.playerStacks, 5);
+  assert.equal(L.burn.burstName, null);
+  assert.equal(L.burn.stacks, null);
+  assert.equal(L.doom.name, 'Verdammnis');
+  assert.equal(L.doom.stacks, 3);
+  assert.equal(live.findIndex((r) => r.id === 'doom'), STATUS_ORDER.length);
+  // the real STATUS table: every status has German text and every stacking payoff is described
+  const { STATUS } = await import('../src/game/combat.js');
+  const real = statusGlossary(STATUS);
+  for (const id of Object.keys(STATUS)) {
+    const r = real.find((x) => x.id === id);
+    assert.ok(r && r.desc, `${id} has a description`);
+    if (STATUS[id].burstName) assert.equal(r.burstName, STATUS[id].burstName);
+  }
+  for (const id of STATUS_ORDER) assert.ok(STATUS_LOOK[id] && STATUS_LOOK[id].icon, id);
+  assert.equal(BLOOD_MECHANICS.length, 4);
 });

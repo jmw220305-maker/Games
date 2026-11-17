@@ -509,7 +509,91 @@ const LIST = [
       ];
     },
   },
+  // --- §12 status mechanics ------------------------------------------------------------------
+  {
+    id: 'blood_well', name: 'Blutbrunnen', weight: 0.8, icon: { glyph: 'drop', color: '#b0203a' },
+    text: 'Ein Brunnen voll dunklem, warmem Blut. Sein Rand trägt die Abdrücke unzähliger Lippen.',
+    options(ctx) {
+      const c = shrineCtx(ctx), p = c.player;
+      const cost = Math.max(10, Math.round(p.hp * 0.25));
+      const relic = bloodRelicPool(c).length > 0;
+      return [
+        {
+          id: 'drink', label: 'Trinken', icon: { glyph: 'fang', color: '#d6304a' }, available: p.stats.maxHp > 40,
+          desc: 'Verliere dauerhaft 15 max. Leben. Erhalte +4 % Vampirismus und +3 maximale Blutrausch-Stapel.',
+          pick(x) {
+            const k = shrineCtx(x);
+            loseMaxHp(k, 15);
+            addPermanent(k, 'blood_well', [{ stat: 'vampirism', add: 0.04 }, { stat: 'frenzyMax', add: 3 }]);
+            toast('Das Blut brennt in deinen Adern', 'good', { glyph: 'fang', color: '#d6304a' });
+          },
+        },
+        {
+          id: 'anoint', label: 'Die Klinge tränken', icon: bloodIcon, available: relic && p.hp > cost + 1,
+          desc: `Verliere ${cost} Leben. Erhalte ein zufälliges Relikt des Blutes (Blutung, Blutkugeln, Vampirismus).`,
+          pick(x) {
+            const k = shrineCtx(x);
+            const pool = bloodRelicPool(k);
+            if (!pool.length) return;
+            payHp(k, cost);
+            const def = k.rng.weighted(pool, (d) => BLOOD_RELIC_WEIGHT[d.rarity] || 1);
+            if (giveRelic(k, def.id)) toast(`${def.name} erhalten`, 'good', def.icon);
+          },
+        },
+        leave(),
+      ];
+    },
+  },
+  {
+    id: 'storm_altar', name: 'Gewitteraltar', weight: 0.7, icon: { glyph: 'bolt', color: '#ffe75a' },
+    text: 'Ein Altar aus geschwärztem Kupfer. Über ihm hängt eine knisternde Wolke und wartet auf etwas, in das sie einschlagen kann.',
+    options(ctx) {
+      const c = shrineCtx(ctx), p = c.player;
+      const dmg = Math.max(8, Math.round(p.stats.maxHp * 0.2));
+      const cost = shrinePrice(c.run, 30);
+      const boon = p.boons && p.boons.find((b) => b.def.id === 'boon_overload');
+      const room = !boon || boon.stacks < boon.def.maxStacks;
+      return [
+        {
+          id: 'strike', label: 'Den Blitz empfangen', icon: { glyph: 'bolt', color: '#ffe75a' }, available: p.hp > dmg + 1,
+          desc: `Erleide ${dmg} Schockschaden. Erhalte dauerhaft +8 % Schockchance und +15 % Schockschaden.`,
+          pick(x) {
+            const k = shrineCtx(x);
+            payHp(k, dmg);
+            addPermanent(k, 'storm_altar', [{ stat: 'shockChance', add: 0.08 }, { stat: 'shockDamage', mul: 1.15 }]);
+            if (k.w) { k.w.fx.lightning(k.player.x, k.player.y - 90, k.player.x, k.player.y, '#ffe75a'); k.w.fx.flash('#fff3b0', 0.12); }
+            toast('Der Donner wohnt jetzt in dir', 'good', { glyph: 'bolt', color: '#ffe75a' });
+          },
+        },
+        {
+          id: 'channel', label: 'Den Blitz bündeln', icon: sparkIcon, available: room && p.sparks >= cost,
+          desc: `Zahle ${cost} Funken: Erhalte 2 Stufen des Segens »Überladung« (Entladungen verursachen mehr Schaden).`,
+          pick(x) {
+            const k = shrineCtx(x);
+            if (!spend(k, cost)) return;
+            giveBoon(k, 'boon_overload');
+            giveBoon(k, 'boon_overload');
+            toast('Segen: Überladung', 'good', { glyph: 'bolt', color: '#fff27a' });
+          },
+        },
+        leave('Die Wolke grollt dir hinterher.'),
+      ];
+    },
+  },
 ];
+
+// Blutbrunnen: relics of the §12 blood themes the player does not own yet and could use
+const BLOOD_TAGS = ['bleed', 'blood', 'vampirism', 'frenzy'];
+const BLOOD_RELIC_WEIGHT = { common: 6, uncommon: 4, rare: 2, legendary: 0.5 };
+function bloodRelicPool(c) {
+  const p = c.player;
+  const owned = new Set((p.relics || []).map((r) => r.def.id));
+  return Object.values(RELICS).filter((d) => d.rarity !== 'curse' && !owned.has(d.id) && Array.isArray(d.tags)
+    && d.tags.some((t) => BLOOD_TAGS.includes(t)) && (!d.requires || safeRequires(d, p, c.run)));
+}
+function safeRequires(d, p, run) {
+  try { return !!d.requires(p, run); } catch { return false; }
+}
 
 function swapPool(c, ws) {
   const cur = ORDER.indexOf(ws.def.rarity || 'common');

@@ -4,7 +4,7 @@
 // Timed skill effects (Bollwerk, Schattenschritt) end through three independent paths so a flag can never stick:
 // the effect's own zone `onEnd`, the passive's `onRoomEnter` (zones are discarded on room change) and a watchdog
 // that runs from `dynamicMods` (the core evaluates it 5×/s) / `onUpdate`, using `run.time`.
-import { skillDamage } from '../game/combat.js';
+import { skillDamage, PLAYER_BLEED_HEAL_MUL } from '../game/combat.js';
 import { distToSegment } from '../core/math.js';
 import { TILE } from '../game/constants.js';
 
@@ -230,6 +230,9 @@ function iceStorm(w, player, aim) {
 // ---------------------------------------------------------------------------------------------
 // Aschenkind
 // ---------------------------------------------------------------------------------------------
+/** Aschenkind: chance per kill to drop a blood orb (§12.3). */
+const REVENANT_ORB_CHANCE = 0.12;
+
 function overshield(player, amount) {
   if (!(amount > 0)) return;
   const cap = player.stats.maxHp * 0.25;
@@ -395,9 +398,10 @@ export const CHARACTERS = {
 
   revenant: {
     id: 'revenant', name: 'Aschenkind', title: 'Aus der Asche geboren',
-    desc: 'Wenig Leben, aber unstillbarer Hunger: Lebensraub, Regeneration und die Kraft, das eigene Leben zu verbrennen.',
+    desc: 'Wenig Leben, aber unstillbarer Hunger: Vampirismus, Blutkugeln und die Kraft, das eigene Leben zu verbrennen.',
     sprite: 'char_revenant', color: '#c9c2b8',
-    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'lifesteal', add: 0.03 }, { stat: 'regen', add: 0.15 }, { stat: 'healPower', mul: 1.15 }],
+    // §12: vampirism identity (kills heal, blood orbs) instead of flat lifesteal — less sustain in boss fights
+    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'vampirism', add: 0.03 }, { stat: 'regen', add: 0.1 }, { stat: 'healPower', mul: 1.1 }],
     weapon: 'soul_siphon',
     skill: {
       id: 'ash_rebirth', name: 'Aschegeburt', cooldown: 10, duration: 0.4,
@@ -406,14 +410,25 @@ export const CHARACTERS = {
       use(w, player) { ashRebirth(w, player); },
     },
     passive: {
-      id: 'revenant_passive', name: 'Aschenhunger', desc: 'Jeder Kill heilt 1 Leben. Heilung über dem Maximum wird zu Schild (bis 25 % der max. Leben).',
+      id: 'revenant_passive', name: 'Aschenhunger',
+      desc: 'Kills lassen mit 12 % Chance eine Blutkugel fallen. Heilung durch Blutkugeln über dem Maximum wird zu Schild (bis 25 % der max. Leben).',
       hooks: {
-        onKill(ctx) {
-          const p = ctx.player, w = ctx.w;
-          if (!w || !p.alive) return;
+        onKill(ctx, { enemy }) {
+          const w = ctx.w;
+          if (!w || !ctx.player.alive || !enemy || enemy.summoned || enemy.noXp || enemy.boss) return;
+          if (ctx.rng.chance(REVENANT_ORB_CHANCE)) w.spawnPickup('blood', enemy.x, enemy.y, { burst: true });
+        },
+        onHeal(ctx, { amount }) { const st = ctx.state; st.healAmt = amount; st.healT = runTime(ctx.run); },
+        onPickup(ctx, { kind, amount }) {
+          // the orb's heal ran just before this hook (same step): overflow becomes shield
+          if (kind !== 'blood') return;
+          const p = ctx.player, st = ctx.state;
+          if (!p.alive) return;
           const mods = ctx.run && ctx.run.difficulty && ctx.run.difficulty.mods;
-          const want = p.stats.healPower * ((mods && mods.healMult) ?? 1);
-          const healed = w.healPlayer(1, { silent: true }) || 0;
+          const bleedMul = p.statuses && p.statuses.bleed ? (PLAYER_BLEED_HEAL_MUL ?? 0.6) : 1;
+          const want = p.stats.bloodOrbHeal * (amount || 1) * p.stats.healPower * ((mods && mods.healMult) ?? 1) * bleedMul;
+          const healed = st.healT === runTime(ctx.run) ? st.healAmt || 0 : 0;
+          st.healAmt = 0;
           overshield(p, want - healed);
         },
         onUpdate(ctx) {

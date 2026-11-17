@@ -3,7 +3,7 @@
 // player stats, crits, status chances and relic hooks apply uniformly. DOM-free; no top-level side effects
 // (this module takes part in an import cycle with game/registry.js).
 import { bus } from '../core/events.js';
-import { playerShot, playerVolley, playerDamage } from '../game/combat.js';
+import { playerShot, playerVolley, playerDamage, rollCrit, STATUS } from '../game/combat.js';
 import { runHooks } from '../game/perks.js';
 import { angleDiff, distToSegment } from '../core/math.js';
 
@@ -254,13 +254,13 @@ function riftImplode(w, p) {
   w.fx.ring(p.x, p.y, R, '#9a6bff', 0.25);
 }
 
-// iron_hammer: swing visual (also smashes barrels / crystals)
-function swingVisual(w, ws, player, a, R, arc) {
-  const dur = 0.13;
+// iron_hammer / blood_sickle: swing visual (also smashes barrels / crystals)
+function swingVisual(w, ws, player, a, R, arc, o = {}) {
+  const dur = o.dur ?? 0.13;
   w.spawnProjectile({
     x: player.x, y: player.y, vx: 0, vy: 0, r: 6, damage: 0, team: 'player', owner: player, weaponId: ws.def.id,
-    ghost: true, pierce: Infinity, life: dur, sprite: 'proj_hammer', color: ws.def.color, scale: 1.3, knockback: 0,
-    light: { r: 18, color: '#e8e2d4' },
+    ghost: true, pierce: Infinity, life: dur, sprite: o.sprite || 'proj_hammer', color: ws.def.color, scale: o.scale ?? 1.3, knockback: 0,
+    spin: o.spin || 0, light: { r: 18, color: o.light || '#e8e2d4' },
     data: { a0: a - arc / 2, arc, R: R * 0.78, dur },
     onUpdate(w2, p, dt) {
       const d = p.data, t = Math.min(1, (p.age + dt) / d.dur);
@@ -353,6 +353,57 @@ function shatter(w, ws, p) {
     if (hit) s.hits.add(hit);
     if (chill) tagStatus([s], chill);
   }
+}
+
+// §12 bleed weapons --------------------------------------------------------------------------
+// read lazily: combat.js may still be evaluating when this module runs (registry import cycle)
+const bleedAt = () => (STATUS.bleed && (STATUS.bleed.burstAt || STATUS.bleed.maxStacks)) || 10;
+const bleedStacks = (e) => (e && e.statuses && e.statuses.bleed ? e.statuses.bleed.stacks : 0);
+
+/**
+ * Apply `stacks` bleed stacks from a weapon (power scales with statusPower × damage × bleedDamage).
+ * @returns {boolean} true when this application triggered an Aderlass (the core consumed the stacks)
+ */
+function weaponBleed(w, ws, e, stacks) {
+  if (!e || e.dead || !(stacks > 0) || (e.def && e.def.bloodless)) return false;
+  const ps = w.player.stats;
+  const before = bleedStacks(e);
+  w.applyStatus(e, 'bleed', wStatus(w, 'bleed', ws.stats.bleed * (ps.bleedDamage ?? 1), 4, { stacks }));
+  const at = bleedAt();
+  return before + stacks >= at && bleedStacks(e) < Math.min(at, before + stacks);
+}
+
+// blood_sickle: Aderlass procs feed the wielder (level 5)
+function sickleFeast(w, ws, e) {
+  const heal = ws.stats.feast || 0;
+  if (!(heal > 0)) return;
+  const healed = w.healPlayer(heal, { silent: true });
+  if (healed > 0 && typeof w.drainFeedback === 'function') w.drainFeedback(e, healed);
+}
+
+// thorn_crossbow: bonus vs bleeding targets (checked before this bolt's own bleed lands), then bleed
+function thornHit(w, ws, p, e) {
+  if (e.dead) return;
+  const st = ws.stats;
+  if (st.bonus > 0 && bleedStacks(e) > 0) {
+    w.damageEnemy(e, p.damage * st.bonus, { type: 'phys', crit: p.crit, proc: false, silent: true, source: 'weapon', weaponId: ws.def.id });
+    if (Math.random() < 0.5) w.fx.burst('blood', e.x, e.y, { count: 2 });
+  }
+  if (!e.dead && weaponBleed(w, ws, e, st.bleedStacks + (p.crit ? 1 : 0)) && st.shards > 0) thornShards(w, ws, e);
+}
+
+// thorn_crossbow L5: an Aderlass caused by a bolt hurls thorns around the target (they bleed, but never shatter again)
+function thornShards(w, ws, e) {
+  const st = ws.stats, n = st.shards | 0, base = w.rng.angle();
+  for (let i = 0; i < n; i++) {
+    const q = playerShot(w, ws, base + (i / n) * TAU, {
+      x: e.x, y: e.y, damage: st.damage * 0.6, speed: 260, range: 80, r: 2, pierce: 0, bounce: 0, homing: 2,
+      sprite: 'proj_needle', scale: 0.8, trail: null, light: { r: 10, color: '#d6304a' },
+      onHit: (w2, sp, t) => { if (!t.dead) weaponBleed(w2, ws, t, 1); },
+    });
+    q.hits.set(e, w.time);
+  }
+  w.fx.burst('blood', e.x, e.y, { count: 10, speed: 120 });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -847,6 +898,64 @@ export const WEAPONS = {
         onExpire: (w2, p) => shatter(w2, ws, p),
       });
       tagStatus(shots, wStatus(w, 'chill', 1, 2.5, { stacks: st.chill }));
+    },
+  },
+
+  // -------------------------------------------------------------------------------------------
+  // §12: Blutung
+  // -------------------------------------------------------------------------------------------
+  blood_sickle: {
+    id: 'blood_sickle', name: 'Blutsichel', rarity: 'uncommon', type: 'phys', tags: ['phys', 'melee', 'bleed'],
+    desc: 'Rasche Sichelhiebe im Bogen vor dir. Jeder Treffer lässt bluten, kritische Treffer doppelt – bei 10 Stapeln reißt der Aderlass auf.',
+    icon: { glyph: 'moon', color: '#d6304a' }, projSprite: 'proj_blade', color: '#d6304a',
+    base: { damage: 5.8, cooldown: 0.42, range: 36, arc: 1.9, knockback: 70, bleed: 0.55, critStacks: 2, feast: 0 },
+    levels: [
+      { desc: 'Weiter Schwung: +20 % Reichweite und Schwungbreite', mods: { range: 1.2, arc: 1.2 } },
+      { desc: '+25 % Schaden und Blutungsstärke', mods: { damage: 1.25, bleed: 1.25 } },
+      { desc: 'Rasende Sichel: +25 % Schwungtempo', mods: { cooldown: 0.8 } },
+      { desc: 'Blutfest: Jeder Aderlass deiner Sichel heilt dich um 5 Leben, +15 % Schaden', mods: { '+feast': 5, damage: 1.15, bleed: 1.15 } },
+    ],
+    fire(w, player, ws, aim) {
+      const st = ws.stats, ps = player.stats;
+      const R = st.range * ps.range, arc = st.arc, a = aim.angle;
+      let hits = 0;
+      for (const e of w.enemies.slice()) {
+        if (!alive(e)) continue;
+        const dx = e.x - player.x, dy = e.y - player.y, dist = Math.hypot(dx, dy);
+        if (dist - e.r > R) continue;
+        if (dist > e.r + 3 && Math.abs(angleDiff(a, Math.atan2(dy, dx))) > arc / 2 + Math.asin(Math.min(1, e.r / dist))) continue;
+        const crit = rollCrit(w);
+        playerDamage(w, ws, e, st.damage, { crit, knockback: { x: dx, y: dy, force: st.knockback * ps.knockback } });
+        if (!e.dead && weaponBleed(w, ws, e, crit ? st.critStacks : 1)) sickleFeast(w, ws, e);
+        hits++;
+      }
+      swingVisual(w, ws, player, a, R, arc, { dur: 0.1, sprite: 'proj_blade', scale: 1.1, spin: 20, light: '#ff6f86' });
+      const tipX = player.x + Math.cos(a) * R * 0.8, tipY = player.y + Math.sin(a) * R * 0.8;
+      if (hits) {
+        w.fx.burst('blood', tipX, tipY, { count: 3 + hits, angle: a, spread: 1, speed: 80 });
+        w.fx.hitstop(0.015);
+      }
+      announce(w, ws, a);
+    },
+  },
+
+  thorn_crossbow: {
+    id: 'thorn_crossbow', name: 'Dornenarmbrust', rarity: 'rare', type: 'phys', tags: ['phys', 'projectile', 'pierce', 'bleed'],
+    desc: 'Schwere Dornenbolzen, die Gegner durchschlagen und bluten lassen. Blutende Ziele erleiden Bonusschaden.',
+    icon: { glyph: 'bow', color: '#b04a3a' }, projSprite: 'proj_bolt', color: '#c8735a',
+    base: { damage: 6.5, cooldown: 0.56, projSpeed: 380, range: 250, size: 3, count: 1, spread: 0.18, pierce: 1, knockback: 55, bleed: 0.55, bleedStacks: 1, bonus: 0.2, shards: 0 },
+    levels: [
+      { desc: '+25 % Schaden und Blutungsstärke', mods: { damage: 1.25, bleed: 1.25 } },
+      { desc: '+1 Durchschlag, +15 % Feuerrate', mods: { '+pierce': 1, cooldown: 0.87 } },
+      { desc: 'Widerhaken: Bolzen fügen 2 Blutungsstapel zu', mods: { '+bleedStacks': 1 } },
+      { desc: 'Dornenbruch: Ein Aderlass durch deine Bolzen schleudert 5 blutende Dornen um das Ziel, +15 % Schaden', mods: { '+shards': 5, damage: 1.15 } },
+    ],
+    fire(w, player, ws, aim) {
+      playerVolley(w, ws, aim.angle, {
+        trail: null, light: { r: 14, color: '#d6304a' },
+        onHit: (w2, p, e) => thornHit(w2, ws, p, e),
+      });
+      w.fx.burst('dust', player.x + Math.cos(aim.angle) * 8, player.y + Math.sin(aim.angle) * 8, { count: 3, angle: aim.angle, spread: 0.4, speed: 70 });
     },
   },
 };

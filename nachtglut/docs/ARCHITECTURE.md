@@ -57,7 +57,7 @@ Rules for everyone:
 
 `TS`, `TILE` (`FLOOR 0, WALL 1, PIT 2, DOOR 3, SPIKES 4, HAZARD 5, ICE 6, VOID 8`), `DIRS`, `ROOM_TYPES`,
 `DAMAGE_TYPES` (`phys fire frost poison shock shadow light`), `STATUS_IDS`
-(`burn poison chill freeze shock mark stun weak slow`), `RARITIES`, `RARITY_INFO`, `TYPE_COLORS`, `SPIKE_CYCLE`, `TOTAL_FLOORS`.
+(`burn poison chill freeze shock mark stun weak slow bleed`), `RARITIES`, `RARITY_INFO`, `TYPE_COLORS`, `SPIKE_CYCLE`, `TOTAL_FLOORS`.
 
 Tile semantics:
 | tile | ground units | flying units | projectiles | notes |
@@ -109,7 +109,9 @@ Tile semantics:
 | `boss:death` | `{ boss }` |
 | `explosion` | `{ x, y, radius, team }` |
 | `status:apply` | `{ target, id }` (enemies only) |
-| `pickup:collect` | `{ kind, amount }` kind: `spark|xp|heart|ash|shield` |
+| `status:burst` | `{ target, id: 'bleed'|'poison'|'shock', x, y, damage, radius?, chain? }` threshold payoff (§12) |
+| `player:frenzy` | `{ stacks }` Blutrausch stack count changed (§12.3) |
+| `pickup:collect` | `{ kind, amount }` kind: `spark|xp|heart|ash|shield|blood` |
 | `relic:gain` | `{ id, def }` |
 | `boon:gain` | `{ id, def, stacks }` |
 | `curse:gain` | `{ id, def }` |
@@ -194,13 +196,14 @@ w.boss           // current boss Enemy or null
 w.spawnEnemy(id, x, y, opts?) -> Enemy        // opts: { elite?: number|string[], summoned?: true, delay?: s, noXp?: bool, hpMul?: n }
 w.spawnProjectile(spec) -> Projectile         // §5.1
 w.spawnZone(spec) -> Zone                     // §5.2
-w.spawnPickup(kind, x, y, opts?)              // kind: 'spark'|'xp'|'heart'|'ash'|'shield'; opts: { amount, burst: bool }
+w.spawnPickup(kind, x, y, opts?)              // kind: 'spark'|'xp'|'heart'|'ash'|'shield'|'blood'; opts: { amount, burst: bool, life?: s }
 w.dropLoot(x, y, { sparks, xp, hearts, ash })  // scatter pickups
 
 w.damageEnemy(enemy, amount, info?) -> dealt  // info: { type='phys', crit=false, source='weapon'|'relic'|'status'|'skill'|'zone'|'thorns',
                                               //         weaponId?, knockback?: { x, y, force }, proc=true /* false: do not trigger onHit relic hooks */, silent? }
 w.damagePlayer(amount, info?) -> dealt        // info: { type='phys', source?: Enemy|null, unblockable?: bool, status?: { id, duration, power } }
-w.healPlayer(amount, info?)                   // respects healPower
+w.healPlayer(amount, info?)                   // respects healPower (info.raw: skip it) and the bleed heal penalty (§12)
+w.healEnemy(enemy, amount) -> healed          // ALL enemy self-heals go through this (poisoned enemies heal half, §12)
 w.applyStatus(target, id, { duration, power = 1, stacks = 1 })   // target: Enemy or Player
 w.hasStatus(target, id) -> bool
 w.explode(x, y, radius, damage, opts?)        // opts: { team: 'player'|'enemy' (who deals it), type, status, knockback, crit, color, source, weaponId }
@@ -228,6 +231,7 @@ w.fx.shake(amount, duration?)                 // screen shake (px, s)
 w.fx.flash(color, duration?)                  // full-screen flash
 w.fx.light(x, y, radius, color, duration?)    // temporary light
 w.fx.hitstop(seconds)
+w.fx.drain(x0, y0, target, color, amount)      // life-drain motes flying to `target` (lifesteal / vampirism, §12.3)
 ```
 In Node (headless tests) `w.fx` is a no-op object with the same methods.
 
@@ -292,6 +296,7 @@ Definition (`src/data/enemies.js` → `export const ENEMIES = { [id]: def }`, `e
   ai: 'chaser', aiParams: {},
   resist: {},                    // { fire: 0.5 } = takes 50% less; negative = weakness
   immune: [],                    // status ids
+  bloodless: false,              // true: immune to bleed (constructs, spirits, crystals, slimes, spores — §12)
   untargetable: false, contact: true,
   hooks: { onSpawn(w, e), onDeath(w, e), onHit(w, e, info) /* may mutate info.amount */ },
 }
@@ -320,8 +325,10 @@ Bosses: `boss_cinder` (Schlackenkönig), `boss_mycel` (Myzelmutter), `boss_rime`
 ### 6.1 Player (`src/game/player.js`)
 Fields used by content/UI: `x, y, r, vx, vy, aim (angle), hp, shield, level, xp, xpNext, sparks, alive, iframes, dashing (bool),
 stats (computed, §6.2), character (def), weapons: [WeaponState, WeaponState|null], weaponIndex, weapon (getter: active WeaponState),
-relics: Perk[], boons: Perk[], dash: { charges, max, cd, cdMax }, skill: { def, cd, cdMax, active (s remaining) }, statuses, flags: {} (free for skills/relics, e.g. `player.flags.reflect = true`)`.
-Methods: `player.addMod(sourceKey, mods)`, `player.removeMods(sourceKey)`, `player.recalc()`, `player.gainXp(n)`, `player.gainSparks(n)`, `player.spendSparks(n) -> bool`.
+relics: Perk[], boons: Perk[], dash: { charges, max, cd, cdMax }, skill: { def, cd, cdMax, active (s remaining) }, statuses, flags: {} (free for skills/relics, e.g. `player.flags.reflect = true`),
+frenzy: { stacks, t } (Blutrausch, §12.3), bleeding (bool), lsBudget, vampBudget`.
+Methods: `player.addMod(sourceKey, mods)`, `player.removeMods(sourceKey)`, `player.recalc()`, `player.gainXp(n)`, `player.gainSparks(n)`, `player.spendSparks(n) -> bool`,
+`player.addFrenzy(n = 1) -> stacks`.
 
 ### 6.2 Stats (`src/game/stats.js`)
 Modifier: `{ stat, add?: number, mul?: number }`. Final = (base + Σadd) × Πmul, then clamped.
@@ -336,6 +343,7 @@ lifesteal 0 (fraction, capped per second)  thorns 0  lightRadius 110 (px)
 burnChance 0  chillChance 0  poisonChance 0  shockChance 0  statusPower 1  statusDuration 1
 fireDamage 1  frostDamage 1  poisonDamage 1  shockDamage 1  shadowDamage 1  physDamage 1  lightDamage 1 (mults per damage type)
 shopDiscount 0 (cap .6)  healPower 1  bossDamage 1  eliteDamage 1
+bleedChance 0  bleedDamage 1 (mult)  vampirism 0 (cap .25)  bloodOrbHeal 4 (cap 40)  frenzyMax 10 (int, cap 30)   (§12)
 ```
 
 ### 6.3 Weapons (`src/data/weapons.js` → `export const WEAPONS = { [id]: def }`)
@@ -394,12 +402,13 @@ Unlock *conditions* are evaluated by meta (`meta/progression.js: isCharacterUnlo
     onLethal(ctx) -> true to survive (perk must consume its charge),
     onDash(ctx), onDashEnd(ctx), onSkill(ctx), onHeal(ctx, { amount }), onPickup(ctx, { kind, amount }),
     onLevelUp(ctx), onStatusApplied(ctx, { enemy, id }), onSpend(ctx, { amount }),
+    onStatusBurst(ctx, { enemy, id /* 'bleed'|'poison'|'shock' */, damage }),   // after a §12 threshold payoff (Aderlass/Gifteruption/Entladung)
     dynamicMods(ctx) -> [{ stat, add?, mul? }],   // conditional stats, re-evaluated 5×/s
   },
 }
 // ctx = { w, player, run, rng, stacks, state /* per-perk plain object, persists for the run */ }
 ```
-`export const RELICS = { [id]: def }` (incl. curses), `export const BOONS = { [id]: def }`.
+`export const RELICS = { [id]: def }` (incl. curses), `export const BOONS = { [id]: def }`. `PERK_HOOKS` (perks.js) lists every hook name.
 Shrines (`src/data/shrines.js` → `export const SHRINES = { [id]: { id, name, text, weight, options(ctx) -> [{ label, desc, icon?, available?: bool, pick(ctx) }] } }`),
 with helpers available on `run`: `run.giveRelic(id?)` (random by rarity if omitted), `run.giveCurse(id?)`, `run.offerRelicChoice(n)`, `run.giveWeapon(id)`.
 
@@ -509,7 +518,7 @@ Victory: when `boss_sun` dies `run.victoryT = 3.5`, then `run.finish(true)` → 
 - Enemy: §5.3 plus `spawnT spawnMax hpBarT elite (ids) affixes (defs, .color) statuses frozen name`.
 - Projectile: `x y z (arc height, 0 normally) vx vy r sprite color scale spin age light team dead`.
 - Zone: `shape x y r x2 y2 width angle arc inner delay duration age active color team`.
-- Pickup: `kind x y amount age`.
+- Pickup: `kind x y amount age`, plus `life` (s, only on despawning pickups: `blood` = 8) and `blink` (true during the last 2 s).
 - Prop: `kind x y r solid destructible removed used locked sprite light ({ r, color }|null) offer ({ type, id, name, desc, icon, rarity, price }|null) flash`.
 - `world.interactHint = { text, x, y, prop } | null`; `world.locked`; `world.boss`; `world.room`; `world.biome`; `world.time`.
 - Fx (browser impl in `render/fx.js`, same method set as `NULL_FX` in world.js) additionally: `fx.hitstopT`, `fx.update(dt)`, `fx.clear()`.
@@ -541,3 +550,21 @@ Lifesteal stays budgeted (3.5 HP/s in player.js). Vampirism heal per kill is cap
 
 ### 12.4 Events
 `status:apply` may carry `id: 'bleed'`; NEW `status:burst { target, id: 'bleed'|'poison'|'shock', x, y, damage }`; NEW `player:frenzy { stacks }`; `pickup:collect { kind: 'blood' }`; `player:status { id: 'bleed' }` when the player starts bleeding.
+
+### 12.5 Core implementation notes (as built)
+API (combat.js unless noted): `STATUS[id].{desc, burstName, burstDesc, burstAt?, playerMaxStacks?}` (`burstName/burstDesc` are `null`
+for statuses without a payoff), `statusGlossary() -> [{ id, name, color, desc, burstName, burstDesc, maxStacks, burstAt }]`,
+`statusBurst(w, enemy, id) -> bool`, `healEnemy(w, enemy, amount) -> healed` (= `w.healEnemy(enemy, amount)`), `statusFromStats(w, type)`,
+tuning constants (`BLEED_MOVE_MUL`, `ERUPT_RADIUS`, `BLOOD_ORB_LIFE`, `FRENZY_TIME`, `VAMP_PER_S`, …). World: `w.drainFeedback(src, healed)`.
+Player: `addFrenzy(n)`, `frenzy`, `bleeding`, `vampBudget`. Pickup: `pk.life`, `pk.blink`. Run stats: `statusBursts`, `bloodOrbs`, `frenzyPeak`.
+Damage info flags on status damage: `bleed`, `burst: 'bleed'|'poison'|'shock'`, `chained`, `ignoreResist`, `ignoreArmor` (enemy armour-like
+`onHit` hooks such as the `tough` affix may honour `hit.info.ignoreArmor`). Player DoT ticks carry `info.statusId` (kill attribution).
+Clarifications / small deviations:
+- Bursts are enemy-only (the player's poison never erupts; shock on the player is still converted to slow).
+- Burst guard: at most one nested burst (depth 2) and 40 bursts per simulation step; a skipped burst keeps its stacks and fires on the next application. Stacks added with `stacks: 0` never trigger a burst.
+- Bleed "moving" = per-step position delta > 12 px/s; each 0.5 s tick uses the fraction of that interval spent moving (always moving → exactly ×1.6). Player bleed ticks are not floored to 1 HP.
+- The −40 % bleed heal penalty applies to every heal of the player (incl. raw lifesteal/vampirism heals and regen). Vampirism heals are raw like lifesteal (no healPower/healMult); blood orbs use healPower.
+- Gifteruption spread: `{ stacks: ceil(stacks/2), power, duration: max(2, remaining) }`; radius × `run.flags.eruptRadiusMul` (default 1).
+- Entladung stuns the target and every chained enemy (0.6 s, elites 0.3 s, bosses nothing). Visuals for all bursts come from the presentation layer (`status:burst`; `radius` for poison, `chain: [{ x, y, target }]` for shock) — core calls no fx for them.
+- Blutrausch mods are multiplicative (`damage ×(1 + 0.03·n)`, `moveSpeed ×(1 + 0.02·n)`) under the core mod key `'frenzy'`.
+- No blood orb / vampirism from `noXp` kills (e.g. the boss-death cleanup).

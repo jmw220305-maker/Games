@@ -3,10 +3,22 @@ import { bus } from '../core/events.js';
 import { h, icon, setText, toggleClass } from './dom.js';
 
 const ORDER = ['move', 'shoot', 'dash', 'interact', 'levelup'];
+// mechanic hints: shown once per save the first time the mechanic shows up — also for veterans who finished the
+// basic tutorial (the mechanics are new to them, too)
+const FEATURE = new Set(['blood', 'burst']);
+const BURST_HINT = {
+  bleed: 'Aderlass! Volle Blutung reißt auf – Details unter Chronik › Zustände.',
+  poison: 'Gifteruption! Volles Gift platzt auf Nachbarn über – Details unter Chronik › Zustände.',
+  shock: 'Entladung! Volle Ladung springt als Kettenblitz weiter – Details unter Chronik › Zustände.',
+};
 
-function hintText(id, dev) {
+function hintText(id, dev, arg) {
   const touch = dev === 'touch', pad = dev === 'gamepad';
   switch (id) {
+    case 'blood':
+      return 'Blutkugel: heilt dich und schürt den Blutrausch (+Schaden, +Tempo). Sie verblasst nach 8 Sekunden.';
+    case 'burst':
+      return BURST_HINT[arg] || 'Volle Zustände entladen sich – Details unter Chronik › Zustände.';
     case 'move':
       return touch ? 'Lege den Daumen links auf den Bildschirm und ziehe, um dich zu bewegen.'
         : pad ? 'Linker Stick: bewegen.' : 'Bewege dich mit WASD oder den Pfeiltasten.';
@@ -47,17 +59,21 @@ export function createTutorial(ui) {
     ui.persist();
   }
 
-  function show(id) {
-    if (!enabled() || seen(id) || (active && active.id === id)) return;
+  const allowed = (id) => FEATURE.has(id) || enabled();
+  const args = {};
+
+  function show(id, arg) {
+    if (!allowed(id) || seen(id) || (active && active.id === id)) return;
+    if (arg !== undefined) args[id] = arg;
     if (active) { queued.add(id); return; }
     active = { id, t: 0 };
-    setText(textEl, hintText(id, ui.inputDevice()));
+    setText(textEl, hintText(id, ui.inputDevice(), args[id]));
     toggleClass(el, 'show', true);
   }
 
   function finish(id) {
     queued.delete(id);
-    if (!active || active.id !== id) { if (enabled() && !seen(id) && id !== 'move') markSeen(id); return; }
+    if (!active || active.id !== id) { if (allowed(id) && !seen(id) && id !== 'move') markSeen(id); return; }
     markSeen(id);
     active = null;
     toggleClass(el, 'show', false);
@@ -71,13 +87,22 @@ export function createTutorial(ui) {
     bus.on('player:hit', () => { if (seen('move')) show('dash'); }),
     bus.on('prop:open', () => { if (active && active.id === 'interact') finish('interact'); }),
     bus.on('ui:choice', (c) => { if (c && c.kind === 'boon') show('levelup'); }),
+    bus.on('pickup:collect', (p) => { if (p && p.kind === 'blood') show('blood'); }),
+    bus.on('status:burst', (p) => {
+      if (!p || (game.run && p.target === game.run.player)) return;
+      show('burst', p.id);
+    }),
   ];
 
   return {
     el,
     dispose() { for (const o of offs) o(); },
     update(dt) {
-      if (!enabled() || !game.run) { if (active) { active = null; toggleClass(el, 'show', false); } return; }
+      // basic hints are gated by show() (tutorial still on); mechanic hints may appear at any time
+      if (!game.run || (!enabled() && !active && !queued.size && seen('blood') && seen('burst'))) {
+        if (active) { active = null; toggleClass(el, 'show', false); }
+        return;
+      }
       const st = game.state;
       toggleClass(el, 'in-choice', st === 'choice');
       // only visible while playing (the level-up hint only inside its choice)
@@ -90,6 +115,7 @@ export function createTutorial(ui) {
       if (run.time > 2.5) show('move');
       if (w && w.interactHint && seen('move')) show('interact');
       if (w && Array.isArray(w.enemies) && w.enemies.some((e) => e && !e.dead) && seen('move')) show('shoot');
+      if (w && Array.isArray(w.pickups) && !seen('blood') && w.pickups.some((k) => k && !k.dead && k.kind === 'blood')) show('blood');
       if (!active) {
         const next = [...queued].find((id) => !seen(id));
         if (next) { queued.delete(next); show(next); }

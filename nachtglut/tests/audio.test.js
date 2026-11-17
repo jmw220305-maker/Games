@@ -13,6 +13,8 @@ const REQUIRED_SFX = [
   'door_open', 'door_close', 'room_clear', 'pickup_spark', 'pickup_xp', 'pickup_heart', 'pickup_ash', 'chest_open',
   'barrel_break', 'fountain', 'forge', 'shrine', 'portal', 'relic_gain', 'boon_gain', 'curse_gain', 'shop_buy', 'shop_fail',
   'ui_click', 'ui_hover', 'ui_open', 'ui_close', 'ui_confirm', 'ui_deny', 'toast', 'achievement', 'banner',
+  // §12 status mechanics v2
+  'status_bleed', 'hemorrhage', 'poison_burst', 'shock_discharge', 'pickup_blood', 'frenzy', 'lifesteal',
 ];
 const REQUIRED_TRACKS = ['menu', 'ash', 'fungal', 'frost', 'void', 'core', 'boss', 'final', 'victory', 'death'];
 
@@ -75,6 +77,7 @@ test('bindEvents tolerates an empty game and missing payload fields', async () =
       'explosion', 'status:apply', 'pickup:collect', 'relic:gain', 'boon:gain', 'curse:gain', 'prop:open', 'shop:buy',
       'shop:fail', 'portal:enter', 'door:open', 'door:close', 'ui:choice', 'ui:toast', 'ui:banner', 'ui:click', 'ui:hover',
       'ui:open', 'ui:close', 'ui:confirm', 'ui:deny', 'meta:change', 'achievement:unlock', 'settings:change',
+      'status:burst', 'player:frenzy', 'fx:drain',
     ];
     for (const e of events) {
       bus.emit(e, undefined);
@@ -87,6 +90,12 @@ test('bindEvents tolerates an empty game and missing payload fields', async () =
     bus.emit('weapon:fire', { id: 'ember_bolt', type: 'nonsense' });
     bus.emit('settings:change', { settings: { master: 'loud' } });
     bus.emit('pickup:collect', { kind: 'spark', amount: 3 });
+    bus.emit('pickup:collect', { kind: 'blood', amount: 1 });
+    bus.emit('status:apply', { id: 'bleed', target: {} });
+    for (const id of ['bleed', 'poison', 'shock', 'nope']) bus.emit('status:burst', { id, target: { boss: id === 'shock' }, x: 0, y: 0, damage: 9 });
+    for (const stacks of [1, 2, 3, 0, 'x', -4]) bus.emit('player:frenzy', { stacks });
+    bus.emit('player:heal', { amount: 3, lifesteal: true });
+    bus.emit('fx:drain', { amount: 2 });
     assert.equal(typeof unbind, 'function');
     unbind();
   } finally {
@@ -161,5 +170,34 @@ test('music engine schedules deterministically against a fake context', async ()
       ctx.currentTime += 31;
     }
     eng.dispose();
+  }
+});
+
+test('§12 sfx sit in the existing mix: quiet status/feedback sounds, heavier payoffs', async () => {
+  const { SFX } = await import('../src/audio/sfx.js');
+  // per-voice gains relative to their closest existing counterparts
+  assert.ok(SFX.status_bleed.g <= SFX.status_poison.g * 1.1, 'status_bleed like the other status ticks');
+  assert.ok(SFX.lifesteal.g <= 0.08 && SFX.lifesteal.gap >= 0.25 && SFX.lifesteal.prio === 0, 'lifesteal: very quiet, rate-limited, droppable');
+  for (const n of ['hemorrhage', 'poison_burst', 'shock_discharge']) {
+    assert.ok(SFX[n].g > SFX.status_poison.g && SFX[n].g <= SFX.explosion.g, `${n} between a status tick and an explosion`);
+    assert.ok(SFX[n].gap >= 0.05, `${n} gap`);
+  }
+  assert.ok(SFX.pickup_blood.g <= SFX.pickup_heart.g, 'blood orb chime not louder than the heart');
+  assert.ok(SFX.frenzy.g <= SFX.player_hit.g, 'frenzy thump below the player hit');
+});
+
+test('§12 patches build a sane voice against a fake context (no throw, bounded length)', async () => {
+  const { SFX, startSfx } = await import('../src/audio/sfx.js');
+  const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, setTargetAtTime() {} });
+  const node = () => ({ gain: param(), frequency: param(), detune: param(), Q: param(), pan: param(), type: '', buffer: null, loop: false, curve: null, connect() {}, disconnect() {}, start() {}, stop() {}, onended: null });
+  const ctx = {
+    currentTime: 0, sampleRate: 44100, createGain: node, createOscillator: node, createBiquadFilter: node, createBufferSource: node,
+    createStereoPanner: node, createWaveShaper: node, createBuffer: (ch, len) => ({ getChannelData: () => new Float32Array(len) }),
+  };
+  for (const n of ['status_bleed', 'hemorrhage', 'poison_burst', 'shock_discharge', 'pickup_blood', 'frenzy', 'lifesteal']) {
+    const v = startSfx(ctx, node(), node(), n, 0, { seed: 7, pitch: n === 'frenzy' ? 1.6 : 1 });
+    assert.ok(v, n);
+    assert.ok(v.end > 0.03 && v.end < 1.5, `${n} length ${v.end}`);
+    assert.ok(SFX[n].g > 0 && SFX[n].g <= 1);
   }
 });

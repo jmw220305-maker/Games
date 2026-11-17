@@ -28,6 +28,7 @@ export function emptyRunStats() {
     sparksCollected: 0, sparksSpent: 0, relicsFound: 0, cursesTaken: 0, boonsChosen: 0, weaponsFound: 0,
     critHits: 0, dashes: 0, bestHit: 0, hitsTaken: 0, healed: 0, ashPickedUp: 0, levelUps: 0,
     falls: 0, barrels: 0, chests: 0, shrines: 0, purchases: 0, revives: 0, skillsUsed: 0, flawlessRooms: 0,
+    statusBursts: 0, bloodOrbs: 0, frenzyPeak: 0,   // §12: threshold payoffs, blood orbs collected, highest Blutrausch
   };
 }
 
@@ -237,7 +238,7 @@ export class Run {
     if (info.hazard) return { id: 'hazard', name: (this.biome && this.biome.hazardName) || 'Gefahr' };
     if (info.spikes) return { id: 'spikes', name: 'Stachelfalle' };
     if (info.dot) {
-      const st = STATUS[info.type === 'poison' ? 'poison' : info.type === 'fire' ? 'burn' : ''];
+      const st = STATUS[info.statusId] || STATUS[info.type === 'poison' ? 'poison' : info.type === 'fire' ? 'burn' : ''];
       return { id: 'status', name: st ? st.name : 'Siechtum' };
     }
     return { id: null, name: 'Unbekannt' };

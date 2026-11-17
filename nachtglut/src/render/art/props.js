@@ -274,4 +274,40 @@ sprite('pickup_shield', 10, 11, (b, p) => {
   b.vl(4, 2, 6, S[0]); b.px(p.f ? 2 : 6, 2, '#ffffff');
 }, { idle: [3, { f: 0 }, { f: 1 }] }, { outline: '#06142a', anchor: 'center' });
 
+// Blood orb (§12.3): a heavy, glowing droplet of dark blood. The core pulses like a heartbeat
+// (frames 0 → 1 → 2 → 1) so it stays readable in the dark next to the bright red heart pickup.
+const BLOOD = ['#4a0610', '#8a0f1f', '#c21a2c', '#ee3a48'];
+const BLOOD_CORE = ['#d42434', '#ff4a56', '#ff8a8e'];
+sprite('pickup_blood', 11, 12, (b, p) => {
+  const f = p.f || 0;
+  b.vol(BLOOD, (m) => { m.oval(1.5, 3.5, 8, 7.5, 1); m.poly([[5, 1], [7.6, 5.5], [2.4, 5.5]], 1); }, { grad: 0.55, hi: BLOOD[3] });
+  // glowing core, brighter on the beat
+  b.disc(5, 7, 1, BLOOD_CORE[f]);
+  if (f === 2) { b.px(5, 7, '#ffd0d0'); b.px(6, 6, BLOOD_CORE[1]); }
+  else b.px(5, 7, BLOOD_CORE[Math.min(2, f + 1)]);
+  // wet specular streak on the lit side
+  b.px(3, 5, '#ffc8cc'); b.px(4, 4, '#ff9aa2'); b.px(3, 6, '#ff7a84');
+  b.hl(4, 9, 3, BLOOD[0]);
+}, { idle: [5, { f: 0 }, { f: 1 }, { f: 2 }, { f: 1 }] }, { outline: '#1e0206', anchor: 'center' });
+
+// ---- status / mechanic icons (HUD, Chronik) -------------------------------------------------
+// Blutung: one big drop with a slash of fresh droplets running off it.
+still('icon_bleed', 14, 14, (b) => {
+  b.vol(BLOOD, (m) => { m.oval(1, 4.5, 8, 8, 1); m.poly([[5, 1], [8, 6.5], [2, 6.5]], 1); }, { grad: 0.5, hi: BLOOD[3] });
+  b.px(3, 7, '#ffc8cc'); b.px(4, 6, '#ff9aa2');
+  b.disc(5, 9, 1, BLOOD_CORE[0]); b.px(5, 9, BLOOD_CORE[1]);
+  // two falling droplets
+  b.vol(BLOOD, (m) => { m.oval(10, 4, 3, 3, 1); m.px(11, 3, 1); });
+  b.vol(BLOOD, (m) => { m.oval(10.5, 9, 2, 3, 1); m.px(11, 8, 1); });
+  b.px(10, 5, '#ff9aa2');
+}, { outline: '#1e0206' });
+
+// Blutrausch: a pounding heart with a heartbeat line torn across it.
+still('icon_frenzy', 14, 14, (b) => {
+  const H = ['#5a0710', '#a8142a', '#e02a3c', '#ff7a84'];
+  b.vol(H, (m) => { m.disc(4, 4.5, 3, 1); m.disc(9, 4.5, 3, 1); m.poly([[1, 5.5], [12, 5.5], [6.5, 12]], 1); }, { grad: 0.5, hi: H[3] });
+  const L = '#ffe2c8';
+  for (const [x, y] of [[1, 7], [2, 7], [3, 7], [4, 6], [5, 4], [5, 5], [6, 8], [6, 9], [7, 7], [7, 6], [8, 7], [9, 7], [10, 7], [11, 7], [12, 7]]) b.px(x, y, L);
+}, { outline: '#1e0206' });
+
 export { mix };

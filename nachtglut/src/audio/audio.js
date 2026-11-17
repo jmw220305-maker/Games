@@ -30,6 +30,8 @@ const st = {
   biomeTrack: null,
   lastBossDeath: -10,
   lastHeal: -10,
+  lastDrain: -10,
+  frenzy: 0,
   combo: { spark: { n: -1, t: -10 }, xp: { n: -1, t: -10 } },
   unbind: null,
 };
@@ -195,8 +197,10 @@ const ATTACK_SFX = {
 };
 const STATUS_SFX = {
   burn: 'status_burn', poison: 'status_poison', chill: 'status_freeze', freeze: 'status_freeze', shock: 'status_shock',
-  mark: 'status_dark', weak: 'status_dark', slow: 'status_dark', stun: 'status_shock',
+  mark: 'status_dark', weak: 'status_dark', slow: 'status_dark', stun: 'status_shock', bleed: 'status_bleed',
 };
+const BURST_SFX = { bleed: 'hemorrhage', poison: 'poison_burst', shock: 'shock_discharge' };
+const LIFESTEAL_GAP = 0.45; // s between two life-drain sips (on top of the patch's own gap)
 const PROP_SFX = {
   chest: 'chest_open', barrel: 'barrel_break', crystal: 'crystal_break', fountain: 'fountain', forge: 'forge',
   shrine: 'shrine', portal: 'portal',
@@ -262,7 +266,8 @@ function bindEvents(bus, game) {
       || trackForBiome(game && game.run && game.run.floor && game.run.floor.biome);
     if (tr) music.play(tr);
   });
-  on('run:end', ({ victory }) => { music.setIntensity(0); music.play(victory ? 'victory' : 'death'); });
+  on('run:end', ({ victory }) => { st.frenzy = 0; music.setIntensity(0); music.play(victory ? 'victory' : 'death'); });
+  on('run:start', () => { st.frenzy = 0; });
 
   // --- settings ---------------------------------------------------------------------------------
   on('settings:change', ({ settings }) => applySettings(settings));
@@ -277,11 +282,26 @@ function bindEvents(bus, game) {
     const frac = Number.isFinite(amount) && Number.isFinite(maxHp) && maxHp > 0 ? amount / maxHp : 0.1;
     play('player_hit', { volume: clampN(0.75 + frac * 2.5, 0.75, 1.3) });
   });
-  on('player:heal', ({ amount }) => {
+  const drainSip = () => {
+    const t = now();
+    if (t - st.lastDrain < LIFESTEAL_GAP) return;
+    if (play('lifesteal')) st.lastDrain = t;
+  };
+  on('player:heal', ({ amount, source, kind, lifesteal }) => {
+    // life drain heals (lifesteal / vampirism) only get the quiet sip, never the full heal chime
+    const src = source || kind;
+    if (lifesteal || src === 'lifesteal' || src === 'vampirism' || src === 'drain') { drainSip(); return; }
     if (Number.isFinite(amount) && amount < 1) return;
     const t = now();
     if (t - st.lastHeal < 0.5) return;
     if (play('player_heal')) st.lastHeal = t;
+  });
+  on('fx:drain', () => drainSip()); // lifesteal / vampirism (the heal itself is silent, see render/fx.js drain)
+  on('player:frenzy', ({ stacks }) => {
+    const n = Number.isFinite(stacks) ? Math.max(0, stacks) : 0;
+    // only a new stack thumps; refreshes and the drop to 0 stay quiet
+    if (n > st.frenzy) play('frenzy', { pitch: clampN(0.92 + n * 0.045, 0.92, 1.75), volume: clampN(0.75 + n * 0.03, 0.75, 1.2) });
+    st.frenzy = n;
   });
   on('player:shield', () => play('player_shield'));
   on('player:dash', () => play('dash'));
@@ -317,6 +337,10 @@ function bindEvents(bus, game) {
     });
   });
   on('status:apply', ({ id }) => { if (STATUS_SFX[id]) play(STATUS_SFX[id], { volume: id === 'freeze' ? 1.3 : 1 }); });
+  on('status:burst', ({ id, target }) => {
+    const name = BURST_SFX[id];
+    if (name) play(name, target && target.boss ? { pitch: 0.85, volume: 1.15 } : undefined);
+  });
 
   // --- world ------------------------------------------------------------------------------------
   on('pickup:collect', ({ kind }) => {
@@ -325,6 +349,7 @@ function bindEvents(bus, game) {
     else if (kind === 'heart') play('pickup_heart');
     else if (kind === 'ash') play('pickup_ash');
     else if (kind === 'shield') play('pickup_shield');
+    else if (kind === 'blood') play('pickup_blood');
   });
   on('prop:open', ({ kind, prop }) => {
     const name = PROP_SFX[kind];

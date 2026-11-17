@@ -4,6 +4,7 @@ import { TS } from './constants.js';
 import { angleDiff, distToSegment, rotateToward } from '../core/math.js';
 import { runHooks } from './perks.js';
 import { damageProp } from './props.js';
+import { BLOOD_ORB_LIFE, BLOOD_ORB_BLINK } from './combat.js';
 
 const HOMING_RANGE = 170;   // px: homing shots only steer toward targets this close
 const MAX_STEP = 6;         // px: projectile movement sub-step
@@ -417,8 +418,13 @@ export function updateZones(w, dt) {
 // ---------------------------------------------------------------------------------------------
 // Pickups
 // ---------------------------------------------------------------------------------------------
-const PICKUP_AMOUNT = { spark: 1, xp: 1, heart: 15, ash: 1, shield: 15 };
-const PICKUP_FX = { spark: ['gold', '#ffd35a'], xp: ['light', '#8fd8ff'], heart: ['heal', '#7dff9a'], ash: ['smoke', '#c9c2b8'], shield: ['spark', '#9ad0ff'] };
+const PICKUP_AMOUNT = { spark: 1, xp: 1, heart: 15, ash: 1, shield: 15, blood: 1 };
+const PICKUP_FX = {
+  spark: ['gold', '#ffd35a'], xp: ['light', '#8fd8ff'], heart: ['heal', '#7dff9a'], ash: ['smoke', '#c9c2b8'], shield: ['spark', '#9ad0ff'],
+  blood: ['blood', '#d6304a'],
+};
+/** Seconds until a pickup despawns (missing = never). Despawning pickups set `pk.blink` near the end. */
+const PICKUP_LIFE = { blood: BLOOD_ORB_LIFE };
 const PICKUP_DELAY = 0.3;   // s before a fresh pickup can be attracted / collected
 const PICKUP_SPEED = 340;
 
@@ -431,8 +437,10 @@ export function makePickup(w, kind, x, y, opts = {}) {
   const pk = {
     kind, x, y, vx: 0, vy: 0,
     amount: opts.amount ?? PICKUP_AMOUNT[kind] ?? 1,
-    age: 0, magnet: !!opts.magnet, dead: false, r: 5, pull: 0,
+    age: 0, magnet: !!opts.magnet, dead: false, r: 5, pull: 0, blink: false,
   };
+  const life = opts.life ?? PICKUP_LIFE[kind];
+  if (life > 0) pk.life = life; // only despawning pickups carry `life` (seconds)
   if (opts.burst) {
     const a = w.rng.angle(), s = w.rng.float(60, 130);
     pk.vx = Math.cos(a) * s; pk.vy = Math.sin(a) * s;
@@ -449,6 +457,12 @@ function collectPickup(w, pk) {
     case 'heart': w.healPlayer(pk.amount); break;
     case 'ash': run.stats.ashPickedUp = (run.stats.ashPickedUp || 0) + pk.amount; break;
     case 'shield': w.addShield(pk.amount); break;
+    case 'blood':
+      // §12.3: heal (× healPower, respects the bleed heal penalty) + 1 Blutrausch stack
+      w.healPlayer(p.stats.bloodOrbHeal * pk.amount);
+      p.addFrenzy(pk.amount);
+      run.stats.bloodOrbs = (run.stats.bloodOrbs || 0) + 1;
+      break;
     default: break;
   }
   bus.emit('pickup:collect', { kind: pk.kind, amount: pk.amount });
@@ -467,6 +481,10 @@ export function updatePickups(w, dt) {
     const pk = list[i];
     if (pk.dead) continue;
     pk.age += dt;
+    if (pk.life > 0) {
+      if (pk.age >= pk.life) { pk.dead = true; continue; }
+      pk.blink = pk.life - pk.age <= BLOOD_ORB_BLINK;
+    }
     let attracted = false;
     if (pk.age >= PICKUP_DELAY && p.alive && !(pk.kind === 'heart' && full)) {
       const dx = p.x - pk.x, dy = p.y - pk.y;

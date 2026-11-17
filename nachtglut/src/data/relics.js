@@ -5,7 +5,7 @@
 //  - onUpdate hooks allocate nothing per frame beyond trivial scalars,
 //  - consumable effects remember their charge in ctx.state.used.
 // Common relics stack up to 2 times (only the "Spiegel" shrine can stack them); everything else is unique.
-import { playerDamageMul, skillDamage } from '../game/combat.js';
+import { playerDamageMul, skillDamage, statusBurst, DISCHARGE_DAMAGE, DISCHARGE_JUMPS, DISCHARGE_RANGE } from '../game/combat.js';
 import { TYPE_COLORS } from '../game/constants.js';
 
 const TAU = Math.PI * 2;
@@ -28,7 +28,7 @@ export function hasWeaponType(p, type) {
   return weaponDefs(p).some((d) => d.type === type || (Array.isArray(d.tags) && d.tags.includes(type)));
 }
 
-const CHANCE_STAT = { fire: 'burnChance', frost: 'chillChance', poison: 'poisonChance', shock: 'shockChance' };
+const CHANCE_STAT = { fire: 'burnChance', frost: 'chillChance', poison: 'poisonChance', shock: 'shockChance', bleed: 'bleedChance' };
 /** Player has a way to deal/apply this element (weapon type or a status chance from other perks). */
 export function affinity(p, type) {
   if (hasWeaponType(p, type)) return true;
@@ -122,6 +122,70 @@ function chainLightning(w, from, damage, jumps, range) {
 function burnStatus(w, base = 4, duration = 3) {
   const s = w.player.stats;
   return { id: 'burn', duration: duration * s.statusDuration, power: base * s.statusPower * s.damage };
+}
+
+// --- §12 status mechanics v2 (Blutung, Gift, Schock, Vampirismus) -------------------------------
+/** The player can make enemies bleed (bleed weapon or bleed chance). */
+export function bleedAffinity(p) { return affinity(p, 'bleed'); }
+/** The player gets blood orbs (bleeding enemies drop them; the Aschenkind's passive drops them on kills). */
+export function bloodAffinity(p) {
+  if (!p) return false;
+  if (bleedAffinity(p) || (p.character && p.character.id === 'revenant')) return true;
+  const rel = p.relics || [];
+  for (let i = 0; i < rel.length; i++) if (rel[i] && rel[i].def && Array.isArray(rel[i].def.tags) && rel[i].def.tags.includes('bloodorb')) return true;
+  return false;
+}
+
+/** A player bleed status scaled like statusFromStats (§12.2). */
+function bleedStatus(w, base = 2.5, stacks = 1) {
+  const s = w.player.stats;
+  return { id: 'bleed', duration: 4 * s.statusDuration, power: base * s.statusPower * s.damage * (s.bleedDamage ?? 1), stacks };
+}
+function poisonStatus(w, stacks = 1) {
+  const s = w.player.stats;
+  return { id: 'poison', duration: 4 * s.statusDuration, power: 2.2 * s.statusPower * s.damage, stacks };
+}
+const bleeding = (e) => !!(e && e.statuses && e.statuses.bleed);
+const PLAGUE_BURST_AT = 5; // Seuchenherz: Gifteruption from this many stacks (core: STATUS.poison.burstAt)
+const frenzyStacks = (p) => (p && p.frenzy && p.frenzy.stacks) || 0;
+
+/** Poison spread that mirrors the core's eruption rules: targets that were just hit by a spread cannot erupt for 0.5 s. */
+function spreadPoison(w, from, minR, maxR, stacks) {
+  const near = w.enemiesInRadius(from.x, from.y, maxR);
+  let n = 0;
+  for (let i = 0; i < near.length; i++) {
+    const e = near[i];
+    if (e === from || e.dead) continue;
+    if (minR > 0 && Math.hypot(e.x - from.x, e.y - from.y) < minR) continue;
+    e.eruptImmune = Math.max(e.eruptImmune || 0, 0.5);
+    w.applyStatus(e, 'poison', poisonStatus(w, stacks));
+    n++;
+  }
+  if (n) w.fx.ring(from.x, from.y, maxR, POISON, 0.3);
+  return n;
+}
+
+/** Extra damage on top of a status burst (never procs, never re-bursts). */
+function burstBonus(w, enemy, amount, type) {
+  if (!enemy || enemy.dead || !(amount > 0)) return 0;
+  return w.damageEnemy(enemy, amount, { type, source: 'relic', proc: false, silent: true });
+}
+
+/** Lightning from `from` to up to `jumps` enemies not in `skip` (base damage scales like shock skill damage); no new shock stacks (§12.1), short stun. */
+function dischargeChain(w, from, base, jumps, range, skip) {
+  let cur = from, n = 0;
+  const ok = (e) => !skip.has(e);
+  for (let i = 0; i < jumps; i++) {
+    const next = w.findNearestEnemy(cur.x, cur.y, range, ok);
+    if (!next) break;
+    skip.add(next);
+    w.fx.lightning(cur.x, cur.y, next.x, next.y, SHOCK);
+    skillDamage(w, next, base, { type: 'shock', source: 'relic' });
+    if (!next.dead && !next.boss) w.applyStatus(next, 'stun', { duration: next.elite && next.elite.length ? 0.15 : 0.3 });
+    cur = next;
+    n++;
+  }
+  return n;
 }
 
 function isMoving(p) { return Math.abs(p.vx || 0) + Math.abs(p.vy || 0) > 14; }
@@ -1066,7 +1130,249 @@ const LIST = [
   },
 
   // =========================================================================================
-  // CURSES (12) — real downsides, some with a twisted upside
+  // §12 STATUS MECHANICS v2 (16): Blutung / Aderlass, Gifteruption, Entladung, Vampirismus, Blutrausch
+  // Burst payoffs use the `onStatusBurst(ctx, { enemy, id, damage })` hook; bonus damage is proc: false.
+  // =========================================================================================
+  // --- common (stack twice) ---
+  {
+    id: 'rusty_blade', name: 'Rostige Klinge', rarity: 'common', maxStacks: 2,
+    desc: '+7 % Blutungschance.', flavor: 'Der Rost an ihr ist nicht nur Rost.',
+    icon: { glyph: 'sword', color: '#b0603a' }, tags: ['bleed', 'status'],
+    mods: (n) => [{ stat: 'bleedChance', add: 0.07 * n }],
+  },
+  {
+    id: 'leech_jar', name: 'Egelglas', rarity: 'common', maxStacks: 2,
+    desc: '+2 % Vampirismus: Kills heilen dich um 2 % der max. Leben des Gegners.', flavor: 'Die Egel darin sind satt. Noch.',
+    icon: { glyph: 'potion', color: '#8a2a3a' }, tags: ['heal', 'vampirism'],
+    mods: (n) => [{ stat: 'vampirism', add: 0.02 * n }],
+  },
+  {
+    id: 'blood_vial', name: 'Blutphiole', rarity: 'common', maxStacks: 2,
+    desc: 'Blutkugeln heilen 3 Leben mehr. +15 % Aufsammelradius.', flavor: 'Wer sammelt, der trinkt.',
+    icon: { glyph: 'drop', color: '#d6304a' }, tags: ['heal', 'blood'],
+    mods: (n) => [{ stat: 'bloodOrbHeal', add: 3 * n }, { stat: 'pickupRadius', mul: 1 + 0.15 * n }],
+  },
+  // --- uncommon ---
+  {
+    id: 'serrated_edge', name: 'Sägezahnklinge', rarity: 'uncommon',
+    desc: 'Kritische Treffer fügen 2 Blutungsstapel zu. +3 % Krit-Chance.', flavor: 'Jeder Zahn eine kleine Entscheidung.',
+    icon: { glyph: 'claw', color: '#e0505a' }, tags: ['bleed', 'crit', 'status'],
+    mods: [{ stat: 'critChance', add: 0.03 }],
+    hooks: {
+      onCrit(ctx, { enemy }) { if (!enemy.dead) ctx.w.applyStatus(enemy, 'bleed', bleedStatus(ctx.w, 2.5, 2)); },
+    },
+  },
+  {
+    id: 'vein_burst', name: 'Aderbruch', rarity: 'uncommon',
+    desc: 'Aderlass reißt auch Nachbarn auf: Gegner im Umkreis von 56 px erleiden 40 % des Aderlass-Schadens und bluten (2 Stapel).',
+    flavor: 'Was einmal aufbricht, bricht weiter.',
+    icon: { glyph: 'spiral', color: '#c0203a' }, tags: ['bleed', 'area'],
+    requires: bleedAffinity,
+    hooks: {
+      onStatusBurst(ctx, { enemy, id, damage }) {
+        if (id !== 'bleed' || !enemy) return;
+        const w = ctx.w;
+        const near = w.enemiesInRadius(enemy.x, enemy.y, 56);
+        const st = bleedStatus(w, 2.5, 2);
+        for (let i = 0; i < near.length; i++) {
+          const e = near[i];
+          if (e === enemy || e.dead) continue;
+          w.damageEnemy(e, (damage || 0) * 0.4, { type: 'phys', source: 'relic', proc: false });
+          if (!e.dead) w.applyStatus(e, 'bleed', st);
+        }
+        w.fx.ring(enemy.x, enemy.y, 56, '#c0203a', 0.25);
+        w.fx.burst('blood', enemy.x, enemy.y, { count: 14 });
+      },
+    },
+  },
+  {
+    id: 'blood_scent', name: 'Blutwitterung', rarity: 'uncommon',
+    desc: 'Kritische Treffer gegen blutende Gegner verursachen 30 % Bonusschaden. +4 % Krit-Chance.', flavor: 'Der Geruch führt die Klinge.',
+    icon: { glyph: 'eye', color: '#e0405a' }, tags: ['bleed', 'crit'],
+    requires: bleedAffinity,
+    mods: [{ stat: 'critChance', add: 0.04 }],
+    hooks: {
+      onHit(ctx, { enemy, amount, crit }) {
+        if (!crit || enemy.dead || !bleeding(enemy)) return;
+        ctx.w.damageEnemy(enemy, amount * 0.3, { type: 'phys', source: 'relic', proc: false, silent: true });
+      },
+    },
+  },
+  {
+    id: 'virulent_spore', name: 'Virulente Spore', rarity: 'uncommon',
+    desc: 'Gifteruptionen verursachen 50 % mehr Schaden und vergiften zusätzlich Gegner bis 88 px Entfernung (2 Stapel).',
+    flavor: 'Sie wartet nicht, bis der Wirt fällt.',
+    icon: { glyph: 'mushroom', color: '#7fd34a' }, tags: ['poison', 'status', 'area'],
+    requires: (p) => affinity(p, 'poison'),
+    hooks: {
+      onStatusBurst(ctx, { enemy, id, damage }) {
+        if (id !== 'poison' || !enemy) return;
+        burstBonus(ctx.w, enemy, (damage || 0) * 0.5, 'poison');
+        spreadPoison(ctx.w, enemy, 48, 88, 2);
+      },
+    },
+  },
+  {
+    id: 'wither_bloom', name: 'Welkblüte', rarity: 'uncommon',
+    desc: 'Gifteruptionen schwächen alle Gegner im Umkreis von 64 px 4 s lang (−30 % Schaden). +6 % Giftchance.',
+    flavor: 'Was sie berührt, vergisst seine Kraft.',
+    icon: { glyph: 'leaf', color: '#9a86c9' }, tags: ['poison', 'status', 'defense'],
+    mods: [{ stat: 'poisonChance', add: 0.06 }],
+    hooks: {
+      onStatusBurst(ctx, { enemy, id }) {
+        if (id !== 'poison' || !enemy) return;
+        const w = ctx.w;
+        const near = w.enemiesInRadius(enemy.x, enemy.y, 64);
+        for (let i = 0; i < near.length; i++) if (!near[i].dead) w.applyStatus(near[i], 'weak', { duration: 4 });
+        w.fx.ring(enemy.x, enemy.y, 64, '#9a86c9', 0.3);
+      },
+    },
+  },
+  {
+    id: 'storm_capacitor', name: 'Sturmkondensator', rarity: 'uncommon',
+    desc: 'Jede Entladung lädt sofort eine Dash-Ladung auf und gibt 6 Schild (höchstens alle 1,5 s). +5 % Schockchance.',
+    flavor: 'Gespeicherter Donner will gerannt werden.',
+    icon: { glyph: 'bolt', color: '#fff27a' }, tags: ['shock', 'dash', 'shield'],
+    mods: [{ stat: 'shockChance', add: 0.05 }],
+    hooks: {
+      onStatusBurst(ctx, { id }) {
+        if (id !== 'shock' || !ready(ctx, 'cd', 1.5)) return;
+        const p = ctx.player;
+        if (p.dash && p.dash.charges < p.dash.max) { p.dash.charges++; if (p.dash.charges >= p.dash.max) p.dash.cd = 0; }
+        shield(ctx, 6);
+        if (ctx.w) ctx.w.fx.ring(p.x, p.y, 20, SHOCK, 0.25);
+      },
+    },
+  },
+  {
+    id: 'static_brand', name: 'Spannungsmal', rarity: 'uncommon',
+    desc: 'Treffer gegen geschockte Gegner fügen 1 weitere Schockladung hinzu (je Gegner höchstens alle 0,3 s). +6 % Schockchance.',
+    flavor: 'Einmal geladen, immer geladen.',
+    icon: { glyph: 'ring', color: '#ffe75a' }, tags: ['shock', 'status'],
+    mods: [{ stat: 'shockChance', add: 0.06 }],
+    hooks: {
+      onHit(ctx, { enemy }) {
+        if (enemy.dead || !enemy.statuses || !enemy.statuses.shock) return;
+        const s = ctx.state, t = now(ctx);
+        const last = (s.m || (s.m = new WeakMap())).get(enemy);
+        if (last != null && t >= last && t - last < 0.3) return;
+        s.m.set(enemy, t);
+        ctx.w.applyStatus(enemy, 'shock', { duration: 4 * ctx.player.stats.statusDuration, stacks: 1 });
+      },
+    },
+  },
+  // --- rare ---
+  {
+    id: 'storm_heart', name: 'Gewitterherz', rarity: 'rare',
+    desc: 'Entladungen springen auf 2 weitere Gegner über (je 60 % Schaden, betäubt kurz). +10 % Schockschaden.',
+    flavor: 'Es schlägt im Takt des Donners.',
+    icon: { glyph: 'heart', color: '#ffe75a' }, tags: ['shock', 'status', 'chain'],
+    requires: (p) => affinity(p, 'shock'),
+    mods: [{ stat: 'shockDamage', mul: 1.1 }],
+    hooks: {
+      onStatusBurst(ctx, { enemy, id }) {
+        if (id !== 'shock' || !enemy) return;
+        // the core chain took the greedy nearest path: retrace it and continue from its last link
+        const w = ctx.w;
+        const skip = new Set([enemy]);
+        let cur = enemy;
+        for (let j = 0; j < (DISCHARGE_JUMPS || 4); j++) {
+          const next = w.findNearestEnemy(cur.x, cur.y, DISCHARGE_RANGE || 80, (o) => !skip.has(o));
+          if (!next) break;
+          skip.add(next);
+          cur = next;
+        }
+        dischargeChain(w, cur, (DISCHARGE_DAMAGE || 14) * 0.6, 2, 120, skip);
+      },
+    },
+  },
+  {
+    id: 'frenzied_maw', name: 'Gierschlund', rarity: 'rare',
+    desc: 'Jeder Blutrausch-Stapel gewährt +0,5 % Lebensraub. +4 maximale Blutrausch-Stapel.',
+    flavor: 'Je mehr er trinkt, desto durstiger wird er.',
+    icon: { glyph: 'tooth', color: '#ff3a4a' }, tags: ['frenzy', 'heal', 'blood'],
+    requires: bloodAffinity,
+    mods: [{ stat: 'frenzyMax', add: 4 }],
+    hooks: {
+      dynamicMods(ctx) {
+        const n = frenzyStacks(ctx.player);
+        return n > 0 ? [{ stat: 'lifesteal', add: 0.005 * n }] : null;
+      },
+    },
+  },
+  {
+    id: 'blood_torrent', name: 'Blutsturz', rarity: 'rare',
+    desc: '+25 % Blutungsschaden. Aderlass verursacht 50 % mehr Schaden.', flavor: 'Kein Rinnsal mehr – eine Flut.',
+    icon: { glyph: 'drop', color: '#9a1020' }, tags: ['bleed', 'status'],
+    requires: bleedAffinity,
+    mods: [{ stat: 'bleedDamage', mul: 1.25 }],
+    hooks: {
+      onStatusBurst(ctx, { enemy, id, damage }) {
+        if (id === 'bleed') burstBonus(ctx.w, enemy, (damage || 0) * 0.5, 'phys');
+      },
+    },
+  },
+  {
+    id: 'blood_rite', name: 'Blutritus', rarity: 'rare',
+    desc: '+8 % Blutungschance. Blutende Gegner hinterlassen beim Tod mit 35 % Chance eine zusätzliche Blutkugel.',
+    flavor: 'Jeder Tropfen ein Versprechen.',
+    icon: { glyph: 'candle', color: '#d6304a' }, tags: ['bleed', 'blood', 'kill', 'bloodorb'],
+    mods: [{ stat: 'bleedChance', add: 0.08 }],
+    hooks: {
+      onKill(ctx, { enemy }) {
+        if (!bleeding(enemy) || noXpEnemy(enemy) || !ctx.rng.chance(0.35)) return;
+        ctx.w.spawnPickup('blood', enemy.x, enemy.y, { burst: true });
+      },
+    },
+  },
+  // --- legendary ---
+  {
+    id: 'night_lord', name: 'Nachtfürst', rarity: 'legendary',
+    desc: '+5 % Vampirismus, +5 maximale Blutrausch-Stapel. Kills lassen mit 10 % Chance eine Blutkugel fallen. Jede aufgesammelte Blutkugel entfesselt eine Blutwelle (72 px, 22 Schaden, 2 Blutungsstapel).',
+    flavor: 'Die Nacht hat einen Herrn. Er ist durstig.',
+    icon: { glyph: 'crown', color: '#b0203a' }, tags: ['vampirism', 'blood', 'frenzy', 'bleed', 'bloodorb'],
+    mods: [{ stat: 'vampirism', add: 0.05 }, { stat: 'frenzyMax', add: 5 }],
+    hooks: {
+      onKill(ctx, { enemy }) {
+        if (noXpEnemy(enemy) || !ctx.rng.chance(0.1)) return;
+        ctx.w.spawnPickup('blood', enemy.x, enemy.y, { burst: true });
+      },
+      onPickup(ctx, { kind }) {
+        if (kind !== 'blood' || !ctx.w) return;
+        const { w, player: p } = ctx;
+        nova(ctx, p.x, p.y, 72, 22, 'phys', { status: bleedStatus(w, 2.5, 2), knockback: 120, color: '#d6304a' });
+        w.fx.burst('blood', p.x, p.y, { count: 18, speed: 140 });
+      },
+    },
+  },
+  {
+    id: 'plague_heart', name: 'Seuchenherz', rarity: 'legendary',
+    desc: 'Gift eruptiert bereits ab 5 Stapeln. Eruptionen verbreiten ihr Gift doppelt so weit (96 px, 3 Stapel). +10 % Giftchance.',
+    flavor: 'Die Fäulnis hat gelernt, ungeduldig zu sein.',
+    icon: { glyph: 'skull', color: '#9be35a' }, tags: ['poison', 'status', 'area'],
+    mods: [{ stat: 'poisonChance', add: 0.1 }],
+    hooks: {
+      onUpdate(ctx, dt) {
+        const s = ctx.state, w = ctx.w;
+        s.t = (s.t || 0) - dt;
+        if (s.t > 0 || !w) return;
+        s.t = 0.1;
+        const es = w.enemies;
+        for (let i = 0; i < es.length; i++) {
+          const e = es[i];
+          if (e.dead || e.spawnT > 0 || e.eruptImmune > 0) continue;
+          const ps = e.statuses && e.statuses.poison;
+          if (ps && ps.stacks >= PLAGUE_BURST_AT) statusBurst(w, e, 'poison');
+        }
+      },
+      onStatusBurst(ctx, { enemy, id }) {
+        if (id === 'poison' && enemy) spreadPoison(ctx.w, enemy, 48, 96, 3);
+      },
+    },
+  },
+
+  // =========================================================================================
+  // CURSES (14) — real downsides, some with a twisted upside
   // =========================================================================================
   {
     id: 'curse_frail', name: 'Fluch der Brüchigkeit', rarity: 'curse',
@@ -1181,6 +1487,24 @@ const LIST = [
         w.damagePlayer(2, { type: 'fire', dot: true, unblockable: true });
       },
     },
+  },
+  {
+    id: 'curse_open_wounds', name: 'Offene Wunden', rarity: 'curse',
+    desc: '+5 % Vampirismus, aber jeder Treffer gegen dich lässt dich bluten (2 Stapel).', flavor: 'Sie schließen sich nicht mehr. Sie wollen trinken.',
+    icon: { glyph: 'drop', color: CURSE }, tags: ['curse', 'heal', 'bleed'],
+    mods: [{ stat: 'vampirism', add: 0.05 }],
+    hooks: {
+      onDamaged(ctx, hit) {
+        if (hit.dot || !(hit.amount > 0) || !ctx.w) return;
+        ctx.w.applyStatus(ctx.player, 'bleed', { stacks: 2, duration: 4, power: 0.8 });
+      },
+    },
+  },
+  {
+    id: 'curse_bloodless', name: 'Blutleere', rarity: 'curse',
+    desc: '−15 % max. Leben. Blutkugeln heilen doppelt so viel.', flavor: 'Dein Herz pumpt Staub.',
+    icon: { glyph: 'heart', color: CURSE }, tags: ['curse', 'hp', 'blood'],
+    mods: [{ stat: 'maxHp', mul: 0.85 }, { stat: 'bloodOrbHeal', mul: 2 }],
   },
 ];
 

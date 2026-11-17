@@ -52,7 +52,7 @@ test('every enemy def belongs to the roster (no orphans)', () => {
 
 test('every affix has id, German name, colour and apply/update/onDeath/onHit logic', () => {
   const ids = Object.keys(AFFIXES);
-  assert.ok(ids.length >= 10 && ids.length <= 12);
+  assert.ok(ids.length >= 10 && ids.length <= 13, `affixes ${ids.length}`);
   const names = new Set();
   for (const [id, af] of Object.entries(AFFIXES)) {
     assert.equal(af.id, id);

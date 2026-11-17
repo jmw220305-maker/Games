@@ -161,6 +161,9 @@ for (const id of FLOOR_ORDER) {
 // --- props / pickups ---
 cards(section('props', 'Props'), take(SPRITE_KEYS.filter((k) => k.startsWith('prop_'))), '#3b2f2a');
 cards(section('pickups', 'Pickups'), take(SPRITE_KEYS.filter((k) => k.startsWith('pickup_'))), '#2b3d52', q.has('scale') ? SCALE : 6);
+// blood orb in the dark (how it reads on an unlit floor) next to the heart pickup
+cards(section('pickups-dark', 'Pickups on a dark floor (blood orb vs. heart)'), ['pickup_blood', 'pickup_heart'], '#120c0c', q.has('scale') ? SCALE : 6);
+cards(section('status-icons', 'Status / mechanic icons (HUD, Chronik)'), take(SPRITE_KEYS.filter((k) => k.startsWith('icon_'))), '#1a1214', q.has('scale') ? SCALE : 6);
 
 // --- projectiles ---
 {

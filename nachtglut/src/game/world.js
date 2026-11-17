@@ -5,7 +5,7 @@ import { TS, TILE, DIRS, TYPE_COLORS } from './constants.js';
 import { clamp, norm } from '../core/math.js';
 import { BIOMES } from '../data/biomes.js';
 import { enemyDef, aiFor, AFFIXES } from './registry.js';
-import { applyStatus, updateStatuses, hasStatus } from './combat.js';
+import { applyStatus, updateStatuses, hasStatus, healEnemy, PLAYER_BLEED_HEAL_MUL, VAMP_KILL_CAP } from './combat.js';
 import { runHooks } from './perks.js';
 import { makeProjectile, makeZone, updateProjectiles, updateZones, updatePickups, makePickup } from './entities.js';
 import { instantiateProps, updateProps, damageProp, onRoomCleared as propsOnRoomCleared } from './props.js';
@@ -19,8 +19,11 @@ export function dmgLabel(v) {
 
 export const NULL_FX = Object.freeze({
   burst: noop, text: noop, ring: noop, beam: noop, lightning: noop, shake: noop, flash: noop, light: noop, hitstop: noop,
-  update: noop, clear: noop, hitstopT: 0,
+  drain: noop, update: noop, clear: noop, hitstopT: 0,
 });
+
+const DRAIN_INTERVAL = 0.12;  // s: lifesteal/vampirism drain fx at most this often per enemy
+const DRAIN_COLOR = '#d6304a';
 
 const COL_HALF_MAX = 6.5; // tile-collision half size cap: everything fits through 1-tile gaps
 
@@ -509,7 +512,7 @@ export class World {
     const run = this.run, p = this.player, s = p.stats;
     const type = info.type || 'phys';
     let dmg = amount * (enemy.dmgTakenMul ?? 1);
-    const res = enemy.def.resist && enemy.def.resist[type];
+    const res = !info.ignoreResist && enemy.def.resist && enemy.def.resist[type];
     if (res) dmg *= 1 - res;
     if (enemy.boss) dmg *= s.bossDamage;
     else if (enemy.elite.length) dmg *= s.eliteDamage;
@@ -548,7 +551,11 @@ export class World {
     // lifesteal (budgeted so it cannot make the player immortal)
     if (s.lifesteal > 0 && info.source !== 'thorns' && p.alive) {
       const heal = Math.min(dmg * s.lifesteal, p.lsBudget);
-      if (heal > 0) { p.lsBudget -= heal; this.healPlayer(heal, { silent: true, raw: true }); }
+      if (heal > 0) {
+        p.lsBudget -= heal;
+        const healed = this.healPlayer(heal, { silent: true, raw: true, lifesteal: true });
+        if (healed > 0) this.drainFeedback(enemy, healed);
+      }
     }
     if (info.proc !== false) {
       const arg = { enemy, amount: dmg, crit: !!info.crit, type, info };
@@ -567,6 +574,8 @@ export class World {
     try { def.hooks && def.hooks.onDeath && def.hooks.onDeath(this, e); } catch (err) { console.error(`[enemy] ${e.id}.onDeath failed`, err); }
     for (const af of e.affixes) if (af.onDeath) { try { af.onDeath(this, e); } catch (err) { console.error(`[affix] ${af.id}.onDeath failed`, err); } }
     const elite = e.elite.length > 0;
+    const p = this.player, ps = p.stats;
+    const bleeding = !!(e.statuses && e.statuses.bleed);
     run.stats.kills++;
     if (elite) run.stats.eliteKills++;
     if (e.boss) run.stats.bossKills++;
@@ -582,6 +591,17 @@ export class World {
         sparks, xp: (def.xp || 0) * e.xpMul * (e.summoned ? 0.34 : 1), hearts,
         ash: e.boss ? 0 : elite ? 2 : (!e.summoned && this.rng.chance(0.03)) ? 1 : 0,
       });
+      // §12.3: enemies killed while bleeding may drop a blood orb
+      if (bleeding && this.rng.chance(Math.min(0.75, 0.2 + ps.vampirism * 2))) this.spawnPickup('blood', e.x, e.y, { burst: true });
+      // §12.2: vampirism heals a share of the victim's max HP (capped per kill + budgeted; not from bosses/summons)
+      if (ps.vampirism > 0 && p.alive && !run.ended && !e.boss && !e.summoned) {
+        const heal = Math.min(e.maxHp * ps.vampirism, ps.maxHp * VAMP_KILL_CAP, p.vampBudget);
+        if (heal > 0) {
+          p.vampBudget -= heal;
+          const healed = this.healPlayer(heal, { silent: true, raw: true, vampirism: true });
+          if (healed > 0) this.drainFeedback(e, healed);
+        }
+      }
     }
     this.fx.burst('death', e.x, e.y, { color: def.color, count: e.boss ? 60 : elite ? 22 : 12 });
     this.fx.shake(e.boss ? 7 : elite ? 3 : 1.2, e.boss ? 0.7 : 0.15);
@@ -682,7 +702,8 @@ export class World {
   healPlayer(amount, info = {}) {
     const p = this.player;
     if (!p.alive || !(amount > 0)) return 0;
-    const mul = info.raw ? 1 : p.stats.healPower * (this.run.difficulty.mods.healMult ?? 1);
+    let mul = info.raw ? 1 : p.stats.healPower * (this.run.difficulty.mods.healMult ?? 1);
+    if (p.statuses && p.statuses.bleed) mul *= PLAYER_BLEED_HEAL_MUL; // §12.1: a bleeding player heals less
     const before = p.hp;
     p.hp = Math.min(p.stats.maxHp, p.hp + amount * mul);
     const healed = p.hp - before;
@@ -697,6 +718,22 @@ export class World {
     }
     return healed;
   }
+
+  /**
+   * Lifesteal / vampirism feedback: a drain fx from `src` to the player (at most every DRAIN_INTERVAL per source)
+   * and the healed amount joins the aggregated "+N" heal number (flushed by the player once per second).
+   */
+  drainFeedback(src, healed) {
+    const p = this.player;
+    if (src && !(src._drainAt > this.time) && typeof this.fx.drain === 'function') {
+      src._drainAt = this.time + DRAIN_INTERVAL;
+      this.fx.drain(src.x, src.y, p, DRAIN_COLOR, healed);
+    }
+    p.healAcc = (p.healAcc || 0) + healed;
+  }
+
+  /** Heal an enemy; poisoned enemies heal only half (§12.1). Returns the HP actually healed. */
+  healEnemy(e, amount) { return healEnemy(this, e, amount); }
 
   addShield(amount) {
     const p = this.player;

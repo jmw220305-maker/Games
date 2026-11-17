@@ -16,7 +16,7 @@ const GLYPHS = new Set(('flame ember skull heart shield boot eye sword dagger ha
   + 'lantern compass dice scale thorn spiral cross hand tooth horn').split(' '));
 const HOOKS = new Set(['onGain', 'onRoomEnter', 'onRoomClear', 'onFloorEnter', 'onUpdate', 'onFire', 'onShot', 'onHit', 'onCrit',
   'onKill', 'onDamaged', 'onLethal', 'onDash', 'onDashEnd', 'onSkill', 'onHeal', 'onPickup', 'onLevelUp', 'onStatusApplied',
-  'onSpend', 'dynamicMods']);
+  'onStatusBurst', 'onSpend', 'dynamicMods']);
 const RELIC_RARITIES = ['common', 'uncommon', 'rare', 'legendary', 'curse'];
 const relicList = Object.values(RELICS);
 const boonList = Object.values(BOONS);
@@ -70,13 +70,14 @@ describe('static data', () => {
   test('relic counts per rarity', () => {
     const c = {};
     for (const d of relicList) c[d.rarity] = (c[d.rarity] || 0) + 1;
-    assert.ok(c.common >= 28 && c.common <= 32, `common ${c.common}`);
-    assert.ok(c.uncommon >= 20 && c.uncommon <= 26, `uncommon ${c.uncommon}`);
-    assert.ok(c.rare >= 12 && c.rare <= 17, `rare ${c.rare}`);
-    assert.ok(c.legendary >= 7 && c.legendary <= 9, `legendary ${c.legendary}`);
-    assert.ok(c.curse >= 10 && c.curse <= 12, `curse ${c.curse}`);
+    // §12 added 3 common, 7 uncommon, 4 rare, 2 legendary relics and 2 curses
+    assert.ok(c.common >= 28 && c.common <= 35, `common ${c.common}`);
+    assert.ok(c.uncommon >= 20 && c.uncommon <= 33, `uncommon ${c.uncommon}`);
+    assert.ok(c.rare >= 12 && c.rare <= 22, `rare ${c.rare}`);
+    assert.ok(c.legendary >= 7 && c.legendary <= 11, `legendary ${c.legendary}`);
+    assert.ok(c.curse >= 10 && c.curse <= 15, `curse ${c.curse}`);
     const relics = relicList.length - c.curse;
-    assert.ok(relics >= 70 && relics <= 85, `relics ${relics}`);
+    assert.ok(relics >= 70 && relics <= 100, `relics ${relics}`);
     assert.deepEqual(Object.keys(RELIC_IDS_BY_RARITY).sort(), [...RELIC_RARITIES].sort());
   });
 
@@ -107,7 +108,7 @@ describe('static data', () => {
   });
 
   test('boons: count, stacks, rarity, per-stack mods and descs', () => {
-    assert.ok(boonList.length >= 28 && boonList.length <= 36, `boons ${boonList.length}`);
+    assert.ok(boonList.length >= 28 && boonList.length <= 45, `boons ${boonList.length}`);
     for (const [k, d] of Object.entries(BOONS)) {
       assert.equal(k, d.id);
       assert.ok(d.maxStacks >= 3 && d.maxStacks <= 5, `${k}: maxStacks ${d.maxStacks}`);
@@ -125,7 +126,7 @@ describe('static data', () => {
   });
 
   test('shrines: count and fields', () => {
-    assert.ok(shrineList.length >= 10 && shrineList.length <= 12, `shrines ${shrineList.length}`);
+    assert.ok(shrineList.length >= 10 && shrineList.length <= 15, `shrines ${shrineList.length}`);
     for (const [k, s] of Object.entries(SHRINES)) {
       assert.equal(k, s.id);
       assert.ok(s.name && s.text && s.text.length > 20, `${k}: name/text`);

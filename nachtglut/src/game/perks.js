@@ -3,6 +3,13 @@ import { bus } from '../core/events.js';
 import { RARITY_INFO } from './constants.js';
 import { RELICS, BOONS } from './registry.js';
 
+/** Every hook the core runs (docs/ARCHITECTURE.md §6.5). `onStatusBurst(ctx, { enemy, id, damage })`: §12 threshold payoff. */
+export const PERK_HOOKS = Object.freeze([
+  'onGain', 'onRoomEnter', 'onRoomClear', 'onFloorEnter', 'onUpdate', 'onFire', 'onShot', 'onHit', 'onCrit', 'onKill',
+  'onDamaged', 'onLethal', 'onDash', 'onDashEnd', 'onSkill', 'onHeal', 'onPickup', 'onLevelUp', 'onStatusApplied',
+  'onStatusBurst', 'onSpend', 'dynamicMods',
+]);
+
 function ctxFor(run, perk) {
   return { w: run.world, player: run.player, run, rng: run.world ? run.world.rng : run.rng, stacks: perk.stacks, state: perk.state, perk };
 }

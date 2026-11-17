@@ -184,7 +184,7 @@ const MAX_LIGHTS = 192;
 const MAX_HAZARD_LIGHTS = 24;
 const LIGHT_RES = 0.5;          // darkness buffer resolution relative to the logical view (soft anyway)
 const PLAYER_LIGHT = '#ffb066';
-const PICKUP_LIGHT = { spark: '#ffd35a', xp: '#8fd8ff', heart: '#ff6a7a', ash: '#c9c2b8', shield: '#9ad0ff' };
+const PICKUP_LIGHT = { spark: '#ffd35a', xp: '#8fd8ff', heart: '#ff6a7a', ash: '#c9c2b8', shield: '#9ad0ff', blood: '#ff2a3a' };
 
 export class Lighting {
   constructor() {
@@ -240,6 +240,13 @@ export class Lighting {
       r *= 1 + Math.sin(time * 7.3) * 0.022 + Math.sin(time * 13.1 + 1.7) * 0.014;
       if (p.alive === false) r *= 0.75;
       this.add(p.x, p.y - 2, r, PLAYER_LIGHT, 1, 0.2);
+      // Blutrausch: a faint red heartbeat glow, stronger with more stacks
+      const fs = p.frenzy && p.alive !== false ? p.frenzy.stacks : 0;
+      if (fs > 0) {
+        const k = Math.min(1, fs / Math.max(1, (p.stats && p.stats.frenzyMax) || 10));
+        const beat = 0.75 + 0.25 * Math.sin(time * (7 + 6 * k));
+        this.add(p.x, p.y - 3, 30 + 26 * k, '#ff2030', 0.25, (0.05 + 0.13 * k) * beat);
+      }
     }
     // fx lights (explosions, skills)
     fx = fx || world.fx;
@@ -314,7 +321,8 @@ export class Lighting {
       for (let i = 0; i < pk.length; i++) {
         const k = pk[i];
         if (k.dead) continue;
-        this.add(k.x, k.y, k.kind === 'heart' ? 16 : 12, PICKUP_LIGHT[k.kind] || '#ffd35a', 0.55, 0.25);
+        if (k.kind === 'blood') this.add(k.x, k.y - 3, 20, PICKUP_LIGHT.blood, 0.6, 0.32 + 0.12 * Math.sin(time * 7.8 + k.x));
+        else this.add(k.x, k.y, k.kind === 'heart' ? 16 : 12, PICKUP_LIGHT[k.kind] || '#ffd35a', 0.55, 0.25);
       }
     }
     // hazard tiles: capped, culled sample of the ones in view

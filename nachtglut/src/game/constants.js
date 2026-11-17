@@ -24,7 +24,7 @@ export const DIRS = Object.freeze({
 });
 
 export const DAMAGE_TYPES = Object.freeze(['phys', 'fire', 'frost', 'poison', 'shock', 'shadow', 'light']);
-export const STATUS_IDS = Object.freeze(['burn', 'poison', 'chill', 'freeze', 'shock', 'mark', 'stun', 'weak', 'slow']);
+export const STATUS_IDS = Object.freeze(['burn', 'poison', 'chill', 'freeze', 'shock', 'mark', 'stun', 'weak', 'slow', 'bleed']);
 export const RARITIES = Object.freeze(['common', 'uncommon', 'rare', 'legendary', 'curse']);
 
 export const RARITY_INFO = Object.freeze({

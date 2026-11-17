@@ -4,6 +4,7 @@
 // HP bars, status pips, off-screen indicators, vignettes, flash, fade → overlay texts.
 // Tolerates a missing/broken art module (placeholder shapes). DOM-free at import time.
 import { TS, TILE, SPIKE_CYCLE, RARITY_INFO, TYPE_COLORS } from '../game/constants.js';
+import { bus as globalBus } from '../core/events.js';
 import { Lighting, glowSprite, shadowSprite, vignetteSprite, makeCanvas, shade, zoneVisible } from './lighting.js';
 import { MenuBg } from './menubg.js';
 
@@ -21,10 +22,21 @@ const FOG_DARKEN = -0.3;       // the darkness colour is the biome fog pushed to
 const K_PROP = 0, K_PICKUP = 1, K_ENEMY = 2, K_PLAYER = 3;
 
 const STATUS_COLORS = {
-  burn: TYPE_COLORS.fire, poison: TYPE_COLORS.poison, chill: TYPE_COLORS.frost, freeze: '#d6f4ff', shock: TYPE_COLORS.shock,
+  bleed: '#d01c2c', burn: TYPE_COLORS.fire, poison: TYPE_COLORS.poison, chill: TYPE_COLORS.frost, freeze: '#d6f4ff', shock: TYPE_COLORS.shock,
   mark: '#ff4f7a', stun: '#ffe9a0', weak: '#9a86c9', slow: '#7fa0c0',
 };
-const PICKUP_COLORS = { spark: '#ffd35a', xp: '#8fd8ff', heart: '#ff4f6a', ash: '#c9c2b8', shield: '#9ad0ff' };
+// Stacking statuses get a meter chip above the HP bar (threshold payoff when full, §12):
+// meter = 1 px per stack (+ a crisp stack count on the overlay), seg = one lit segment per charge.
+const STACK_CHIPS = [
+  { id: 'bleed', max: 10, kind: 'meter', dim: '#3a0a10', label: '#ff8a90' },
+  { id: 'poison', max: 8, kind: 'meter', dim: '#1e3410', label: '#c8ff9a' },
+  { id: 'shock', max: 5, kind: 'seg', dim: '#45400f' },
+  { id: 'chill', max: 5, kind: 'seg', dim: '#16364a' },
+];
+const BASIC_STATUS = ['burn', 'freeze', 'stun', 'mark', 'weak', 'slow'];
+const MAX_STACK_LABELS = 48;
+const PICKUP_COLORS = { spark: '#ffd35a', xp: '#8fd8ff', heart: '#ff4f6a', ash: '#c9c2b8', shield: '#9ad0ff', blood: '#d01c2c' };
+const BLOOD_ORB_LIFE = 8, BLOOD_ORB_BLINK = 2; // §12.3: despawns after 8 s, blinks the last 2 s
 const PROP_LOOK = {
   chest: ['#8a5a2a', 'rect'], pedestal: ['#6e6878', 'rect'], shrine: ['#8a5fd0', 'tri'], forge: ['#ff7a2f', 'rect'],
   fountain: ['#5fb0e0', 'disc'], portal: ['#b07cff', 'ring'], barrel: ['#7a4a26', 'disc'], crystal: ['#8fd8ff', 'diamond'],
@@ -82,7 +94,40 @@ export class Renderer {
     // reusable sprite opts
     this._o = { anim: 'idle', t: 0, flipX: false, flash: 0, alpha: 1, scale: 1, rot: 0, color: undefined };
     this.frameMs = 0;
-    if (this.ctx) this.ctx.imageSmoothingEnabled = false;
+    // cosmetic per-unit timers (blood drips) and the stack counts drawn crisp on the overlay
+    this.dripT = new WeakMap();
+    this.frenzyAcc = 0;
+    this.stackLabels = [];
+    for (let i = 0; i < MAX_STACK_LABELS; i++) this.stackLabels.push({ x: 0, y: 0, n: 0, color: '#fff' });
+    this.nStackLabels = 0;
+    this._offs = null;
+    if (this.ctx) {
+      this.ctx.imageSmoothingEnabled = false;
+      this.bindEvents(globalBus);
+    }
+  }
+
+  /** Visual responses to gameplay events that have no direct fx call (status payoffs, §12). Idempotent. */
+  bindEvents(bus) {
+    if (this._offs || !bus || typeof bus.on !== 'function') return;
+    // lifesteal / vampirism heals are silent in the simulation: the drain fx is their only signal, so pass it on
+    // (audio plays a quiet, rate-limited sip on `fx:drain`)
+    if (this.fx && !this.fx.onDrain) this.fx.onDrain = (amount) => bus.emit('fx:drain', { amount });
+    this._offs = [
+      bus.on('status:burst', (p) => {
+        const fx = this.fx;
+        if (!fx || typeof fx.statusBurst !== 'function') return;
+        const g = this.game;
+        fx.statusBurst(p, g && g.run ? g.run.world : null);
+      }),
+    ];
+  }
+
+  unbindEvents() {
+    if (!this._offs) return;
+    for (const off of this._offs) { try { if (typeof off === 'function') off(); } catch { /* ignore */ } }
+    this._offs = null;
+    if (this.fx) this.fx.onDrain = null;
   }
 
   /** art = { sprites, renderRoomStatic, drawRoomDynamic } — any may be missing. */
@@ -652,11 +697,26 @@ export class Renderer {
       switch (s.k) {
         case K_PROP: this.drawProp(ctx, s.o, t, world); break;
         case K_PICKUP: this.drawPickup(ctx, s.o, t); break;
-        case K_ENEMY: this.drawEnemy(ctx, s.o, t); break;
-        default: this.drawPlayer(ctx, s.o, run, t);
+        case K_ENEMY: this.drawEnemy(ctx, s.o, t); this.bleedDrip(s.o, dt); break;
+        default: this.drawPlayer(ctx, s.o, run, t, dt); this.bleedDrip(s.o, dt);
       }
     }
     for (let i = 0; i < n; i++) this.list[i].o = null;
+  }
+
+  /** Bleeding units shed a droplet now and then (more stacks → more often). Cosmetic, throttled per unit. */
+  bleedDrip(u, dt) {
+    const st = u.statuses && u.statuses.bleed;
+    const fx = this.fx;
+    if (!st || !(dt > 0) || !fx || u.dead || u.hidden || u.spawnT > 0 || u.alive === false) return;
+    let acc = (this.dripT.get(u) || 0) + dt;
+    const every = Math.max(0.12, 0.5 - Math.min(10, st.stacks || 1) * 0.035);
+    if (acc >= every) {
+      acc = 0;
+      const r = u.r || 6;
+      fx.burst('blood_drip', u.x + (Math.random() - 0.5) * r * 1.2, u.y - r * (u.flying ? 0.2 : 0.9), { count: 1 });
+    }
+    this.dripT.set(u, acc);
   }
 
   drawProp(ctx, pr, t) {
@@ -734,15 +794,45 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  /** Remaining seconds of a timed pickup (blood orbs) or Infinity. Reads core's fields when present. */
+  pickupLeft(pk) {
+    if (Number.isFinite(pk.life)) return pk.life - (pk.age || 0); // total lifetime, like projectiles (§5.1)
+    if (Number.isFinite(pk.ttl)) return pk.ttl;
+    if (pk.kind === 'blood') return BLOOD_ORB_LIFE - (pk.age || 0);
+    return Infinity;
+  }
+
   drawPickup(ctx, pk, t) {
     const age = pk.age || 0;
-    const bob = Math.sin(age * 5 + pk.x * 0.3) * 1.2;
+    const blood = pk.kind === 'blood';
+    const bob = Math.sin(age * (blood ? 3.2 : 5) + pk.x * 0.3) * (blood ? 1.6 : 1.2);
     const y = pk.y - 3 + bob;
-    this.shadow(ctx, pk.x, pk.y + 2, 7, 3, 0.45);
+    // blinking before it despawns (core flag pk.blink, else derived from its remaining life)
+    let alpha = 1;
+    const left = this.pickupLeft(pk);
+    if (pk.blink || left < BLOOD_ORB_BLINK) {
+      const f = 7 + 9 * clamp(1 - left / BLOOD_ORB_BLINK, 0, 1);
+      alpha = (Math.floor(t * f) & 1) ? 0.28 : 1;
+    }
+    this.shadow(ctx, pk.x, pk.y + 2, 7, 3, 0.45 * alpha);
     const key = 'pickup_' + pk.kind;
     const pop = age < 0.15 ? 0.6 + age / 0.15 * 0.4 : 1;
+    if (blood) {
+      // a heartbeat glow under the orb so it reads in the dark
+      const gs = glowSprite('#ff1f30');
+      if (gs) {
+        const ph = (age * 1.25) % 1;
+        const beat = Math.exp(-ph * 9) + 0.6 * (ph > 0.22 ? Math.exp(-(ph - 0.22) * 11) : 0);
+        const d = 15 + 5 * beat;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = (0.38 + 0.3 * beat) * alpha;
+        ctx.drawImage(gs, pk.x - d / 2, y - d / 2, d, d);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
     if (this.has(key)) {
-      this.spr(ctx, key, pk.x, y, this.opt('idle', t + pk.x * 0.01, false, 0, 1, pop));
+      this.spr(ctx, key, pk.x, y, this.opt('idle', t + pk.x * 0.01, false, 0, alpha, pop));
     } else {
       const c = PICKUP_COLORS[pk.kind] || '#ffd35a';
       const s = (pk.kind === 'heart' ? 3 : 2) * pop;
@@ -862,11 +952,53 @@ export class Renderer {
     this.afterI = (i + 1) % AFTER_N;
   }
 
-  drawPlayer(ctx, p, run, t) {
+  /**
+   * Blutrausch: a faint red heartbeat aura around the player, stronger and faster with more stacks; it flickers out
+   * during the last second before the frenzy ends.
+   */
+  drawFrenzy(ctx, p, t, dt) {
+    const fr = p.frenzy;
+    const stacks = fr && fr.stacks > 0 ? fr.stacks : 0;
+    if (!stacks || p.alive === false) { this.frenzyAcc = 0; return; }
+    const max = Math.max(1, (p.stats && p.stats.frenzyMax) || 10);
+    const k = clamp(stacks / max, 0, 1);
+    const period = 60 / (72 + 78 * k);
+    const ph = (t % period) / period;
+    const beat = Math.exp(-ph * 10) + 0.65 * (ph > 0.26 ? Math.exp(-(ph - 0.26) * 12) : 0);
+    let fade = 1;
+    if (Number.isFinite(fr.t) && fr.t < 1) fade = clamp(fr.t, 0, 1) * ((Math.floor(t * 14) & 1) ? 0.6 : 1);
+    const cx = p.x, cy = p.y - 3;
+    ctx.globalCompositeOperation = 'lighter';
+    const gs = glowSprite('#ff1f30');
+    if (gs) {
+      const d = 24 + 18 * k + 7 * beat;
+      ctx.globalAlpha = clamp((0.14 + 0.26 * k) * (0.5 + 0.5 * beat) * fade, 0, 0.6);
+      ctx.drawImage(gs, cx - d / 2, cy - d / 2, d, d);
+    }
+    // pulse ring at the feet
+    const rx = 7 + 4 * k + 2.5 * beat;
+    ctx.strokeStyle = '#ff3a4a';
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = clamp((0.22 + 0.4 * k) * (0.35 + 0.65 * beat) * fade, 0, 0.9);
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + (p.r || 5) - 0.5, rx, rx * 0.42, 0, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // rising blood embers at higher stacks
+    if (this.fx && dt > 0) {
+      this.frenzyAcc += dt;
+      if (this.frenzyAcc >= 0.42 - 0.3 * k) {
+        this.frenzyAcc = 0;
+        this.fx.burst('ember', p.x + (Math.random() - 0.5) * 10, p.y - 2, { count: 1, color: '#ff2a3a' });
+      }
+    }
+  }
+
+  drawPlayer(ctx, p, run, t, dt) {
     const key = (p.character && p.character.sprite) || 'char_' + (run.character || 'bearer');
     const has = this.has(key);
     const sz = has ? this.sizeOf(key, p.r || 5) : { w: 10, h: 12 };
     const color = (p.character && p.character.color) || '#ff8a3c';
+    this.drawFrenzy(ctx, p, t, dt);
     // after-images
     for (let i = 0; i < AFTER_N; i++) {
       const age = this.time - this.afterT[i];
@@ -963,8 +1095,81 @@ export class Renderer {
   // ------------------------------------------------------------------------------------------
   // after lighting
   // ------------------------------------------------------------------------------------------
+  /**
+   * Status chips centred over (cx, top): stacking statuses as meters (bleed / poison: 1 px per stack + a crisp count on
+   * the overlay; shock / chill: one segment per charge), the rest as small pips. Bleed adds a falling drop.
+   */
+  drawStatusChips(ctx, cx, top, st, t, below) {
+    let w = 0, n = 0;
+    for (let i = 0; i < STACK_CHIPS.length; i++) {
+      const c = STACK_CHIPS[i], s = st[c.id];
+      if (!s) continue;
+      w += (c.kind === 'meter' ? c.max : c.max * 2 - 1) + 2 + 1;
+      n++;
+    }
+    let basic = 0;
+    for (let i = 0; i < BASIC_STATUS.length; i++) if (st[BASIC_STATUS[i]] && basic < 5) { basic++; w += 3; }
+    if (!n && !basic) return;
+    if (basic) w += 1; else w -= 1;
+    let x = Math.round(cx - w / 2);
+    const y = top - 2;
+    for (let i = 0; i < STACK_CHIPS.length; i++) {
+      const c = STACK_CHIPS[i], s = st[c.id];
+      if (!s) continue;
+      const stacks = clamp(Math.round(s.stacks || 1), 1, c.max);
+      const col = STATUS_COLORS[c.id];
+      const inner = c.kind === 'meter' ? c.max : c.max * 2 - 1;
+      ctx.fillStyle = '#0b0507';
+      ctx.fillRect(x, y, inner + 2, 4);
+      if (c.kind === 'meter') {
+        ctx.fillStyle = c.dim;
+        ctx.fillRect(x + 1, y + 1, inner, 2);
+        ctx.fillStyle = col;
+        ctx.fillRect(x + 1, y + 1, stacks, 2);
+        // the leading stack glints so growth is visible
+        ctx.fillStyle = shade(col, 0.45);
+        ctx.fillRect(x + stacks, y + 1, 1, 1);
+        if (stacks >= 2 && this.nStackLabels < MAX_STACK_LABELS) {
+          const L = this.stackLabels[this.nStackLabels++];
+          L.x = x + inner + 2; L.y = y + 2; L.n = stacks; L.color = c.label;
+        }
+        if (c.id === 'bleed' && !below) {
+          const ph = (t * 1.6 + cx * 0.07) % 1;
+          ctx.globalAlpha = 1 - ph;
+          ctx.fillStyle = '#e0283a';
+          ctx.fillRect(x + 1 + ((cx | 0) & 1), y + 4 + Math.floor(ph * 4), 1, 1 + (ph < 0.3 ? 1 : 0));
+          ctx.globalAlpha = 1;
+        }
+      } else {
+        for (let k = 0; k < c.max; k++) {
+          ctx.fillStyle = k < stacks ? col : c.dim;
+          ctx.fillRect(x + 1 + k * 2, y + 1, 1, 2);
+        }
+        if (stacks >= c.max - 1) { // about to discharge / freeze: blink the frame
+          ctx.globalAlpha = (Math.floor(t * 10) & 1) ? 0.9 : 0.35;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x + 0.5, y + 0.5, inner + 1, 3);
+          ctx.globalAlpha = 1;
+        }
+      }
+      x += inner + 3;
+    }
+    let m = 0;
+    for (let i = 0; i < BASIC_STATUS.length && m < 5; i++) {
+      const id = BASIC_STATUS[i];
+      if (!st[id]) continue;
+      ctx.fillStyle = '#0b0507';
+      ctx.fillRect(x, y, 4, 4);
+      ctx.fillStyle = STATUS_COLORS[id];
+      ctx.fillRect(x + 1, y + 1, 2, 2);
+      x += 3; m++;
+    }
+  }
+
   drawBars(ctx, world, t) {
     const es = world.enemies;
+    this.nStackLabels = 0;
     if (es) {
       for (let i = 0; i < es.length; i++) {
         const e = es[i];
@@ -975,7 +1180,8 @@ export class Renderer {
         if (this.has(key)) { const h = this.sizeOf(key, e.r).h; top = Math.round(this.unitDrawY(e, h, t) - h / 2 - 3); }
         else top = Math.round(e.y - (e.r || 6) - (e.flying ? 3 : 0) - 3);
         const elite = e.elite && e.elite.length > 0;
-        if (!e.boss && (e.hpBarT > 0 || elite)) {
+        const hasBar = !e.boss && (e.hpBarT > 0 || elite);
+        if (hasBar) {
           const w = clamp(Math.round((e.r || 6) * 2 + 2), 10, 26);
           const x = Math.round(e.x - w / 2);
           const k = clamp(e.hp / (e.maxHp || 1), 0, 1);
@@ -989,26 +1195,9 @@ export class Renderer {
           ctx.globalAlpha = 1;
           top -= 3;
         }
-        // status pips
+        // status chips (stack meters + pips)
         const st = e.statuses;
-        if (st) {
-          let c = 0;
-          for (const id in st) { if (STATUS_COLORS[id]) c++; }
-          if (c) {
-            c = Math.min(c, 5);
-            let x = Math.round(e.x - (c * 3 - 1) / 2);
-            let m = 0;
-            for (const id in st) {
-              const col = STATUS_COLORS[id];
-              if (!col || m >= 5) continue;
-              ctx.fillStyle = '#0b0507';
-              ctx.fillRect(x - 1, top - 2, 4, 4);
-              ctx.fillStyle = col;
-              ctx.fillRect(x, top - 1, 2, 2);
-              x += 3; m++;
-            }
-          }
-        }
+        if (st) this.drawStatusChips(ctx, e.x, top, st, t, hasBar);
       }
     }
     // auto-aim target brackets
@@ -1104,6 +1293,22 @@ export class Renderer {
     const k = this.kx;
     const minPx = 10 * this.dpr;
     if (this.fx && this.fx.drawTexts) this.fx.drawTexts(o, camX, camY, k, minPx);
+    // stack counts next to the bleed / poison meters
+    if (this.nStackLabels > 0) {
+      const px = Math.round(Math.max(8.5 * this.dpr, 3.4 * k));
+      o.font = `800 ${px}px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif`;
+      o.textAlign = 'left'; o.textBaseline = 'middle'; o.lineJoin = 'round';
+      o.strokeStyle = 'rgba(10,4,6,0.95)';
+      o.lineWidth = Math.max(2, px * 0.28);
+      for (let i = 0; i < this.nStackLabels; i++) {
+        const L = this.stackLabels[i];
+        const sx = Math.round((L.x - camX) * k + 1.5 * this.dpr), sy = Math.round((L.y - camY) * this.ky);
+        const s = String(L.n);
+        o.strokeText(s, sx, sy);
+        o.fillStyle = L.color;
+        o.fillText(s, sx, sy);
+      }
+    }
     // shop prices under pedestals
     const props = world.props;
     if (!props) return;

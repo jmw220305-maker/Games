@@ -248,8 +248,10 @@ export const STAT_LABELS = Object.freeze({
   dodge: { name: 'Ausweichen', fmt: 'chance', group: 'survival' },
   iframes: { name: 'Unverwundbarkeit nach Treffer', fmt: 'sec', group: 'survival' },
   lifesteal: { name: 'Lebensraub', fmt: 'chance', group: 'survival' },
+  vampirism: { name: 'Vampirismus', fmt: 'chance', group: 'survival' },
   thorns: { name: 'Dornen', fmt: 'int', group: 'survival' },
   healPower: { name: 'Heilkraft', fmt: 'pct', group: 'survival' },
+  bloodOrbHeal: { name: 'Blutkugel-Heilung', fmt: 'int', group: 'survival' },
 
   damage: { name: 'Schaden', fmt: 'pct', group: 'offense' },
   fireRate: { name: 'Feuerrate', fmt: 'pct', group: 'offense' },
@@ -260,6 +262,7 @@ export const STAT_LABELS = Object.freeze({
   skillPower: { name: 'Fertigkeitsstärke', fmt: 'pct', group: 'offense' },
   skillCooldown: { name: 'Fertigkeitsabklingzeit', fmt: 'pct', group: 'offense', lowerIsBetter: true },
   knockback: { name: 'Rückstoß', fmt: 'pct', group: 'offense' },
+  frenzyMax: { name: 'Max. Blutrausch', fmt: 'int', group: 'offense' },
 
   projSpeed: { name: 'Geschosstempo', fmt: 'pct', group: 'projectiles' },
   range: { name: 'Reichweite', fmt: 'pct', group: 'projectiles' },
@@ -280,8 +283,10 @@ export const STAT_LABELS = Object.freeze({
   chillChance: { name: 'Frostchance', fmt: 'chance', group: 'status' },
   poisonChance: { name: 'Giftchance', fmt: 'chance', group: 'status' },
   shockChance: { name: 'Schockchance', fmt: 'chance', group: 'status' },
+  bleedChance: { name: 'Blutungschance', fmt: 'chance', group: 'status' },
   statusPower: { name: 'Zustandsstärke', fmt: 'pct', group: 'status' },
   statusDuration: { name: 'Zustandsdauer', fmt: 'pct', group: 'status' },
+  bleedDamage: { name: 'Blutungsschaden', fmt: 'mult', group: 'status' },
 
   physDamage: { name: 'Physischer Schaden', fmt: 'pct', group: 'elements' },
   fireDamage: { name: 'Feuerschaden', fmt: 'pct', group: 'elements' },

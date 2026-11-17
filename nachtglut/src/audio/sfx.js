@@ -388,6 +388,68 @@ export const SFX = {
     k.noise({ color: 'pink', lp: [1200, 300], dur: 0.15, g: 0.3 });
   } },
 
+  // ---- status mechanics v2 (§12): bleed, payoffs, blood orbs, frenzy, life drain --------------
+  // a quick wet slice with a droplet plink
+  status_bleed: { g: 0.14, prio: 0, gap: 0.2, rev: 0.06, vary: 0.1, fn(k) {
+    k.noise({ bp: [3400, 900], q: 1.4, dur: 0.06, g: 0.7 });
+    k.tone({ f: 330, f1: 130, dur: 0.09, g: 0.45, fm: [0.5, 2, 0.04] });
+    k.noise({ color: 'pink', lp: 700, t: 0.03, a: 0.01, dur: 0.1, g: 0.35 });
+    k.tone({ f: 880, f1: 1400, sweep: 0.03, t: 0.11, dur: 0.045, g: 0.16 });
+  } },
+  // Aderlass: wet and heavy — a body thump under a squelchy burst, then splattering droplets
+  hemorrhage: { g: 0.34, gap: 0.08, rev: 0.18, vary: 0.06, fn(k) {
+    k.tone({ f: 115, f1: 38, sweep: 0.22, dur: 0.36, g: 1, drive: 1.5 });
+    k.noise({ color: 'brown', lp: [2400, 240], dur: 0.32, g: 0.85, drive: 2 });
+    k.noise({ bp: [1900, 450], q: 2.4, a: 0.005, dur: 0.2, g: 0.5 });
+    k.tone({ type: 'sawtooth', f: 190, f1: 70, dur: 0.2, lp: [900, 200], g: 0.32, fm: [0.5, 3, 0.05] });
+    for (let i = 0; i < 4; i++) {
+      const f = 420 + k.rnd() * 480;
+      k.tone({ f, f1: f * 1.7, sweep: 0.03, t: 0.13 + i * 0.05 + k.rnd() * 0.03, dur: 0.05, g: 0.22 - i * 0.035 });
+    }
+  } },
+  // Gifteruption: bubbly pop, a burst of bubbles and a long acid hiss
+  poison_burst: { g: 0.28, gap: 0.08, rev: 0.2, vary: 0.06, fn(k) {
+    k.tone({ f: 150, f1: 540, sweep: 0.06, dur: 0.12, g: 0.8 });
+    k.tone({ f: 92, f1: 50, dur: 0.18, g: 0.55 });
+    k.noise({ lp: 1100, dur: 0.05, g: 0.35 });
+    for (let i = 0; i < 6; i++) {
+      const f = 260 + k.rnd() * 520;
+      k.tone({ f, f1: f * 1.9, sweep: 0.04, t: 0.05 + i * 0.045 + k.rnd() * 0.03, dur: 0.06, g: 0.3 });
+    }
+    k.noise({ hp: [2600, 5200], a: 0.05, t: 0.05, dur: 0.5, g: 0.3 });
+  } },
+  // Entladung: a hard crack, then zaps hopping along the chain
+  shock_discharge: { g: 0.28, gap: 0.08, rev: 0.12, vary: 0.05, fn(k) {
+    k.noise({ hp: 3000, dur: 0.04, g: 0.9 });
+    k.tone({ type: 'square', f: 1700, f1: 120, sweep: 0.08, dur: 0.1, bp: 2200, q: 1.5, g: 0.65 });
+    k.tone({ f: 72, f1: 40, dur: 0.2, g: 0.5 });
+    for (let i = 0; i < 4; i++) {
+      const t = 0.07 + i * 0.07;
+      k.tone({ type: 'sawtooth', f: 96 + i * 13, t, dur: 0.05, bp: 2500 + i * 320, q: 4, g: 0.7 - i * 0.1 });
+      k.noise({ hp: 4800, t, dur: 0.022, g: 0.5 - i * 0.08 });
+    }
+  } },
+  // blood orb: soft, rich, slightly dark chime (minor third, low bed)
+  pickup_blood: { g: 0.26, gap: 0.06, rev: 0.3, vary: 0.015, fn(k) {
+    k.tone({ f: N(68), a: 0.006, dur: 0.45, g: 0.45, fm: [2, 0.9, 0.12] });
+    k.tone({ f: N(63), t: 0.065, a: 0.008, dur: 0.5, g: 0.35 });
+    k.tone({ type: 'triangle', f: N(51), a: 0.01, dur: 0.42, g: 0.35 });
+    k.noise({ color: 'pink', lp: 900, dur: 0.06, g: 0.18 });
+  } },
+  // Blutrausch: a low double heartbeat (the binding raises the pitch with the stacks)
+  frenzy: { g: 0.3, gap: 0.12, rev: 0.06, vary: 0, fn(k) {
+    k.tone({ f: 64, f1: 40, dur: 0.16, g: 0.9 });
+    k.tone({ type: 'triangle', f: 128, f1: 70, dur: 0.07, g: 0.4 });
+    k.noise({ color: 'brown', lp: 320, dur: 0.07, g: 0.35 });
+    k.tone({ f: 58, f1: 38, t: 0.19, dur: 0.18, g: 0.7 });
+    k.tone({ type: 'triangle', f: 116, f1: 64, t: 0.19, dur: 0.07, g: 0.3 });
+  } },
+  // life drain: very quiet airy sip, heavily rate-limited
+  lifesteal: { g: 0.07, prio: 0, gap: 0.3, rev: 0.15, vary: 0.05, fn(k) {
+    k.tone({ f: 1250, f1: 820, sweep: 0.12, a: 0.02, dur: 0.16, g: 0.55 });
+    k.noise({ bp: [3000, 1200], q: 2, a: 0.03, dur: 0.14, g: 0.3 });
+  } },
+
   // ---- bosses ---------------------------------------------------------------------------------
   boss_intro: { g: 0.5, prio: 2, gap: 2, rev: 0.4, vary: 0, fn(k) {
     // ominous swell ...

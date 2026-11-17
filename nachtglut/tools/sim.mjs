@@ -240,6 +240,16 @@ export class Bot {
       }
       if (p.skill.def && p.skill.cd <= 0 && (close >= 2 || near.boss || nd < 40)) input.press('skill');
     }
+    // blood orbs (§12.3: heal + Blutrausch, despawn after 8 s) are worth a detour even mid-fight
+    if (!threat) {
+      let orb = null, od = 90;
+      for (const pk of w.pickups) {
+        if (pk.kind !== 'blood' || pk.dead) continue;
+        const d = Math.hypot(pk.x - p.x, pk.y - p.y);
+        if (d < od && w.lineOfSight(p.x, p.y, pk.x, pk.y)) { od = d; orb = pk; }
+      }
+      if (orb && od > 1) { mx += ((orb.x - p.x) / od) * 1.5; my += ((orb.y - p.y) / od) * 1.5; }
+    }
     let ml = Math.hypot(mx, my);
     if (ml > 1e-3) {
       mx /= ml; my /= ml;
@@ -506,7 +516,7 @@ function printReport(r) {
   out.push(`Relikte    ${r.relics.join(', ') || '–'}`);
   out.push(`Segen      ${r.boons.join(', ') || '–'}`);
   const ev = r.events;
-  const keys = ['enemy:spawn', 'enemy:death', 'weapon:fire', 'prop:open', 'shop:buy', 'shop:fail', 'relic:gain', 'curse:gain', 'boon:gain', 'weapon:gain', 'weapon:upgrade', 'player:levelup', 'player:fall', 'player:skill', 'portal:enter', 'boss:start', 'boss:death', 'ui:choice'];
+  const keys = ['enemy:spawn', 'enemy:death', 'weapon:fire', 'prop:open', 'shop:buy', 'shop:fail', 'relic:gain', 'curse:gain', 'boon:gain', 'weapon:gain', 'weapon:upgrade', 'player:levelup', 'player:fall', 'player:skill', 'portal:enter', 'boss:start', 'boss:death', 'ui:choice', 'status:burst', 'player:frenzy'];
   out.push(`Events     ${keys.filter((k) => ev[k]).map((k) => `${k}=${ev[k]}`).join('  ')}`);
   out.push(`Konsole    console.error ${r.errors}, console.warn ${r.warnings}`);
   for (const e of r.errorSamples.slice(0, 5)) out.push(`  ! ${e.slice(0, 300)}`);
