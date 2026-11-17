@@ -971,15 +971,15 @@ export class Renderer {
     ctx.globalCompositeOperation = 'lighter';
     const gs = glowSprite('#ff1f30');
     if (gs) {
-      const d = 24 + 18 * k + 7 * beat;
-      ctx.globalAlpha = clamp((0.14 + 0.26 * k) * (0.5 + 0.5 * beat) * fade, 0, 0.6);
+      const d = 24 + 24 * k + 8 * beat;
+      ctx.globalAlpha = clamp((0.14 + 0.36 * k) * (0.5 + 0.5 * beat) * fade, 0, 0.7);
       ctx.drawImage(gs, cx - d / 2, cy - d / 2, d, d);
     }
     // pulse ring at the feet
     const rx = 7 + 4 * k + 2.5 * beat;
     ctx.strokeStyle = '#ff3a4a';
     ctx.lineWidth = 1;
-    ctx.globalAlpha = clamp((0.22 + 0.4 * k) * (0.35 + 0.65 * beat) * fade, 0, 0.9);
+    ctx.globalAlpha = clamp((0.22 + 0.5 * k) * (0.35 + 0.65 * beat) * fade, 0, 0.95);
     ctx.beginPath(); ctx.ellipse(p.x, p.y + (p.r || 5) - 0.5, rx, rx * 0.42, 0, 0, TAU); ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -1099,12 +1099,20 @@ export class Renderer {
    * Status chips centred over (cx, top): stacking statuses as meters (bleed / poison: 1 px per stack + a crisp count on
    * the overlay; shock / chill: one segment per charge), the rest as small pips. Bleed adds a falling drop.
    */
+  /** Logical px the overlay stack count needs right of a meter chip (0 when none is drawn). */
+  stackLabelW(s, c) {
+    const n = clamp(Math.round((s && s.stacks) || 1), 1, c.max);
+    if (c.kind !== 'meter' || n < 2) return 0;
+    const px = Math.max(8.5 * this.dpr, 3.4 * this.kx);
+    return Math.ceil((String(n).length * 0.62 * px + 1.5 * this.dpr) / this.kx) + 1;
+  }
+
   drawStatusChips(ctx, cx, top, st, t, below) {
     let w = 0, n = 0;
     for (let i = 0; i < STACK_CHIPS.length; i++) {
       const c = STACK_CHIPS[i], s = st[c.id];
       if (!s) continue;
-      w += (c.kind === 'meter' ? c.max : c.max * 2 - 1) + 2 + 1;
+      w += (c.kind === 'meter' ? c.max : c.max * 2 - 1) + 2 + 1 + this.stackLabelW(s, c);
       n++;
     }
     let basic = 0;
@@ -1153,7 +1161,7 @@ export class Renderer {
           ctx.globalAlpha = 1;
         }
       }
-      x += inner + 3;
+      x += inner + 3 + this.stackLabelW(s, c);
     }
     let m = 0;
     for (let i = 0; i < BASIC_STATUS.length && m < 5; i++) {

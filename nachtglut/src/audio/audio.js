@@ -31,6 +31,7 @@ const st = {
   lastBossDeath: -10,
   lastHeal: -10,
   lastDrain: -10,
+  lastDot: -10,
   frenzy: 0,
   combo: { spark: { n: -1, t: -10 }, xp: { n: -1, t: -10 } },
   unbind: null,
@@ -278,7 +279,13 @@ function bindEvents(bus, game) {
   on('weapon:swap', () => play('weapon_swap'));
   on('weapon:gain', () => play('weapon_gain'));
   on('weapon:upgrade', () => play('weapon_upgrade'));
-  on('player:hit', ({ amount, maxHp }) => {
+  on('player:hit', ({ amount, maxHp, dot }) => {
+    if (dot) { // DoT ticks (bleed every 0.5 s): a soft, rate-limited reminder instead of the full impact
+      const t = now();
+      if (t - st.lastDot < 0.9) return;
+      if (play('player_hit', { volume: 0.32, pitch: 1.18 })) st.lastDot = t;
+      return;
+    }
     const frac = Number.isFinite(amount) && Number.isFinite(maxHp) && maxHp > 0 ? amount / maxHp : 0.1;
     play('player_hit', { volume: clampN(0.75 + frac * 2.5, 0.75, 1.3) });
   });

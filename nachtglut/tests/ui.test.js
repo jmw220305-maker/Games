@@ -192,3 +192,14 @@ test('status glossary (Chronik → Zustände) merges live STATUS over German fal
   for (const id of STATUS_ORDER) assert.ok(STATUS_LOOK[id] && STATUS_LOOK[id].icon, id);
   assert.equal(BLOOD_MECHANICS.length, 4);
 });
+
+test('status glossary accepts core statusGlossary() rows', async () => {
+  const combat = await import('../src/game/combat.js');
+  if (typeof combat.statusGlossary !== 'function') return;
+  const rows = statusGlossary(combat.statusGlossary());
+  const bleed = rows.find((r) => r.id === 'bleed');
+  assert.equal(bleed.name, combat.STATUS.bleed.name);
+  assert.equal(bleed.burstName, combat.STATUS.bleed.burstName);
+  assert.equal(bleed.stacks, combat.STATUS.bleed.burstAt);
+  assert.equal(rows[0].id, 'bleed', 'payoff statuses first');
+});

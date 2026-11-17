@@ -45,7 +45,7 @@ export const VOID_AI = {
           if (d.drainT <= 0) {
             d.drainT = 0.5;
             const dealt = w.damagePlayer(a.drain * (e.dmgMul ?? 1), { type: 'shadow', source: e, dot: true, unblockable: true });
-            if (dealt > 0) e.hp = Math.min(e.maxHp, e.hp + dealt);
+            if (dealt > 0) w.healEnemy(e, dealt); // §12: poisoned leeches heal only half
           }
           break;
         }

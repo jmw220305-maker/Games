@@ -296,10 +296,15 @@ still('icon_bleed', 14, 14, (b) => {
   b.vol(BLOOD, (m) => { m.oval(1, 4.5, 8, 8, 1); m.poly([[5, 1], [8, 6.5], [2, 6.5]], 1); }, { grad: 0.5, hi: BLOOD[3] });
   b.px(3, 7, '#ffc8cc'); b.px(4, 6, '#ff9aa2');
   b.disc(5, 9, 1, BLOOD_CORE[0]); b.px(5, 9, BLOOD_CORE[1]);
-  // two falling droplets
-  b.vol(BLOOD, (m) => { m.oval(10, 4, 3, 3, 1); m.px(11, 3, 1); });
-  b.vol(BLOOD, (m) => { m.oval(10.5, 9, 2, 3, 1); m.px(11, 8, 1); });
-  b.px(10, 5, '#ff9aa2');
+  // two falling droplets (pointed top, round belly)
+  const drop = (x, y) => {
+    b.px(x + 1, y, BLOOD[2]);
+    b.rect(x, y + 1, 3, 2, BLOOD[2]);
+    b.px(x + 1, y + 3, BLOOD[1]); b.px(x + 2, y + 2, BLOOD[1]);
+    b.px(x, y + 1, '#ff9aa2');
+  };
+  drop(10, 2);
+  drop(10, 8);
 }, { outline: '#1e0206' });
 
 // Blutrausch: a pounding heart with a heartbeat line torn across it.

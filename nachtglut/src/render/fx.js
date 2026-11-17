@@ -273,10 +273,11 @@ export class Fx {
     b.dur = b.t = duration > 0 ? duration : 0.12;
   }
 
-  lightning(x0, y0, x1, y1, color) {
+  /** Jagged bolt; `duration` (optional, s) defaults to 0.2. */
+  lightning(x0, y0, x1, y1, color, duration) {
     const b = this._slot(this.bolts);
     b.x0 = x0; b.y0 = y0; b.x1 = x1; b.y1 = y1; b.color = color || '#ffe75a';
-    b.dur = b.t = 0.2;
+    b.dur = b.t = duration > 0 ? Math.min(1, duration) : 0.2;
     b.jt = 0;
     this._jag(b);
     this.light((x0 + x1) / 2, (y0 + y1) / 2, Math.min(90, 24 + Math.hypot(x1 - x0, y1 - y0) * 0.5), b.color, 0.18);
@@ -402,7 +403,7 @@ export class Fx {
       let px = x, py = y;
       for (let i = 0; i < chain.length; i++) {
         const c = chain[i];
-        this.lightning(px, py, c.x, c.y, i === 0 ? '#fff3a0' : '#ffe75a');
+        this.lightning(px, py, c.x, c.y, i === 0 ? '#fff3a0' : '#ffe75a', 0.32);
         px = c.x; py = c.y;
       }
       this.shake(2, 0.14);

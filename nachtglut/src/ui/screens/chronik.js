@@ -149,7 +149,12 @@ export function createChronik(ui) {
   function statesTab() {
     // core's glossary rows (combat.js statusGlossary) when loaded; STATUS / built-in fallbacks otherwise
     let src = content.STATUS;
-    if (content.statusGlossary) { try { src = content.statusGlossary(); } catch { src = content.STATUS; } }
+    if (content.statusGlossary) {
+      try {
+        const S = content.STATUS || {};
+        src = content.statusGlossary().map((r) => ({ ...(S[r.id] || {}), ...r })); // keeps playerMaxStacks etc.
+      } catch { src = content.STATUS; }
+    }
     const rows = statusGlossary(src);
     const st = rows.filter((r) => r.kind === 'status');
     const payoff = st.filter((r) => r.burstName);

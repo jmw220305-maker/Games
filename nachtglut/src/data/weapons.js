@@ -908,7 +908,7 @@ export const WEAPONS = {
     id: 'blood_sickle', name: 'Blutsichel', rarity: 'uncommon', type: 'phys', tags: ['phys', 'melee', 'bleed'],
     desc: 'Rasche Sichelhiebe im Bogen vor dir. Jeder Treffer lässt bluten, kritische Treffer doppelt – bei 10 Stapeln reißt der Aderlass auf.',
     icon: { glyph: 'moon', color: '#d6304a' }, projSprite: 'proj_blade', color: '#d6304a',
-    base: { damage: 5.8, cooldown: 0.42, range: 36, arc: 1.9, knockback: 70, bleed: 0.55, critStacks: 2, feast: 0 },
+    base: { damage: 5.8, cooldown: 0.42, range: 36, arc: 1.9, knockback: 30, bleed: 0.55, critStacks: 2, feast: 0 },
     levels: [
       { desc: 'Weiter Schwung: +20 % Reichweite und Schwungbreite', mods: { range: 1.2, arc: 1.2 } },
       { desc: '+25 % Schaden und Blutungsstärke', mods: { damage: 1.25, bleed: 1.25 } },

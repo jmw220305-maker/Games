@@ -245,7 +245,7 @@ export class Lighting {
       if (fs > 0) {
         const k = Math.min(1, fs / Math.max(1, (p.stats && p.stats.frenzyMax) || 10));
         const beat = 0.75 + 0.25 * Math.sin(time * (7 + 6 * k));
-        this.add(p.x, p.y - 3, 30 + 26 * k, '#ff2030', 0.25, (0.05 + 0.13 * k) * beat);
+        this.add(p.x, p.y - 3, 30 + 30 * k, '#ff2030', 0.25, (0.05 + 0.17 * k) * beat);
       }
     }
     // fx lights (explosions, skills)

@@ -341,7 +341,7 @@ export const AFFIXES = {
   tough: {
     id: 'tough', name: 'Gepanzert', color: '#9aa7b8', desc: 'Erleidet 40 % weniger Schaden.',
     apply(w, e) { e.mass *= 1.5; },
-    onHit(w, e, hit) { hit.amount *= 0.6; },
+    onHit(w, e, hit) { if (!(hit.info && hit.info.ignoreArmor)) hit.amount *= 0.6; }, // §12: bleed cuts through armour
   },
   swift: {
     id: 'swift', name: 'Rasend', color: '#ffe75a', desc: 'Schneller in Bewegung und Angriff.',

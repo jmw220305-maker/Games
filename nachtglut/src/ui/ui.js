@@ -450,7 +450,8 @@ export const ui = {
     bus.on('run:start', () => { S.hud.reset(); S.runAchievements = []; S.lastEnd = null; S.hud.setMapOpen(false); });
     bus.on('run:end', (p) => { S.lastEnd = p || null; });
     bus.on('achievement:unlock', (p) => { if (p && (game.run || S.endPending)) S.runAchievements.push(p); });
-    bus.on('player:hit', () => S.hud.onHit());
+    // DoT ticks (burn, poison, bleed) must not strobe the screen: only real hits flash the HUD
+    bus.on('player:hit', (p) => { if (!(p && p.dot)) S.hud.onHit(); });
     bus.on('meta:change', () => { if (game.state === 'menu') api.refreshScreens(); });
     bus.on('settings:change', () => api.applyRootClasses());
 
