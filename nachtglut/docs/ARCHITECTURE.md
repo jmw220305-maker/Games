@@ -513,3 +513,31 @@ Victory: when `boss_sun` dies `run.victoryT = 3.5`, then `run.finish(true)` → 
 - Prop: `kind x y r solid destructible removed used locked sprite light ({ r, color }|null) offer ({ type, id, name, desc, icon, rarity, price }|null) flash`.
 - `world.interactHint = { text, x, y, prop } | null`; `world.locked`; `world.boss`; `world.room`; `world.biome`; `world.time`.
 - Fx (browser impl in `render/fx.js`, same method set as `NULL_FX` in world.js) additionally: `fx.hitstopT`, `fx.update(dt)`, `fx.clear()`.
+
+## 12. Status mechanics v2: Blutung, Gift, Schock, Vampirismus, Lebensraub
+
+Owners: `core` = src/game/{combat,stats,constants,world,entities,player,perks,run}.js + src/meta/codex.js (STAT_LABELS only);
+`content` = src/data/*.js, src/game/ai/*.js, src/game/bosses/*.js (flags only), src/meta/{achievements,progression}.js;
+`presentation` = src/render/**, src/ui/**, style.css, src/audio/**. Each status has a **threshold payoff** (like chill → freeze).
+
+### 12.1 New / changed statuses (`STATUS` in combat.js gets German `desc` + `burstName` + `burstDesc` for the Chronik)
+| id | name | stacks | effect | threshold payoff (consumes all stacks) |
+|---|---|---|---|---|
+| `bleed` NEW | Blutung | 10 (player: 5) | phys DoT, tick 0.5 s, dps = `power × stacks`; ×1.6 while the target moves (> 12 px/s); ignores armor/resist. Player: also **−40 % healing received** while bleeding | **Aderlass** at 10: instant damage = `stacks × power × remaining s + 8 % maxHp` (bosses 2 %, elites 4 %), drops 1 blood orb (+1 if player vampirism > 0), `status:burst` |
+| `poison` | Gift | 8 | unchanged DoT; NEW: enemy healing −50 % while poisoned | **Gifteruption** at 8: damage = `stacks × power × 2`, then `ceil(stacks/2)` poison stacks to enemies within 48 px (`eruptRadius` stat-free constant, perks may scale via `w.run.flags`/hooks); targets hit by a spread cannot erupt for 0.5 s (`e.eruptImmune`) |
+| `shock` | Schock | 5 (Ladung) | damage taken +5 %/stack (was flat 15 %); neighbour arc as before | **Entladung** at 5: `skillDamage(w, e, 14 × power, { type: 'shock', source: 'status' })` to the target and chains to up to 4 more enemies within 80 px (×0.8 per jump), stun 0.6 s (elites 0.3 s, bosses none); chained targets get no new shock stacks |
+Enemy immunity: `def.bloodless === true` ⇒ immune to `bleed` (constructs, spirits, crystals, slimes, spores — content sets the flag). `immune: [...]` still works.
+Bursts are triggered inside `applyStatus` when the stack count reaches the threshold; emit `bus.emit('status:burst', { target, id, x, y, damage })` and run perk hook `onStatusBurst(ctx, { enemy, id, damage })`.
+
+### 12.2 New stats (stats.js BASE_STATS + LIMITS + codex STAT_LABELS)
+`bleedChance 0 [0,1]`, `bleedDamage 1` (mult), `vampirism 0 [0, 0.25]` (fraction of the killed enemy's max HP healed on kill), `bloodOrbHeal 4 [0, 40]` (HP per orb), `frenzyMax 10 [0, 30]`.
+`statusFromStats` also rolls `bleedChance` → `{ id: 'bleed', duration: 4 × statusDuration, power: 2.5 × statusPower × damage × bleedDamage }`.
+Lifesteal stays budgeted (3.5 HP/s in player.js). Vampirism heal per kill is capped at 4 % player maxHp and by its own budget 6 HP/s (`player.vampBudget`); bosses/summoned enemies give nothing.
+
+### 12.3 Blood orbs + Blutrausch
+- Pickup kind `blood` (sprite `pickup_blood`): heals `stats.bloodOrbHeal` (× healPower), adds 1 **Blutrausch** stack, despawns after 8 s (blinks the last 2 s). Drops: 1 per Aderlass (+1 with vampirism > 0); enemies killed while bleeding drop one with chance `0.2 + vampirism × 2` (cap 0.75).
+- **Blutrausch** (`player.frenzy = { stacks, t }`): up to `stats.frenzyMax` stacks, each `+3 % damage`, `+2 % moveSpeed`; lasts 4 s, refreshed by each new stack, then drops to 0. Emits `player:frenzy { stacks }` on change.
+- Lifesteal/vampirism feedback: world calls `w.fx.drain(x0, y0, player, color, amount)` (presentation implements; `NULL_FX` gets a no-op) at most every 0.12 s per enemy; heal numbers aggregate to one floating "+N" per second.
+
+### 12.4 Events
+`status:apply` may carry `id: 'bleed'`; NEW `status:burst { target, id: 'bleed'|'poison'|'shock', x, y, damage }`; NEW `player:frenzy { stacks }`; `pickup:collect { kind: 'blood' }`; `player:status { id: 'bleed' }` when the player starts bleeding.
