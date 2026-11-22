@@ -369,7 +369,7 @@ playerDamage(w, ws, enemy, baseDamage, info?)        // direct (non-projectile) 
 rollCrit(w) -> bool,  weaponCooldown(w, ws) -> seconds (ws.stats.cooldown / player.stats.fireRate)
 ```
 Weapon roster (ids are authoritative): `ember_bolt scatter_coal flame_lance spark_chain magma_mortar frost_needle shadow_daggers sun_disc
-spore_launcher rift_orb iron_hammer glaive_orbit soul_siphon star_bow ice_staff`.
+spore_launcher rift_orb iron_hammer glaive_orbit soul_siphon star_bow ice_staff blood_sickle thorn_crossbow` (the last two added with §12).
 
 ### 6.4 Characters (`src/data/characters.js` → `export const CHARACTERS = { [id]: def }`)
 ```js

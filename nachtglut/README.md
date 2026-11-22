@@ -35,12 +35,13 @@ Auto-Zielen und Auto-Feuer lassen sich in den Einstellungen auch für Tastatur u
 ## Was drinsteckt
 
 - **5 Charaktere** mit eigener Fähigkeit und Passiv: Glutträger, Schattenläuferin, Eisenwächter, Frostweberin, Aschenkind
-- **15 Waffen** mit je 5 Stufen, vom Glutbolzen über Mörser, Bumerang-Scheibe und Kettenblitz bis zum Eisenhammer
-- **27 Gegnertypen** mit eigenem, immer angekündigtem Angriffsverhalten und **12 Elite-Modifikatoren**
+- **17 Waffen** mit je 5 Stufen, vom Glutbolzen über Mörser, Bumerang-Scheibe und Kettenblitz bis zu Eisenhammer, Blutsichel und Dornenarmbrust
+- **27 Gegnertypen** mit eigenem, immer angekündigtem Angriffsverhalten und **13 Elite-Modifikatoren**
 - **5 mehrphasige Bosse**: Schlackenkönig, Myzelmutter, Reifwyrm, Umbra der Zwillingsschatten, Die Erloschene Sonne
-- **78 Relikte, 12 Flüche, 36 Segen, 12 Schreine**, die zu Builds rund um Feuer, Frost, Gift, Blitz, Schatten, Krits, Dash oder Fähigkeiten kombinieren
+- **94 Relikte, 14 Flüche, 43 Segen, 14 Schreine**, die zu Builds rund um Feuer, Frost, Gift, Blutung, Schock, Vampirismus, Schatten, Krits, Dash oder Fähigkeiten kombinieren
+- **Zustände mit Schwellen-Effekt**: Blutung (stärker in Bewegung) entlädt sich bei 10 Stapeln im *Aderlass*, Gift bei 8 Stapeln in einer ansteckenden *Gifteruption*, Schock bei 5 Ladungen in einer *Entladung* (Kettenblitz), Frost friert ein. Dazu Lebensraub, Vampirismus (Heilung pro Kill), Blutkugeln und *Blutrausch*. Alles erklärt die Chronik unter „Zustände“
 - **Prozedurale Etagen**: Raumgraph mit Abzweigungen und Schleifen, 18 Raum-Layouts, 6 Raumformen, Shops, Schatzkammern, Schmieden, Brunnen, Herausforderungs- und Geheimräume
-- **Meta-Progression**: 26 Upgrades am Aschealtar, 11 Glutstufen (Schwierigkeitsgrade), freischaltbare Charaktere und Waffen, 45 Erfolge, Chronik mit Bestiarium und Statistiken
+- **Meta-Progression**: 26 Upgrades am Aschealtar, 11 Glutstufen (Schwierigkeitsgrade), freischaltbare Charaktere und Waffen, 50 Erfolge, Chronik mit Bestiarium und Statistiken
 - **Desktop, Gamepad und Handy** (Hoch- und Querformat), Spielstand-Export und -Import
 
 ## Entwicklung
