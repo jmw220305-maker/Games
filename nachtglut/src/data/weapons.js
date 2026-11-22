@@ -908,7 +908,7 @@ export const WEAPONS = {
     id: 'blood_sickle', name: 'Blutsichel', rarity: 'uncommon', type: 'phys', tags: ['phys', 'melee', 'bleed'],
     desc: 'Rasche Sichelhiebe im Bogen vor dir. Jeder Treffer lässt bluten, kritische Treffer doppelt – bei 10 Stapeln reißt der Aderlass auf.',
     icon: { glyph: 'moon', color: '#d6304a' }, projSprite: 'proj_blade', color: '#d6304a',
-    base: { damage: 5.8, cooldown: 0.42, range: 36, arc: 1.9, knockback: 30, bleed: 0.55, critStacks: 2, feast: 0 },
+    base: { damage: 6.5, cooldown: 0.42, range: 42, arc: 1.9, knockback: 30, bleed: 0.35, critStacks: 2, feast: 0 },
     levels: [
       { desc: 'Weiter Schwung: +20 % Reichweite und Schwungbreite', mods: { range: 1.2, arc: 1.2 } },
       { desc: '+25 % Schaden und Blutungsstärke', mods: { damage: 1.25, bleed: 1.25 } },
@@ -943,11 +943,11 @@ export const WEAPONS = {
     id: 'thorn_crossbow', name: 'Dornenarmbrust', rarity: 'rare', type: 'phys', tags: ['phys', 'projectile', 'pierce', 'bleed'],
     desc: 'Schwere Dornenbolzen, die Gegner durchschlagen und bluten lassen. Blutende Ziele erleiden Bonusschaden.',
     icon: { glyph: 'bow', color: '#b04a3a' }, projSprite: 'proj_bolt', color: '#c8735a',
-    base: { damage: 6.5, cooldown: 0.56, projSpeed: 380, range: 250, size: 3, count: 1, spread: 0.18, pierce: 1, knockback: 55, bleed: 0.55, bleedStacks: 1, bonus: 0.2, shards: 0 },
+    base: { damage: 8.5, cooldown: 0.56, projSpeed: 380, range: 250, size: 3, count: 1, spread: 0.18, pierce: 1, knockback: 55, bleed: 0.3, bleedStacks: 1, bonus: 0.1, shards: 0 },
     levels: [
       { desc: '+25 % Schaden und Blutungsstärke', mods: { damage: 1.25, bleed: 1.25 } },
       { desc: '+1 Durchschlag, +15 % Feuerrate', mods: { '+pierce': 1, cooldown: 0.87 } },
-      { desc: 'Widerhaken: Bolzen fügen 2 Blutungsstapel zu', mods: { '+bleedStacks': 1 } },
+      { desc: 'Widerhaken: Bolzen fügen 2 Blutungsstapel zu, +20 % Schaden', mods: { '+bleedStacks': 1, damage: 1.2 } },
       { desc: 'Dornenbruch: Ein Aderlass durch deine Bolzen schleudert 5 blutende Dornen um das Ziel, +15 % Schaden', mods: { '+shards': 5, damage: 1.15 } },
     ],
     fire(w, player, ws, aim) {

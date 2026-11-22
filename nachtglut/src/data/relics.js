@@ -1142,14 +1142,15 @@ const LIST = [
   },
   {
     id: 'leech_jar', name: 'Egelglas', rarity: 'common', maxStacks: 2,
-    desc: '+2 % Vampirismus: Kills heilen dich um 2 % der max. Leben des Gegners.', flavor: 'Die Egel darin sind satt. Noch.',
+    desc: '+3 % Vampirismus: Kills heilen dich um 3 % der max. Leben des Gegners.', flavor: 'Die Egel darin sind satt. Noch.',
     icon: { glyph: 'potion', color: '#8a2a3a' }, tags: ['heal', 'vampirism'],
-    mods: (n) => [{ stat: 'vampirism', add: 0.02 * n }],
+    mods: (n) => [{ stat: 'vampirism', add: 0.03 * n }],
   },
   {
     id: 'blood_vial', name: 'Blutphiole', rarity: 'common', maxStacks: 2,
     desc: 'Blutkugeln heilen 3 Leben mehr. +15 % Aufsammelradius.', flavor: 'Wer sammelt, der trinkt.',
     icon: { glyph: 'drop', color: '#d6304a' }, tags: ['heal', 'blood'],
+    requires: (p) => bloodAffinity(p),
     mods: (n) => [{ stat: 'bloodOrbHeal', add: 3 * n }, { stat: 'pickupRadius', mul: 1 + 0.15 * n }],
   },
   // --- uncommon ---
@@ -1217,6 +1218,7 @@ const LIST = [
     desc: 'Gifteruptionen schwächen alle Gegner im Umkreis von 64 px 4 s lang (−30 % Schaden). +6 % Giftchance.',
     flavor: 'Was sie berührt, vergisst seine Kraft.',
     icon: { glyph: 'leaf', color: '#9a86c9' }, tags: ['poison', 'status', 'defense'],
+    requires: (p) => affinity(p, 'poison'),
     mods: [{ stat: 'poisonChance', add: 0.06 }],
     hooks: {
       onStatusBurst(ctx, { enemy, id }) {
@@ -1233,6 +1235,7 @@ const LIST = [
     desc: 'Jede Entladung lädt sofort eine Dash-Ladung auf und gibt 6 Schild (höchstens alle 1,5 s). +5 % Schockchance.',
     flavor: 'Gespeicherter Donner will gerannt werden.',
     icon: { glyph: 'bolt', color: '#fff27a' }, tags: ['shock', 'dash', 'shield'],
+    requires: (p) => affinity(p, 'shock'),
     mods: [{ stat: 'shockChance', add: 0.05 }],
     hooks: {
       onStatusBurst(ctx, { id }) {
@@ -1249,6 +1252,7 @@ const LIST = [
     desc: 'Treffer gegen geschockte Gegner fügen 1 weitere Schockladung hinzu (je Gegner höchstens alle 0,3 s). +6 % Schockchance.',
     flavor: 'Einmal geladen, immer geladen.',
     icon: { glyph: 'ring', color: '#ffe75a' }, tags: ['shock', 'status'],
+    requires: (p) => affinity(p, 'shock'),
     mods: [{ stat: 'shockChance', add: 0.06 }],
     hooks: {
       onHit(ctx, { enemy }) {
@@ -1350,6 +1354,7 @@ const LIST = [
     desc: 'Gift eruptiert bereits ab 5 Stapeln. Eruptionen verbreiten ihr Gift doppelt so weit (96 px, 3 Stapel). +10 % Giftchance.',
     flavor: 'Die Fäulnis hat gelernt, ungeduldig zu sein.',
     icon: { glyph: 'skull', color: '#9be35a' }, tags: ['poison', 'status', 'area'],
+    requires: (p) => affinity(p, 'poison'),
     mods: [{ stat: 'poisonChance', add: 0.1 }],
     hooks: {
       onUpdate(ctx, dt) {
@@ -1496,7 +1501,7 @@ const LIST = [
     hooks: {
       onDamaged(ctx, hit) {
         if (hit.dot || !(hit.amount > 0) || !ctx.w) return;
-        ctx.w.applyStatus(ctx.player, 'bleed', { stacks: 2, duration: 4, power: 0.8 });
+        ctx.w.applyStatus(ctx.player, 'bleed', { stacks: 2, duration: 4, power: 0.5 });
       },
     },
   },

@@ -27,10 +27,10 @@ const NEW_BOONS = ['boon_bleed', 'boon_deep_wounds', 'boon_vampirism', 'boon_vir
 const NEW_WEAPONS = ['blood_sickle', 'thorn_crossbow'];
 const NEW_SHRINES = ['blood_well', 'storm_altar'];
 const NEW_ACHIEVEMENTS = ['aderlass_25', 'eruption_25', 'discharge_25', 'frenzy_max', 'blood_feast'];
-const BLOODLESS = ['soot_bomber', 'kiln_turret', 'spore_puff', 'myco_shooter', 'brood_pod', 'frost_wisp', 'glacier_slime', 'glacier_slime_small',
+const BLOODLESS = ['kiln_turret', 'spore_puff', 'brood_pod', 'frost_wisp', 'glacier_slime', 'glacier_slime_small',
   'ice_golem', 'shade', 'void_eye', 'sun_shard'];
 const BLOODLESS_BOSS_PARTS = ['boss_sun', 'boss_sun_core', 'boss_rime_segment'];
-const FLESH = ['ash_crawler', 'cinder_bat', 'ember_spitter', 'slag_brute', 'rot_swarm', 'vine_lasher', 'mire_stalker', 'rime_wolf', 'shard_archer',
+const FLESH = ['ash_crawler', 'cinder_bat', 'ember_spitter', 'soot_bomber', 'slag_brute', 'rot_swarm', 'myco_shooter', 'vine_lasher', 'mire_stalker', 'rime_wolf', 'shard_archer',
   'snow_caster', 'null_leech', 'rift_mage', 'echo_knight', 'gloom_mother', 'ash_revenant'];
 const NEW_STATS = ['bleedChance', 'bleedDamage', 'vampirism', 'bloodOrbHeal', 'frenzyMax'];
 const GLYPHS = new Set(('flame ember skull heart shield boot eye sword dagger hammer bow staff orb star sun moon snowflake drop bolt '
@@ -283,7 +283,7 @@ describe('headless: enemies', () => {
 const RELIC_CHECKS = {
   rusty_blade(h) { assert.ok(Math.abs(h.p.stats.bleedChance - 0.07) < 1e-9); },
   leech_jar(h) {
-    assert.ok(Math.abs(h.p.stats.vampirism - 0.02) < 1e-9);
+    assert.ok(Math.abs(h.p.stats.vampirism - 0.03) < 1e-9);
     h.p.hp = 30;
     const e = dummy(h, 60, 0, { maxHp: 200 });
     h.w.damageEnemy(e, 1e6, { source: 'weapon' });
@@ -682,10 +682,11 @@ describe('headless: shrines', () => {
 // ---------------------------------------------------------------------------------------------
 // Aschenkind
 // ---------------------------------------------------------------------------------------------
-test('Aschenkind: vampirism instead of lifesteal, kills drop blood orbs, orb overheal becomes shield', () => {
+test('Aschenkind: vampirism identity, less lifesteal, kills and bosses drop blood orbs, orb overheal becomes shield', () => {
   const c = CHARACTERS.revenant;
-  assert.ok(c.baseMods.some((m) => m.stat === 'vampirism' && m.add > 0));
-  assert.ok(!c.baseMods.some((m) => m.stat === 'lifesteal'), 'no flat lifesteal any more');
+  const vamp = c.baseMods.find((m) => m.stat === 'vampirism'), ls = c.baseMods.find((m) => m.stat === 'lifesteal');
+  assert.ok(vamp && vamp.add > 0, 'vampirism identity');
+  assert.ok(!ls || ls.add < 0.03, 'lifesteal reduced (was 3 %): it was the strongest character');
   const h = arena('cm-revenant', { character: 'revenant' });
   assert.ok(h.p.stats.vampirism >= 0.03);
   for (let i = 0; i < 80; i++) h.w.damageEnemy(dummy(h, 90, 0, { maxHp: 40 }), 1e6, { source: 'weapon' });
@@ -697,6 +698,12 @@ test('Aschenkind: vampirism instead of lifesteal, kills drop blood orbs, orb ove
   h.w.spawnPickup('blood', h.p.x, h.p.y, {});
   step(h, 0.6);
   assert.ok(h.p.shield > 0, `overheal shield ${h.p.shield}`);
+  // bosses give no vampirism: one orb per 8 % of their max HP dealt by the player's hits
+  for (const pk of h.w.pickups) pk.dead = true;
+  const boss = dummy(h, 120, 0, { maxHp: 1000 });
+  boss.boss = true;
+  for (let i = 0; i < 25; i++) h.w.damageEnemy(boss, 10, { source: 'weapon' });
+  assert.equal(h.w.pickups.filter((pk) => pk.kind === 'blood' && !pk.dead).length, 3, 'orbs from 250 boss damage');
 });
 
 // ---------------------------------------------------------------------------------------------

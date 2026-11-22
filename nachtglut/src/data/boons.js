@@ -1,7 +1,7 @@
 // Level-up boons ("Segen"). See docs/ARCHITECTURE.md §6.5. `mods(stacks)` scales with the boon's stack count,
 // hooks read `ctx.stacks`. `rarity` sets the roll weight (common / uncommon / rare).
 import { TYPE_COLORS } from '../game/constants.js';
-import { bleedAffinity as bleedAff, bloodAffinity as bloodAff } from './relics.js';
+import { affinity, bleedAffinity as bleedAff, bloodAffinity as bloodAff } from './relics.js';
 
 const pct = (v) => Math.round(v * 100);
 /** German decimal: 1.5 -> "1,5", 3 -> "3". */
@@ -9,6 +9,8 @@ const dec = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
 // lazy wrappers: relics.js may still be evaluating when this module runs (registry import cycle)
 const bleedAffinity = (p) => bleedAff(p);
 const bloodAffinity = (p) => bloodAff(p);
+const poisonAffinity = (p) => affinity(p, 'poison');
+const shockAffinity = (p) => affinity(p, 'shock');
 
 /** Extra damage on top of a §12 status burst: `mul` × the burst damage (proc: false, never re-bursts). */
 function burstBonus(ctx, b, mul, type) {
@@ -185,9 +187,9 @@ const LIST = [
   // --- §12: Blutung, Gifteruption, Entladung, Vampirismus, Blutrausch ----------------------
   {
     id: 'boon_bleed', name: 'Aderschnitt', rarity: 'common', maxStacks: 4,
-    desc: per('+6 % Blutungschance pro Stufe.', (n) => `+${6 * n} %`),
+    desc: per('+6 % Blutungschance und +6 % Blutungsschaden pro Stufe.', (n) => `+${6 * n} %`),
     icon: { glyph: 'claw', color: '#d6304a' }, tags: ['bleed', 'status'],
-    mods: (n) => [{ stat: 'bleedChance', add: 0.06 * n }],
+    mods: (n) => [{ stat: 'bleedChance', add: 0.06 * n }, { stat: 'bleedDamage', mul: 1 + 0.06 * n }],
   },
   {
     id: 'boon_deep_wounds', name: 'Tiefe Wunden', rarity: 'uncommon', maxStacks: 4,
@@ -204,16 +206,18 @@ const LIST = [
   },
   {
     id: 'boon_virulence', name: 'Virulenz', rarity: 'uncommon', maxStacks: 3,
-    desc: per('+4 % Giftchance pro Stufe. Gifteruptionen verursachen +25 % Schaden pro Stufe.', (n) => `+${4 * n} % / +${25 * n} %`),
+    desc: per('+6 % Giftchance pro Stufe. Gifteruptionen verursachen +25 % Schaden pro Stufe.', (n) => `+${6 * n} % / +${25 * n} %`),
     icon: { glyph: 'spiral', color: TYPE_COLORS.poison }, tags: ['poison', 'status'],
-    mods: (n) => [{ stat: 'poisonChance', add: 0.04 * n }],
+    requires: (p) => poisonAffinity(p),
+    mods: (n) => [{ stat: 'poisonChance', add: 0.06 * n }],
     hooks: { onStatusBurst(ctx, b) { if (b.id === 'poison') burstBonus(ctx, b, 0.25 * ctx.stacks, 'poison'); } },
   },
   {
     id: 'boon_overload', name: 'Überladung', rarity: 'uncommon', maxStacks: 3,
-    desc: per('+4 % Schockchance pro Stufe. Entladungen verursachen +25 % Schaden pro Stufe.', (n) => `+${4 * n} % / +${25 * n} %`),
+    desc: per('+6 % Schockchance pro Stufe. Entladungen verursachen +25 % Schaden pro Stufe.', (n) => `+${6 * n} % / +${25 * n} %`),
     icon: { glyph: 'bolt', color: '#fff27a' }, tags: ['shock', 'status'],
-    mods: (n) => [{ stat: 'shockChance', add: 0.04 * n }],
+    requires: (p) => shockAffinity(p),
+    mods: (n) => [{ stat: 'shockChance', add: 0.06 * n }],
     hooks: { onStatusBurst(ctx, b) { if (b.id === 'shock') burstBonus(ctx, b, 0.25 * ctx.stacks, 'shock'); } },
   },
   {

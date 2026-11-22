@@ -231,7 +231,9 @@ function iceStorm(w, player, aim) {
 // Aschenkind
 // ---------------------------------------------------------------------------------------------
 /** Aschenkind: chance per kill to drop a blood orb (§12.3). */
-const REVENANT_ORB_CHANCE = 0.12;
+const REVENANT_ORB_CHANCE = 0.15;
+/** Aschenkind: a boss drops a blood orb per this share of its max HP dealt by the player's hits. */
+const REVENANT_BOSS_ORB_STEP = 0.08;
 
 function overshield(player, amount) {
   if (!(amount > 0)) return;
@@ -400,8 +402,8 @@ export const CHARACTERS = {
     id: 'revenant', name: 'Aschenkind', title: 'Aus der Asche geboren',
     desc: 'Wenig Leben, aber unstillbarer Hunger: Vampirismus, Blutkugeln und die Kraft, das eigene Leben zu verbrennen.',
     sprite: 'char_revenant', color: '#c9c2b8',
-    // §12: vampirism identity (kills heal, blood orbs) instead of flat lifesteal — less sustain in boss fights
-    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'vampirism', add: 0.03 }, { stat: 'regen', add: 0.1 }, { stat: 'healPower', mul: 1.1 }],
+    // §12: vampirism identity (kills heal, blood orbs); lifesteal cut from 3 % to 1,5 % — less sustain in boss fights
+    baseMods: [{ stat: 'maxHp', add: -40 }, { stat: 'vampirism', add: 0.04 }, { stat: 'lifesteal', add: 0.015 }, { stat: 'regen', add: 0.15 }, { stat: 'healPower', mul: 1.15 }],
     weapon: 'soul_siphon',
     skill: {
       id: 'ash_rebirth', name: 'Aschegeburt', cooldown: 10, duration: 0.4,
@@ -411,8 +413,19 @@ export const CHARACTERS = {
     },
     passive: {
       id: 'revenant_passive', name: 'Aschenhunger',
-      desc: 'Kills lassen mit 12 % Chance eine Blutkugel fallen. Heilung durch Blutkugeln über dem Maximum wird zu Schild (bis 25 % der max. Leben).',
+      desc: 'Kills lassen mit 15 % Chance eine Blutkugel fallen, Bosse je 8 % ihrer Leben eine. Heilung durch Blutkugeln über dem Maximum wird zu Schild (bis 25 % der max. Leben).',
       hooks: {
+        onHit(ctx, { enemy, amount }) {
+          // bosses give no vampirism: they bleed blood orbs instead, one per 8 % of their max HP
+          if (!enemy || !enemy.boss || !ctx.w || !(amount > 0)) return;
+          const st = ctx.state;
+          if (st.bossUid !== enemy.uid) { st.bossUid = enemy.uid; st.bossDmg = 0; }
+          st.bossDmg += amount;
+          const step = enemy.maxHp * REVENANT_BOSS_ORB_STEP;
+          if (st.bossDmg < step || !(step > 0)) return;
+          st.bossDmg -= step;
+          ctx.w.spawnPickup('blood', enemy.x, enemy.y, { burst: true });
+        },
         onKill(ctx, { enemy }) {
           const w = ctx.w;
           if (!w || !ctx.player.alive || !enemy || enemy.summoned || enemy.noXp || enemy.boss) return;

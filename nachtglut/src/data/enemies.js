@@ -27,7 +27,7 @@ export const ENEMIES = {
     hp: 22, speed: 54, damage: 9, r: 6, mass: 0.8, xp: 2, sparks: [1, 2], color: '#a89a8e',
     resist: { fire: 0.25, frost: -0.2 },
     aiParams: { lungeRange: 56, windup: 0.42, lungeSpeed: 190, lungeTime: 0.28, cooldown: 1.5 },
-    hitStatus: { id: 'bleed', states: ['lunge', 'recover'], duration: 4, power: 0.8, stacks: 1 },
+    hitStatus: { id: 'bleed', states: ['lunge', 'recover'], duration: 4, power: 0.6, stacks: 1 },
     hooks: { onSpawn: hitStatusSpawn },
   }),
   cinder_bat: def({
@@ -51,7 +51,7 @@ export const ENEMIES = {
     desc: 'Ein wandelnder Kohlesack mit glimmender Lunte. Wer klug ist, hält Abstand.',
     hp: 25, speed: 60, damage: 0, contact: false, r: 6.5, mass: 0.9, xp: 3, sparks: [1, 3], color: '#4d3f42',
     light: { r: 18, color: '#ff6a1f' },
-    resist: { fire: 0.5 }, bloodless: true,
+    resist: { fire: 0.5 },
     aiParams: { fuseRange: 30, fuse: 0.7, radius: 36, blast: 18, deathFuse: 0.45, deathRadius: 30, deathBlast: 12 },
     hooks: { onDeath: sootBomberDeath },
   }),
@@ -98,7 +98,7 @@ export const ENEMIES = {
     desc: 'Schleudert schwere Sporenkapseln, die als giftige Pfützen zerplatzen.',
     hp: 55, speed: 34, damage: 12, r: 7, mass: 1.2, xp: 5, sparks: [1, 3], color: '#35706c',
     light: { r: 20, color: '#59e0b0' },
-    resist: { poison: 0.6, fire: -0.25 }, immune: ['poison'], bloodless: true,
+    resist: { poison: 0.6, fire: -0.25 }, immune: ['poison'],
     aiParams: { min: 100, max: 160, windup: 0.5, flight: 0.9, puddleR: 20, puddleDur: 2.6, puddleDamage: 8, cooldown: 2.8 },
   }),
   vine_lasher: def({
@@ -121,7 +121,7 @@ export const ENEMIES = {
     desc: 'Gräbt sich durch den Morast und taucht genau dort auf, wo du eben noch standest.',
     hp: 98, speed: 52, damage: 16, r: 7, mass: 1.5, xp: 9, sparks: [2, 5], color: '#4a5e52',
     resist: { poison: 0.5, phys: 0.1 },
-    aiParams: { tunnelSpeed: 78, emerge: 0.65, biteR: 24, biteDamage: 21, biteBleed: 1.5, surface: 2.4, maxTunnel: 4.5 },
+    aiParams: { tunnelSpeed: 78, emerge: 0.65, biteR: 24, biteDamage: 21, biteBleed: 1.2, surface: 2.4, maxTunnel: 4.5 },
   }),
 
   // ------------------------------------------------------------------------------------------- frost (floor 3)
@@ -155,7 +155,7 @@ export const ENEMIES = {
     hp: 58, speed: 80, damage: 20, r: 6.5, mass: 1.1, xp: 5, sparks: [1, 3], color: '#b8cce0',
     resist: { frost: 0.25, fire: -0.25 },
     aiParams: { orbit: 74, windup: 0.45, lungeSpeed: 240, lungeMax: 140, cooldown: 2.4 },
-    hitStatus: { id: 'bleed', states: ['lunge', 'recover'], duration: 4, power: 1.5, stacks: 1 },
+    hitStatus: { id: 'bleed', states: ['lunge', 'recover'], duration: 4, power: 1, stacks: 1 },
     hooks: { onSpawn: hitStatusSpawn },
   }),
   shard_archer: def({
@@ -224,7 +224,7 @@ export const ENEMIES = {
     light: { r: 16, color: '#b07cff' },
     resist: { shadow: 0.5, light: -0.3 }, immune: ['stun'],
     aiParams: {
-      dashMax: 140, windup: 0.55, dashSpeed: 300, dashLen: 130, dashDamage: 23, dashBleed: 2,
+      dashMax: 140, windup: 0.55, dashSpeed: 300, dashLen: 130, dashDamage: 23, dashBleed: 1.5,
       bashRange: 38, bashWind: 0.45, bashDamage: 18, turn: 2.4, recover: 0.9, cooldown: 2.4, block: 0.8, shieldArc: 1.05,
     },
     hooks: { onHit: echoShieldHit },
@@ -284,7 +284,7 @@ function onPlayerHit(pl) {
   if (w.player && w.player.alive && w.player.hp > 0) {
     if (has(src, 'venomous')) w.applyStatus(w.player, 'poison', { duration: 3, power: 1.5 });
     if (has(src, 'icy')) w.applyStatus(w.player, 'chill', { duration: 2 });
-    if (has(src, 'lacerating')) w.applyStatus(w.player, 'bleed', { duration: 4, stacks: 2, power: 1 * (src.dmgMul ?? 1) });
+    if (has(src, 'lacerating')) w.applyStatus(w.player, 'bleed', { duration: 4, stacks: 2, power: 0.5 * (src.dmgMul ?? 1) });
     if (hs && (!hs.states || hs.states.includes(src.state))) {
       w.applyStatus(w.player, hs.id, { duration: hs.duration ?? 4, stacks: hs.stacks ?? 1, power: (hs.power ?? 1) * (src.dmgMul ?? 1) });
     }
