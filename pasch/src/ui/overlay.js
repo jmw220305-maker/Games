@@ -91,13 +91,26 @@ export function toast(text, o = {}) {
   const el = h(`div.toast.toast--${o.kind || 'info'}`, { vars: { hue: o.hue != null ? o.hue : 270 } },
     o.glyph ? h('div.toast-glyph', o.glyph) : null,
     h('div.toast-text', o.title ? h('div.toast-title', o.title) : null, h('div.toast-body', text)));
+  // gleicher Text kurz hintereinander (z. B. mehrfach „Gerade nicht“) → nur den vorhandenen anstupsen
+  const key = `${o.title || ''}|${text}`;
+  const dup = [...toastBox.children].find((t) => t._key === key && !t.classList.contains('toast--out'));
+  if (dup) { juice(dup, 0.15); clearTimeout(dup._timer); dup._timer = setTimeout(() => dismiss(dup), o.ms || 2600); return dup; }
+  el._key = key;
   toastBox.appendChild(el);
-  while (toastBox.children.length > 4) toastBox.firstChild.remove();
+  // höchstens 2 sichtbar: ältere sofort ausblenden
+  const live = [...toastBox.children].filter((t) => !t.classList.contains('toast--out'));
+  while (live.length > 2) dismiss(live.shift(), true);
   popIn(el, 220);
-  const ms = o.ms || 2600;
-  setTimeout(() => { el.classList.add('toast--out'); setTimeout(() => el.remove(), 260); }, ms);
-  el.addEventListener('click', () => el.remove());
+  el._timer = setTimeout(() => dismiss(el), o.ms || 2600);
+  el.addEventListener('click', () => dismiss(el, true));
   return el;
+}
+
+function dismiss(el, fast) {
+  if (!el || el.classList.contains('toast--out')) return;
+  clearTimeout(el._timer);
+  el.classList.add('toast--out');
+  setTimeout(() => el.remove(), fast ? 140 : 260);
 }
 
 // ---------------------------------------------------------------- Tutorial-Hinweise

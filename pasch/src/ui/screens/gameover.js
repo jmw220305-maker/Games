@@ -49,7 +49,10 @@ export function createGameover(app) {
     popIn(panel, 320);
     if (won) {
       background.setPalette('win');
-      audio.play('run_won');
+      // die Fanfare lief schon im Spiel-Bildschirm (Partie-Sieg) – hier nur ein Nachklang
+      if (app.wonFanfare) audio.play('level_up');
+      else audio.play('run_won');
+      app.wonFanfare = false;
       flash('#fff6e0', 0.3, 200);
       particles.confetti(80);
       time.wait(600).then(() => particles.confetti(50));

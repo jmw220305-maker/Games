@@ -1,6 +1,6 @@
 // End-to-End-Durchlauf mit Playwright (Chromium): spielt einen Lauf über die Oberfläche bis mindestens Einsatz 2
 // (inkl. Wächter-Partie), testet Laden/Beutel/Werkzeug mit Zielwahl, Speichern/Fortsetzen, Sieg/Niederlage,
-// Hochformat-Durchlauf und dist/pasch.html per file://. Macht Screenshots aller Bildschirme.
+// Hochformat- und Querformat-Handy-Durchlauf und dist/pasch.html per file://. Macht Screenshots aller Bildschirme.
 //
 //   node tools/serve.mjs 8093 &   node tools/e2e.mjs [--out DIR] [--port 8093] [--quick]
 import { createRequire } from 'node:module';
@@ -23,9 +23,10 @@ fs.mkdirSync(OUT, { recursive: true });
 const errors = [];
 const log = (...a) => console.log('[e2e]', ...a);
 
+// portrait: true = Hochformat-Handy 390×844, 'land' = Querformat-Handy 844×390, sonst Desktop 1280×800
 async function newPage(browser, tag, portrait) {
   const ctx = await browser.newContext({
-    viewport: portrait ? { width: 390, height: 844 } : { width: 1280, height: 800 },
+    viewport: portrait === 'land' ? { width: 844, height: 390 } : portrait ? { width: 390, height: 844 } : { width: 1280, height: 800 },
     deviceScaleFactor: 1, hasTouch: !!portrait, isMobile: !!portrait,
   });
   const page = await ctx.newPage();
@@ -189,7 +190,7 @@ async function shopVisit(page, { shots, tool } = {}) {
   if (shots) {
     // Verkaufen-Menü eines Talismans
     const t = page.locator('.belt-talismans .card').first();
-    if (await t.count()) { await t.click({ force: true }); await page.waitForTimeout(300); await shot(page, 'sell-menu'); await page.mouse.click(5, 790); }
+    if (await t.count()) { await t.click({ force: true }); await page.waitForTimeout(300); await shot(page, 'sell-menu'); await page.mouse.click(5, page.viewportSize().height - 5); }
   }
   await stageIs(page, 'shop');
   await clickText(page, '.sub-shop', /Nächste Partie/);
@@ -225,14 +226,14 @@ async function cashout(page, shots) {
 }
 
 async function mainRun(browser, portrait) {
-  const tag = portrait ? 'p' : 'l';
+  const tag = portrait === 'land' ? 'q' : portrait ? 'p' : 'l';
   const { ctx, page } = await newPage(browser, tag, portrait);
   await page.goto(`${BASE}?speed=4&notutorial=1`);
   await page.waitForTimeout(1200);
   await shot(page, 'title');
   await clickText(page, '.title-menu', /Neues Spiel/);
   await page.locator('.modal .newrun').waitFor();
-  await page.locator('.seed-input').fill(portrait ? 'HANDY' : 'ABC');
+  await page.locator('.seed-input').fill(portrait === 'land' ? 'QUER' : portrait ? 'HANDY' : 'ABC');
   await shot(page, 'newrun');
   await page.locator('.modal .modal-buttons .btn--hot').click();
   await stageIs(page, 'blinds');
@@ -380,6 +381,8 @@ try {
   if (!quick) {
     const b = await mainRun(browser, true);
     await b.ctx.close();
+    const c = await mainRun(browser, 'land');
+    await c.ctx.close();
     await resumeTest(browser);
     await winTest(browser, false);
     await winTest(browser, true);

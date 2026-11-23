@@ -367,6 +367,17 @@ export const SFX = {
       tone(v, t + 0.45, 'sine', 90, 0.45, 0.003, 0.3, { to: 45, glide: 0.2 });
     },
   },
+  // Spannungs-Anstieg (letzter Würfel / letzter Wurf): Rauschen öffnet sich, Ton steigt, leiser Herzschlag
+  tension: {
+    gap: 0.4,
+    fn(v, t) {
+      noiseHit(v, t, 'bandpass', 250 * v.p, 3, 0.16, 0.5, 0.18, { to: 1800 * v.p, glide: 0.6, hold: 0.05 });
+      tone(v, t, 'triangle', 196 * v.p, 0.08, 0.45, 0.15, { to: 392 * v.p, glide: 0.62, hold: 0.05 });
+      tone(v, t, 'sine', 293.66 * v.p, 0.05, 0.45, 0.15, { to: 587.33 * v.p, glide: 0.62, hold: 0.05, detune: 6 });
+      tone(v, t, 'sine', 62, 0.3, 0.005, 0.12, { to: 42, glide: 0.1 });
+      tone(v, t + 0.22, 'sine', 58, 0.22, 0.005, 0.12, { to: 40, glide: 0.1 });
+    },
+  },
   flame: {
     fn(v, t) {
       noiseHit(v, t, 'lowpass', 380, 0.7, 0.35, 0.15, 0.5, { hold: 0.7, color: 'pink' });

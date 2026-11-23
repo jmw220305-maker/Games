@@ -1,6 +1,6 @@
 // Scorebox: HANDNAME · Stufe, [PUNKTE] × [MULTI], darunter die Summe während der Wertung.
 import { h } from '../dom.js';
-import { juice, pop, setFlames, tickNumber, time } from '../../fx/index.js';
+import { juice, pop, setFlames, tickNumber, time, ease } from '../../fx/index.js';
 import { fmt, fmtMult } from '../text.js';
 
 export function createScorebox() {
@@ -24,7 +24,31 @@ export function createScorebox() {
     el, chipsBox, multBox, chipsNum: chips, multNum: mult, nameEl: name, totalEl: total,
     get chips() { return cv; },
     get mult() { return mv; },
+    /** Letzter gewerteter Wurf (für Ruhephasen ohne Würfel), {name, level, chips, mult, total} */
+    last: null,
+    /** Ruhezustand: letzter Wurf gedimmt – oder ein freundlicher Platzhalter vor dem ersten Wurf. */
+    setIdle() {
+      const l = api.last;
+      el.classList.add('scorebox--idle');
+      el.classList.remove('scorebox--bad');
+      if (l) {
+        name.textContent = l.name;
+        level.textContent = 'Letzter Wurf';
+        el.classList.remove('scorebox--empty');
+        cv = l.chips; mv = l.mult;
+        chips.textContent = fmt(l.chips);
+        mult.textContent = fmtMult(l.mult);
+      } else {
+        name.textContent = 'Bereit';
+        level.textContent = '';
+        el.classList.add('scorebox--empty');
+        cv = 0; mv = 0;
+        chips.textContent = '–';
+        mult.textContent = '–';
+      }
+    },
     setHand(n, lvl, o = {}) {
+      el.classList.remove('scorebox--idle');
       name.textContent = n || '—';
       level.textContent = lvl ? `Stufe ${lvl}` : '';
       el.classList.toggle('scorebox--empty', !n);
@@ -39,8 +63,7 @@ export function createScorebox() {
       if (o.bump === 'mult' || o.bump === 'both') { juice(multBox, o.amount || 0.22); flashBox(multBox); }
     },
     clear() {
-      api.setHand(null, null);
-      api.set(0, 0);
+      api.setIdle();
       api.hideTotal();
       api.flames(0);
     },
@@ -48,7 +71,9 @@ export function createScorebox() {
       el.classList.add('scorebox--total');
       total.textContent = '0';
       pop(totalWrap, 1.3, 180);
-      await tickNumber(total, 0, value, { duration: o.duration, onTick: o.onTick, format: (n) => fmt(n) });
+      // outQuart statt outExpo: sichtbar bis zum Ende zählen (kein „toter“ Auslauf), Dauer wächst mit der Größe
+      const dur = o.duration != null ? o.duration : 260 + 170 * Math.log10(Math.max(10, value));
+      await tickNumber(total, 0, value, { duration: dur, easing: ease.outQuart, onTick: o.onTick, format: (n) => fmt(n) });
     },
     hideTotal() { el.classList.remove('scorebox--total'); total.textContent = ''; },
     flames(intensity) {

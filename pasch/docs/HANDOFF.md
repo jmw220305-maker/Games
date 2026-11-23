@@ -42,3 +42,19 @@
 - Meta: `newProfile, migrateProfile, syncProfile(profile, run), finishRun(profile, run), isCupUnlocked, maxStake,
   collectionSummary`; Keys `PROFILE_KEY`/`RUN_KEY` mit core/storage.js.
 - Event-Typen vollständig in ARCHITECTURE §3.
+
+## QA-/Feel-Pass
+- Toasts: höchstens 2 sichtbar, doppelte Meldungen werden zusammengefasst, oben rechts (Hochformat oben Mitte),
+  klick-durchlässig (`pointer-events:none`) und unter Dialogen (z 79) – sie verdecken nie einen Knopf.
+- Scorebox: `sb.setIdle()` zeigt ohne liegende Würfel den letzten Wurf gedimmt („Letzter Wurf“, `sb.last` setzt der
+  Scoreplayer) bzw. „Bereit“; außerhalb des Spiel-Bildschirms ruft `hud.update()` das automatisch auf.
+- `hoverTilt` setzt `.fx-hover` + `--fx-lift`: ein `::before` hält die alte Trefferfläche, damit angehobene Karten am
+  unteren Rand nicht flackern/Klicks verlieren.
+- Neuer Sound `tension` (Anstieg + Herzschlag): letzter Wurf der Partie (Banner „Letzter Wurf!“, Schale pulsiert rot,
+  `.play--last`) und Nachwurf mit nur 1–2 offenen Würfeln (`tray.roll(..., {forceSuspense})`).
+- Halten: zusätzlich leises `dice_clack` + juice. Neue Hand-Chips ploppen auf; bessere Hand → Scorebox-Pop.
+- Partie-Sieg (Einsatz 8): Feuerwerk/Goldblitz im Spiel-Bildschirm (`app.wonFanfare`, Spielende spielt die Fanfare
+  nicht doppelt). Niederlage: Hitstop, roter Blitz, Würfel „tot“, Welt entsättigt (`.fx-defeat`), ~1,5 s.
+- Querformat-Handy (`landscape and max-height:500px`): eigener kompakter Block am Ende von `style.css`; der
+  Hochformat-Block greift bei `max-width:760px` nur noch ab 501 px Höhe.
+- Laden-Palette (background.js `shop`) Petrol/Violett statt Gelb-Grün. Zähler zählen mit outQuart (kein toter Auslauf).

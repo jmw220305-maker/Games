@@ -234,6 +234,7 @@ export function createBelt(app) {
     cRow.style.setProperty('--slots', String(cSlots));
     el.style.setProperty('--tslots', String(tSlots));
     el.style.setProperty('--cslots', String(cSlots));
+    requestAnimationFrame(() => fitNames(el));
     tCount.textContent = `${run.talismans.length}/${run.limits.talismans}`;
     cCount.textContent = `${run.consumables.length}/${run.limits.consumables}`;
   }
@@ -277,6 +278,24 @@ export function createBelt(app) {
 
 import { getLayer } from '../../fx/springs.js';
 function getLayerVals(el, n) { return getLayer(el, n); }
+
+/** Kartennamen auf kleinen Karten (Handy) einzeilig einpassen statt abschneiden. */
+function fitNames(root) {
+  for (const n of root.querySelectorAll('.card-name')) {
+    n.style.fontSize = '';
+    if (getComputedStyle(n).whiteSpace !== 'nowrap') continue;
+    const cw = n.clientWidth;
+    if (!cw || n.scrollWidth <= cw + 1) continue;
+    const fs = parseFloat(getComputedStyle(n).fontSize);
+    n.style.fontSize = `${Math.max(6, Math.floor(fs * (cw / n.scrollWidth) * 10) / 10)}px`;
+  }
+}
+if (typeof window !== 'undefined') {
+  let tmr = 0;
+  const refit = () => { const b = document.querySelector('.belt'); if (b) fitNames(b); };
+  window.addEventListener('resize', () => { clearTimeout(tmr); tmr = setTimeout(refit, 120); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
+}
 
 function hashUid(uid) {
   let x = 0;

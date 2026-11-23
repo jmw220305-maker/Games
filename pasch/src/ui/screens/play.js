@@ -4,7 +4,7 @@ import * as G from '../../game/index.js';
 import { createTray } from '../components/tray.js';
 import { button } from '../components/button.js';
 import { attachTooltip } from '../tooltip.js';
-import { juice, nope, time, banner, popup, background, shake, popIn } from '../../fx/index.js';
+import { juice, nope, time, banner, popup, background, shake, popIn, particles, flash, bigHit } from '../../fx/index.js';
 import { audio } from '../../audio/audio.js';
 import { playScore } from '../scoreplayer.js';
 import { T, fmt, rich } from '../text.js';
@@ -53,7 +53,14 @@ export function createPlay(app) {
     bScore.setLabel(fz ? T.fizzle : T.score, null);
     bScore.setDisabled(busy, 'Gerade nicht');
     el.classList.toggle('play--idle', !rolled);
+    el.classList.toggle('play--last', isLastThrow());
     tray.setInteractive(rolled && !busy);
+  }
+
+  /** letzter Wurf der Partie und Ziel noch offen → Spannung */
+  function isLastThrow() {
+    const r = round();
+    return !!(r && app.run.phase === 'round' && r.throwsLeft === 1 && r.score < r.target);
   }
 
   function refreshHands(resetSel) {
@@ -62,17 +69,21 @@ export function createPlay(app) {
     if (!r || !r.rolled) {
       hands = [];
       selected = null;
-      handInfo.innerHTML = r && r.throwsUsed === 0 ? '' : '';
-      app.rv.hud.sb.setHand(null, null);
-      app.rv.hud.sb.set(0, 0);
+      handInfo.innerHTML = '';
+      app.rv.hud.sb.setIdle();
       previewDice([]);
       return;
     }
+    const prevIds = new Set(hands.map((x) => x.handId));
+    const prevSel = selected;
     hands = G.availableHands(app.run);
     if (resetSel || !hands.find((x) => x.handId === selected && x.allowed)) {
       const best = hands.find((x) => x.allowed);
       selected = best ? best.handId : null;
     }
+    // neue Hände nach einem Nachwurf „ploppen“ auf; bessere Auswahl stupst die Scorebox an
+    const fresh = prevIds.size > 0;
+    let k = 0;
     for (const hd of hands) {
       const chip = h(`button.hand-chip${hd.allowed ? '' : '.hand-chip--off'}${hd.handId === selected ? '.hand-chip--sel' : ''}`, { type: 'button', vars: { hue: G.HANDS[hd.handId].hue }, dataset: { hand: hd.handId } },
         h('span.hc-name', hd.name),
@@ -90,11 +101,14 @@ export function createPlay(app) {
         body: rich(`${G.HANDS[hd.handId].desc} Basis: ${hd.base.chips} Punkte × ${hd.base.mult} Multi.`) + (hd.allowed ? '' : `<br><b class="kw kw-bad">${hd.reason || 'Nicht erlaubt'}</b>`) + (hd.hidden ? '<br>Verdeckte Würfel sind beteiligt.' : ''),
       }));
       handsRow.appendChild(chip);
+      if (!prevIds.has(hd.handId)) popIn(chip, 240, 50 * k++);
     }
     if (G.mustFizzle(app.run)) {
       handInfo.innerHTML = '<b class="kw kw-bad">Keine erlaubte Hand</b> – nur ein Fehlwurf ist möglich.';
     } else handInfo.innerHTML = '';
-    previewSelected();
+    const improved = fresh && selected && selected !== prevSel && k > 0;
+    previewSelected(improved);
+    if (improved) audio.play('card_flip', { gain: 0.5, pitch: 4 });
   }
 
   function selectHand(id) {
@@ -103,7 +117,8 @@ export function createPlay(app) {
     for (const c of handsRow.children) c.classList.toggle('hand-chip--sel', c.dataset.hand === id);
     const c = handsRow.querySelector(`[data-hand="${id}"]`);
     if (c) { juice(c, 0.2); c.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
-    audio.play('card_pick', { gain: 0.5 });
+    const hd = hands.find((x) => x.handId === id);
+    audio.play('card_pick', { gain: 0.5, pitch: hd ? Math.min(9, hd.rank) : 0 });
     previewSelected(true);
   }
 
@@ -146,10 +161,20 @@ export function createPlay(app) {
     closeHint();
     refreshButtons();
     app.save();
-    audio.play('roll_start');
     const r = round();
     for (let i = 0; i < tray.count; i++) { tray.setHeld(i, false); tray.die(i).setShackled(false); tray.die(i).el.classList.remove('die--preview'); }
     tray.clearHighlight();
+    if (isLastThrow() && r.throwsUsed > 0) {
+      // letzter Wurf: kurzer Spannungsmoment vor dem Wurf
+      audio.play('tension');
+      audio.music.duck(4, 700);
+      shake.add(0.12);
+      juice(app.rv.hud.throwsEl.parentElement, 0.35);
+      el.classList.add('play--idle'); // alte Augen bleiben gedimmt, bis die Würfel fliegen
+      await banner('Letzter Wurf!', { kind: 'lose', sub: `Noch ${fmt(Math.max(0, r.target - r.score))} Punkte`, hold: 380 });
+      el.classList.remove('play--idle');
+    }
+    audio.play('roll_start');
     const vals = r.rolled.map((x) => ({ v: x.v, faceIndex: x.faceIndex, hidden: x.hidden }));
     await tray.roll(null, vals);
     r.rolled.forEach((x, i) => tray.die(i).setShackled(!!x.shackled));
@@ -175,7 +200,11 @@ export function createPlay(app) {
     for (const i of idx) tray.die(i).el.classList.remove('die--preview');
     app.rv.hud.update({ bump: true, keepScore: true, keepMoney: true });
     audio.play('roll_start', { gain: 0.8 });
-    await tray.roll(idx, vals);
+    // nur noch 1–2 Würfel offen, der Rest gehalten: das ist der Moment – Spannungs-Würfel + Anstieg
+    const heldN = r.rolled.length - idx.length;
+    const tense = idx.length >= 1 && idx.length <= 2 && heldN >= 3;
+    if (tense) audio.play('tension', { gain: 0.8 });
+    await tray.roll(idx, vals, { forceSuspense: tense });
     for (const e of res.events) {
       if (e.type === 'flip') {
         const x = r.rolled[e.die];
@@ -216,6 +245,9 @@ export function createPlay(app) {
     const held = r.rolled[i].held;
     tray.setHeld(i, held);
     audio.play(held ? 'hold' : 'unhold');
+    // kurzes „Klack“: Würfel tippt beim Anheben/Absetzen auf den Filz
+    audio.play('dice_clack', { gain: held ? 0.35 : 0.6, pan: panOf(i) });
+    if (tray.die(i)) tray.die(i).juice(held ? 0.12 : 0.08);
     app.save();
     refreshButtons();
     app.tutorial('reroll', () => hint(bReroll, '<b>Nachwürfeln</b> wirft alle nicht gehaltenen Würfel neu. Der Vorrat an Nachwürfen gilt für die ganze Partie.', { side: 'above' }));
@@ -269,19 +301,22 @@ export function createPlay(app) {
     app.rv.belt.setLocked(false);
     const won = evs.some((e) => e.type === 'roundWon');
     const lost = evs.some((e) => e.type === 'roundLost');
+    el.classList.toggle('play--over', won || lost);
     const extra = evs.find((e) => e.type === 'extraThrow');
     if (won) {
       const runWon = evs.some((e) => e.type === 'runWon');
-      audio.play(runWon ? 'run_won' : 'round_won');
-      await banner(runWon ? T.runWon : T.roundWon, { kind: 'win', sub: `${fmt(app.run.round.score)} von ${fmt(app.run.round.target)}`, hold: 900 });
+      el.classList.remove('play--last');
+      if (runWon) {
+        await celebrateRun();
+      } else {
+        audio.play('round_won');
+        await banner(T.roundWon, { kind: 'win', sub: `${fmt(app.run.round.score)} von ${fmt(app.run.round.target)}`, hold: 900 });
+      }
       app.rv.go(app.run.phase);
       return;
     }
     if (lost) {
-      audio.play('round_lost');
-      background.setPalette('lose');
-      shake.add(0.4);
-      await banner(T.runLost, { kind: 'lose', sub: `${fmt(app.run.round ? app.run.round.score : 0)} von ${fmt(app.run.round ? app.run.round.target : 0)}`, hold: 1000 });
+      await defeat();
       app.rv.go('lost');
       return;
     }
@@ -299,6 +334,55 @@ export function createPlay(app) {
       await time.wait(260);
       if (app.run && app.run.phase === 'round' && !round().rolled && app.rv.stageName === 'play') beginThrow();
     }
+  }
+
+  // ------------------------------------------------------------------ Sieg & Niederlage
+  /** Partie-Sieg (Einsatz 8): Feuerwerk, Goldblitz, großer Banner – der Moment des Laufs. */
+  async function celebrateRun() {
+    app.wonFanfare = true; // Spielende-Bildschirm spielt die Fanfare nicht noch einmal
+    audio.play('run_won');
+    audio.music.duck(6, 1600);
+    background.setPalette('win');
+    background.pulse(1);
+    bigHit({ hitstop: 90, trauma: 0.55, flashAlpha: 0.35 });
+    particles.confetti(90);
+    const W = window.innerWidth, H = window.innerHeight;
+    const cols = ['#ffd166', '#ff5fa2', '#3ee6c4', '#c77dff', '#7fb8ff', '#f4ecd8'];
+    for (let k = 0; k < 7; k++) {
+      time.wait(140 + k * 210).then(() => {
+        const x = W * (0.15 + Math.random() * 0.7), y = H * (0.12 + Math.random() * 0.35);
+        particles.burst(x, y, { count: 34, color: [cols[k % cols.length], '#ffffff'], shape: 'spark', speed: [220, 620], life: [0.6, 1.1], gravity: 380 });
+        particles.ring(x, y, { radius: 110, color: cols[k % cols.length], life: 0.5 });
+        audio.play('coin', { pitch: k * 2, gain: 0.7 });
+        shake.add(0.12);
+      });
+    }
+    time.wait(900).then(() => particles.confetti(60));
+    await banner(T.runWon, { kind: 'win', sub: `Alle ${G.ANTES_TO_WIN} Einsätze geschafft!`, hold: 1700 });
+  }
+
+  /** Niederlage: kurzer, harter Schnitt – Würfel „sterben“, Welt entsättigt, roter Blitz. */
+  async function defeat() {
+    audio.play('round_lost');
+    audio.music.duck(8, 1400);
+    background.setPalette('lose');
+    bigHit({ hitstop: 80, trauma: 0.5, flashAlpha: 0 });
+    flash('#ff2244', 0.28, 260);
+    for (let i = 0; i < tray.count; i++) {
+      const d = tray.die(i);
+      if (!d) continue;
+      d.setDebuffed(true);
+      time.wait(i * 60).then(() => { d.resist(); d.juice(0.2); });
+    }
+    const veil = h('div.fx-defeat');
+    document.body.appendChild(veil);
+    void veil.offsetWidth;
+    veil.classList.add('fx-defeat--on');
+    const r = app.run.round;
+    await banner(T.runLost, { kind: 'lose', sub: `${fmt(r ? r.score : 0)} von ${fmt(r ? r.target : 0)} Punkten`, hold: 900 });
+    veil.classList.remove('fx-defeat--on');
+    setTimeout(() => veil.remove(), 400);
+    for (let i = 0; i < tray.count; i++) if (tray.die(i)) tray.die(i).setDebuffed(false);
   }
 
   // ------------------------------------------------------------------ Werkzeug-Folgen (vom App-Controller)
@@ -363,7 +447,7 @@ export function createPlay(app) {
       }
       tray.layout();
     },
-    leave() { entered = false; closeHint(); },
+    leave() { entered = false; closeHint(); el.classList.remove('play--over', 'play--last'); },
     refresh() { if (entered) { refreshHands(); refreshButtons(); } },
     onConsumableEvents,
     onKey(e) {

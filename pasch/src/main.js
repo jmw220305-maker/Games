@@ -27,7 +27,7 @@ window.addEventListener('pointerdown', unlock, true);
 window.addEventListener('keydown', unlock, true);
 
 const app = createApp(document.getElementById('app'), opts);
-window.__pasch = { app, G, time };
+window.__pasch = { app, G, time, audio };
 
 if (params.get('autostart') === '1') {
   app.startRun({ cup: params.get('cup') || 'wood', stake: num('stake') || 1, seed: params.get('seed') || null });

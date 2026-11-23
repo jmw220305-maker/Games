@@ -103,7 +103,7 @@ export function createTray(container, opts = {}) {
       const raw = full ? values[i] : values[k];
       const r = typeof raw === 'object' && raw ? raw : { v: raw };
       d.onLaunch = () => { if (!launched) { launched = true; if (api.onLaunch) api.onLaunch(); } };
-      return d.roll(r.v, { faceIndex: r.faceIndex, hidden: r.hidden, delay: k * stagger, suspense: i === susp && indices.length > 1 });
+      return d.roll(r.v, { faceIndex: r.faceIndex, hidden: r.hidden, delay: k * stagger, suspense: i === susp && (indices.length > 1 || !!o.forceSuspense) });
     });
     return Promise.all(ps).then(() => undefined);
   }

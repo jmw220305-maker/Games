@@ -1,7 +1,7 @@
 // Seitenleiste (Hochformat: kompakter Kopf): Partie, Ziel, Ergebnis, Scorebox, Würfe/Nachwürfe, Geld, Einsatz.
 import { h } from '../dom.js';
 import * as G from '../../game/index.js';
-import { juice, tickNumber, pop } from '../../fx/index.js';
+import { juice, tickNumber, pop, ease } from '../../fx/index.js';
 import { audio } from '../../audio/audio.js';
 import { createScorebox } from './scorebox.js';
 import { iconButton, button } from './button.js';
@@ -101,6 +101,8 @@ export function createHud(app) {
       rerolls.classList.toggle('hud-num--zero', rl <= 0);
       ante.textContent = `${run.ante}/${G.ANTES_TO_WIN}`;
       if (!o.keepMoney) api.setMoney(run.money, { tick: o.tickMoney });
+      // Außerhalb des Spiel-Bildschirms zeigt die Scorebox den letzten Wurf statt „– 0×0“
+      if (app.rv && app.rv.stageName && app.rv.stageName !== 'play') sb.setIdle();
       // Marken
       const tg = run.tags || [];
       tags.innerHTML = '';
@@ -119,6 +121,8 @@ export function createHud(app) {
         shownScore = v;
         return tickNumber(score, from, v, {
           format: fmt,
+          duration: 220 + 130 * Math.log10(Math.max(10, Math.abs(v - from))),
+          easing: ease.outQuart,
           onTick: (k, p) => { audio.play('tick', { progress: p }); barFill.style.transform = `scaleX(${Math.min(1, (from + (v - from) * p) / t)})`; },
         }).then(() => { barFill.style.transform = `scaleX(${Math.min(1, v / t)})`; juice(scoreBox, 0.2); });
       }
@@ -137,8 +141,13 @@ export function createHud(app) {
       if (v === shownMoney) return Promise.resolve();
       const from = shownMoney;
       shownMoney = v;
-      juice(cMoney, 0.2);
-      return tickNumber(moneyEl, from, v, { format: (n) => money(Math.round(n)), duration: Math.min(700, 250 + 40 * Math.abs(v - from)), onTick: (k) => audio.play('tick', { step: Math.min(10, k) }) });
+      juice(cMoney, v > from ? 0.25 : 0.18);
+      // Farbblitz: grün bei Gewinn, rot bei Ausgabe; am Ende kleiner Pop
+      cMoney.classList.remove('hud-money--up', 'hud-money--down');
+      void cMoney.offsetWidth;
+      cMoney.classList.add(v > from ? 'hud-money--up' : 'hud-money--down');
+      return tickNumber(moneyEl, from, v, { format: (n) => money(Math.round(n)), duration: Math.min(700, 250 + 40 * Math.abs(v - from)), onTick: (k) => audio.play('tick', { step: Math.min(10, k) }) })
+        .then(() => { if (shownMoney === v) pop(moneyEl, v > from ? 1.25 : 1.12, 150); });
     },
     bumpMoney() { juice(cMoney, 0.25); pop(moneyEl, 1.3, 160); },
     moneyTarget() {

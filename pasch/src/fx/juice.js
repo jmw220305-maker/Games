@@ -135,7 +135,10 @@ export function hoverTilt(el, { maxDeg = 12, lift = 10, scale = 1.05, perspectiv
     });
   };
   let inside = false;
-  const enter = () => { inside = true; rect = el.getBoundingClientRect(); ly.target = -lift; sc.target = scale; el.style.setProperty('--fx-glare', '1'); loop(); };
+  // Stabile Trefferfläche: das Anheben verschiebt das Element; ::before (.fx-hover) füllt die alte Fläche auf,
+  // damit der Zeiger am unteren Rand nicht „herausfällt“ (Flackern, verlorene Klicks).
+  el.style.setProperty('--fx-lift', `${lift + 6}px`);
+  const enter = () => { inside = true; rect = el.getBoundingClientRect(); ly.target = -lift; sc.target = scale; el.style.setProperty('--fx-glare', '1'); el.classList.add('fx-hover'); loop(); };
   const move = (e) => {
     if (!rect) rect = el.getBoundingClientRect();
     const mx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
@@ -146,7 +149,7 @@ export function hoverTilt(el, { maxDeg = 12, lift = 10, scale = 1.05, perspectiv
     el.style.setProperty('--fx-my', (1 - my).toFixed(3));
     loop();
   };
-  const leave = () => { inside = false; rect = null; rx.target = ry.target = ly.target = 0; sc.target = 1; el.style.setProperty('--fx-glare', '0'); loop(); };
+  const leave = () => { inside = false; rect = null; rx.target = ry.target = ly.target = 0; sc.target = 1; el.style.setProperty('--fx-glare', '0'); el.classList.remove('fx-hover'); loop(); };
   el.addEventListener('pointerenter', enter);
   el.addEventListener('pointermove', move);
   el.addEventListener('pointerleave', leave);

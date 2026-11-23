@@ -15,7 +15,7 @@ export const PALETTES = {
   menu:   ['#0d0a22', '#1c1245', '#2d1a66', '#0f5560'],
   round:  ['#0b0a1f', '#16143f', '#123a55', '#3a1f6e'],
   warden: ['#12050f', '#2c0a1c', '#561129', '#8a2433'],
-  shop:   ['#0a140f', '#12301f', '#2b4d1f', '#695d1a'],
+  shop:   ['#08111c', '#0f2836', '#15464f', '#4a3466'], // Nachtmarkt: Petrol + gedämpftes Laternen-Violett (vorher grell gelb-grün)
   win:    ['#1a0b2e', '#3d1a6e', '#a0307a', '#e0a33c'],
   lose:   ['#09080e', '#17141f', '#2a2030', '#45242c'],
 };

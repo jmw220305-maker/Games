@@ -94,7 +94,7 @@ export function openInspector(app, o = {}) {
   let confirmBtn = null;
   let modal = null;
   let result = null;
-  const size = window.innerWidth < 520 ? 30 : 40;
+  const size = window.innerWidth < 520 || window.innerHeight < 500 ? 30 : 40;
 
   function currentTarget() {
     if (!spec) return null;

@@ -148,7 +148,9 @@ export async function playScore(app, result) {
     juice(sb.totalEl, clamp(0.2 + mag * 0.04, 0.2, 0.5));
     if (result.total >= 1000) background.pulse(clamp(mag / 6, 0.3, 1));
     if (result.cleared) sb.flames(Math.max(sb.flameLevel, flameIntensity(result.total, remaining)));
-    await time.wait(200);
+    const lastStep = result.steps[result.steps.length - 1];
+    sb.last = { name: result.handName, level: result.level, chips: lastStep ? lastStep.chips : sb.chips, mult: lastStep ? lastStep.mult : sb.mult, total: result.total };
+    await time.wait(120);
     // Ergebnis zählt hoch
     const crossing = result.scoreAfter >= result.target && result.scoreBefore < result.target;
     await hud.setScore(result.scoreAfter, result.target, { tick: true });
@@ -161,8 +163,7 @@ export async function playScore(app, result) {
       shake.add(0.35);
       juice(hud.scoreEl.parentElement, 0.4);
       await time.wait(350);
-    }
-    await time.wait(300);
+    } else await time.wait(180);
   } finally {
     document.removeEventListener('pointerdown', onSkip, true);
     time.skipping = false;
@@ -237,5 +238,6 @@ async function fizzle(app, result) {
   shake.add(0.25);
   await time.wait(1100);
   for (let i = 0; i < tray.count; i++) tray.die(i).setDebuffed(false);
+  sb.last = { name: 'Fehlwurf', level: null, chips: 0, mult: 0, total: 0 };
   await app.rv.hud.setScore(result.scoreAfter, result.target, { tick: false });
 }

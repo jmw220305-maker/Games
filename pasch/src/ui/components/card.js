@@ -68,7 +68,7 @@ export function createCard(m, opts = {}) {
     h('div.card-shine'),
     h('div.card-top', m.sub),
     h(`div.card-glyph${glyphLen > 2 ? '.card-glyph--long' : glyphLen > 1 ? '.card-glyph--mid' : ''}`, h('span', m.glyph)),
-    h('div.card-name', m.name),
+    h(`div.card-name${nameCls(m.name)}`, softHyphens(m.name)),
     h('div.card-sheen'));
   const back = h('div.card-back', h('div.card-back-glyph', '⚄'));
   el.appendChild(face);
@@ -94,6 +94,27 @@ export function createCard(m, opts = {}) {
     },
     destroy() { offs.forEach((f) => f()); el.remove(); },
   };
+}
+
+// Trennstellen für lange Komposita (weiches Trennzeichen; nur sichtbar, wenn wirklich umbrochen wird)
+const SUFFIXES = ['beutel', 'pfennig', 'kammer', 'zähler', 'becher', 'strumpf', 'finger', 'sieben', 'glocke', 'brett', 'krone', 'weber',
+  'hauch', 'splitter', 'staub', 'tinte', 'bläser', 'blatt', 'schnuppe', 'macher', 'training', 'würfel', 'karte', 'zins', 'stapler',
+  'gestirn', 'straße', 'schlag', 'geist', 'stein', 'werk', 'reaktion', 'gänger', 'brunnen', 'leiter', 'linie', 'vogel', 'heit', 'keit', 'auge', 'punkt'];
+export function softHyphens(name) {
+  return String(name).split(' ').map((w) => {
+    if ([...w].length < 10) return w;
+    const lw = w.toLowerCase();
+    for (const suf of SUFFIXES) {
+      if (lw.endsWith(suf) && lw.length - suf.length >= 3) return `${w.slice(0, w.length - suf.length)}\u00ad${w.slice(w.length - suf.length)}`;
+    }
+    return w;
+  }).join(' ');
+}
+
+/** Lange Einzelwörter („Talismanbeutel“) passen sonst nicht auf schmale Karten. */
+function nameCls(name) {
+  const longest = Math.max(0, ...String(name).split(/\s+/).map((w) => [...w].length));
+  return longest >= 13 ? '.card-name--xl' : longest >= 10 ? '.card-name--l' : '';
 }
 
 /** Würfel-Angebot (Würfelbeutel) als kleine Karte mit Flächenliste */
