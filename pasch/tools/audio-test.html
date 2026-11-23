@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pasch – Audio-Test</title>
+<style>
+  :root { --bg0:#0d0b1f; --bg1:#1b1338; --bg2:#2a1650; --chips:#3ee6c4; --mult:#ff5fa2; --xmult:#ffd166; --money:#f9c74f; --text:#f4ecd8; --muted:#9b8fb8; --outline:#120c1e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg0); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 20px 0 8px; }
+  p.hint { color: var(--muted); margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: inherit; color: var(--text); background: var(--bg2); border: 3px solid var(--outline); border-radius: 8px;
+    padding: 8px 12px; box-shadow: 0 4px 0 var(--outline); cursor: pointer; min-height: 40px; }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--outline); }
+  button.chips { background: #1d5c52; } button.mult { background: #6b2147; } button.xmult { background: #6b5214; }
+  button.money { background: #5f4c10; } button.big { background: #3c2370; font-weight: 600; }
+  button.on { outline: 2px solid var(--chips); }
+  label { display: flex; align-items: center; gap: 8px; min-width: 220px; }
+  input[type=range] { flex: 1; }
+  #log { margin-top: 16px; white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; color: var(--muted); max-height: 260px; overflow: auto;
+    background: var(--bg1); padding: 8px; border-radius: 8px; }
+  table { border-collapse: collapse; font: 12px ui-monospace, monospace; }
+  td, th { padding: 2px 8px; text-align: right; border-bottom: 1px solid var(--bg2); }
+  td:first-child, th:first-child { text-align: left; }
+  .bad { color: var(--mult); }
+</style>
+</head>
+<body>
+<h1>Pasch – Audio-Test</h1>
+<p class="hint">Alles synthetisiert (WebAudio). Der erste Klick startet den AudioContext.</p>
+
+<h2>Lautstärke</h2>
+<div class="row">
+  <label>Gesamt <input id="vMaster" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+  <label>Effekte <input id="vSfx" type="range" min="0" max="1" step="0.01" value="1"></label>
+  <label>Musik <input id="vMusic" type="range" min="0" max="1" step="0.01" value="1"></label>
+  <button id="mute">Stumm: aus</button>
+</div>
+
+<h2>Musik</h2>
+<div class="row">
+  <button id="mStart" class="big">Musik starten</button>
+  <button id="mStop">Musik stoppen</button>
+  <button data-mood="menu">Stimmung: menu</button>
+  <button data-mood="round">round</button>
+  <button data-mood="shop">shop</button>
+  <button data-mood="warden">warden</button>
+  <button id="scoring">scoringOpen: aus</button>
+  <button id="duck">duck(−6 dB, 600 ms)</button>
+</div>
+
+<h2>Abläufe</h2>
+<div class="row">
+  <button id="throw" class="big">Wurf simulieren</button>
+  <button id="chainChip" class="chips">chip: Kette 1–12</button>
+  <button id="chainMult" class="mult">mult: Kette 1–12</button>
+  <button id="chainTick">tick: Kette 1–12</button>
+  <button id="countUp">tick: Hochzählen (30)</button>
+  <button id="scoreSeq" class="big">Wertung simulieren</button>
+</div>
+
+<h2>Einzelne Sounds</h2>
+<div class="row" id="sounds"></div>
+
+<h2>Analyse (OfflineAudioContext)</h2>
+<div class="row"><button id="analyze">Alle Sounds rendern + Peak/RMS messen</button><button id="analyzeMusic">Musik rendern (je 20 s)</button></div>
+<div id="table"></div>
+<div id="log"></div>
+
+<script type="module">
+import { audio } from '../src/audio/audio.js';
+
+const NAMES = ['hover', 'click', 'press', 'release', 'deny', 'roll_start', 'dice_rattle', 'dice_clack', 'dice_land', 'hold', 'unhold',
+  'chip', 'mult', 'xmult', 'money', 'coin', 'retrigger', 'shatter', 'grow', 'hand_reveal', 'target_cross', 'flame',
+  'round_won', 'run_won', 'round_lost', 'buy', 'sell', 'reroll_shop', 'pack_open', 'card_flip', 'card_pick', 'warden_reveal',
+  'tick', 'whoosh', 'level_up', 'tag', 'error'];
+window.__SOUND_NAMES = NAMES;
+window.audio = audio;
+
+const $ = (s) => document.querySelector(s);
+const log = (...a) => { const el = $('#log'); el.textContent += a.join(' ') + '\n'; el.scrollTop = 1e9; };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const cls = { chip: 'chips', mult: 'mult', xmult: 'xmult', money: 'money', coin: 'money', buy: 'money' };
+
+document.addEventListener('pointerdown', () => audio.init(), { capture: true });
+document.addEventListener('keydown', () => audio.init(), { capture: true });
+
+const box = $('#sounds');
+for (const n of NAMES) {
+  const b = document.createElement('button');
+  b.textContent = n;
+  if (cls[n]) b.className = cls[n];
+  b.addEventListener('click', () => { audio.play(n, n === 'dice_clack' ? { gain: 0.6 + Math.random() * 0.4 } : {}); log('play', n); });
+  if (n === 'hover') b.addEventListener('pointerenter', () => audio.play('hover'));
+  box.appendChild(b);
+}
+
+async function chain(name, gapMs = 140) {
+  for (let i = 1; i <= 12; i++) { audio.play(name, { step: i - 1 }); await wait(Math.max(70, gapMs * Math.pow(0.93, i))); }
+}
+$('#chainChip').onclick = () => chain('chip', 220);
+$('#chainMult').onclick = () => chain('mult', 260);
+$('#chainTick').onclick = () => chain('tick', 90);
+$('#countUp').onclick = async () => { for (let i = 0; i < 30; i++) { audio.play('tick', { progress: i / 29 }); await wait(38); } audio.play('coin'); };
+
+async function throwDice() {
+  audio.play('roll_start');
+  await wait(60);
+  audio.play('dice_rattle');
+  await wait(520);
+  for (let i = 0; i < 5; i++) {
+    await wait(45 + Math.random() * 45);
+    audio.play('dice_clack', { gain: 0.55 + Math.random() * 0.45, pan: (i - 2) * 0.25 });
+  }
+  await wait(160 + Math.random() * 120);
+  audio.play('dice_land');
+}
+$('#throw').onclick = throwDice;
+
+$('#scoreSeq').onclick = async () => {
+  audio.music.scoringOpen(true);
+  audio.play('hand_reveal');
+  await wait(450);
+  let step = 0;
+  for (let i = 0; i < 5; i++) { audio.play('chip', { step: step++ }); await wait(Math.max(120, 450 * Math.pow(0.9, i))); }
+  audio.play('retrigger'); await wait(250);
+  audio.play('chip', { step: step++ }); await wait(300);
+  audio.play('mult', { step: 0 }); await wait(350);
+  audio.play('mult', { step: 1 }); await wait(350);
+  audio.music.duck(5, 500);
+  audio.play('xmult'); await wait(500);
+  audio.play('flame');
+  for (let i = 0; i < 24; i++) { audio.play('tick', { progress: i / 23 }); await wait(36); }
+  audio.play('target_cross');
+  await wait(900);
+  audio.play('round_won');
+  await wait(1500);
+  audio.music.scoringOpen(false);
+};
+
+// volumes
+$('#vMaster').oninput = (e) => audio.setVolume('master', +e.target.value);
+$('#vSfx').oninput = (e) => audio.setVolume('sfx', +e.target.value);
+$('#vMusic').oninput = (e) => audio.setVolume('music', +e.target.value);
+let muted = false;
+$('#mute').onclick = (e) => { muted = !muted; audio.mute(muted); e.target.textContent = 'Stumm: ' + (muted ? 'an' : 'aus'); };
+
+// music
+$('#mStart').onclick = () => { audio.music.start(); log('music start'); };
+$('#mStop').onclick = () => { audio.music.stop(); log('music stop'); };
+for (const b of document.querySelectorAll('[data-mood]')) {
+  b.onclick = () => {
+    audio.music.setMood(b.dataset.mood);
+    document.querySelectorAll('[data-mood]').forEach((x) => x.classList.toggle('on', x === b));
+    log('mood', b.dataset.mood);
+  };
+}
+let scoring = false;
+$('#scoring').onclick = (e) => { scoring = !scoring; audio.music.scoringOpen(scoring); e.target.textContent = 'scoringOpen: ' + (scoring ? 'an' : 'aus'); e.target.classList.toggle('on', scoring); };
+$('#duck').onclick = () => audio.music.duck(6, 600);
+
+// offline analysis
+const fmt = (x) => (Number.isFinite(x) ? x.toFixed(1) : '−∞');
+async function analyzeAll() {
+  const { renderSound } = await import('../src/audio/offline.js');
+  const rows = [];
+  for (const n of NAMES) {
+    const opts = n === 'chip' || n === 'mult' || n === 'tick' ? { step: 12 } : {};
+    rows.push([n, await renderSound(n, opts, n === 'run_won' || n === 'warden_reveal' ? 5 : 3)]);
+  }
+  rows.push(['dice_clack gain 2', await renderSound('dice_clack', { gain: 2 })]);
+  rows.push(['chip step 30', await renderSound('chip', { step: 30 })]);
+  renderTable(rows);
+  window.__analysis = rows;
+  return rows;
+}
+async function analyzeMusic() {
+  const { renderMusic } = await import('../src/audio/offline.js');
+  const rows = [];
+  for (const m of ['menu', 'round', 'shop', 'warden']) rows.push(['music ' + m, await renderMusic(m, 20)]);
+  rows.push(['music round scoring', await renderMusic('round', 20, true)]);
+  renderTable(rows);
+  window.__musicAnalysis = rows;
+  return rows;
+}
+function renderTable(rows) {
+  const bad = (r) => r.peak >= 0.999 || r.peak < 0.003;
+  $('#table').innerHTML = '<table><tr><th>Sound</th><th>Peak dB</th><th>RMS dB</th><th>Länge s</th></tr>' +
+    rows.map(([n, r]) => `<tr class="${bad(r) ? 'bad' : ''}"><td>${n}</td><td>${fmt(r.peakDb)}</td><td>${fmt(r.rmsDb)}</td><td>${r.length.toFixed(2)}</td></tr>`).join('') + '</table>';
+}
+$('#analyze').onclick = analyzeAll;
+$('#analyzeMusic').onclick = analyzeMusic;
+window.__analyzeAll = analyzeAll;
+window.__analyzeMusic = analyzeMusic;
+window.__throw = throwDice;
+window.__chain = chain;
+</script>
+</body>
+</html>
