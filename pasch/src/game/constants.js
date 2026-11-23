@@ -2,7 +2,7 @@
 
 export const RUN_VERSION = 1;
 export const ANTES_TO_WIN = 8;
-export const ANTE_BASES = [300, 800, 2000, 5000, 11000, 20000, 35000, 50000];
+export const ANTE_BASES = [300, 700, 1800, 4500, 10000, 20000, 35000, 50000];
 export const BLIND_KINDS = ['small', 'big', 'warden'];
 export const BLIND_NAMES = { small: 'Kleine Partie', big: 'Große Partie', warden: 'Wächter-Partie' };
 export const BLIND_MULT = { small: 1, big: 1.5, warden: 2 };

@@ -31,8 +31,8 @@ const T = [
   },
   {
     id: 'sixpack', name: 'Sechserpack', rarity: 'common', price: 5, glyph: '⚅', hue: 30,
-    desc: '+30 Punkte je gewerteter 6.',
-    onDie: (ctx, d) => (d.value === 6 ? [chips(30)] : null),
+    desc: '+40 Punkte je gewerteter 6.',
+    onDie: (ctx, d) => (d.value === 6 ? [chips(40)] : null),
   },
   {
     id: 'even_line', name: 'Gerade Linie', rarity: 'common', price: 4, glyph: '2|4', hue: 200,
@@ -67,8 +67,8 @@ const T = [
   },
   {
     id: 'pip_counter', name: 'Augenzähler', rarity: 'common', price: 4, glyph: '∑', hue: 175,
-    desc: '+Punkte in Höhe der doppelten Augensumme aller Würfel.',
-    onHand: (ctx) => (ctx.sumAll > 0 ? [chips(2 * ctx.sumAll)] : null),
+    desc: '+Punkte in Höhe der dreifachen Augensumme aller Würfel.',
+    onHand: (ctx) => (ctx.sumAll > 0 ? [chips(3 * ctx.sumAll)] : null),
   },
   {
     id: 'deep_dive', name: 'Tiefgang', rarity: 'common', price: 4, glyph: '⤓', hue: 225,
@@ -77,8 +77,8 @@ const T = [
   },
   {
     id: 'high_tide', name: 'Flut', rarity: 'common', price: 4, glyph: '≈', hue: 195,
-    desc: '+50 Punkte, wenn die Augensumme aller Würfel mindestens 24 ist.',
-    onHand: (ctx) => (ctx.sumAll >= 24 ? [chips(50)] : null),
+    desc: '+80 Punkte, wenn die Augensumme aller Würfel mindestens 24 ist.',
+    onHand: (ctx) => (ctx.sumAll >= 24 ? [chips(80)] : null),
   },
   {
     id: 'patience', name: 'Geduld', rarity: 'common', price: 5, glyph: '⧗', hue: 265,
@@ -111,14 +111,14 @@ const T = [
   },
   {
     id: 'tally', name: 'Kerbholz', rarity: 'common', price: 5, glyph: '⫼', hue: 35, init: { n: 0 },
-    desc: 'Gewinnt dauerhaft +3 Punkte, jedes Mal wenn eine Hand mit Paar gewertet wird.',
+    desc: 'Gewinnt dauerhaft +5 Punkte, jedes Mal wenn eine Hand mit Paar gewertet wird.',
     preHand: (ctx, t) => {
       if (!ctx.contains('pair')) return null;
-      t.state.n = (t.state.n || 0) + 3;
+      t.state.n = (t.state.n || 0) + 5;
       return [{ type: 'grow', text: `+${t.state.n} Punkte` }];
     },
     onHand: (ctx, t) => (t.state.n > 0 ? [chips(t.state.n)] : null),
-    describe: (t) => `Gewinnt dauerhaft +3 Punkte je gewerteter Hand mit Paar (derzeit +${t.state.n || 0} Punkte).`,
+    describe: (t) => `Gewinnt dauerhaft +5 Punkte je gewerteter Hand mit Paar (derzeit +${t.state.n || 0} Punkte).`,
   },
   {
     id: 'prime', name: 'Primzahl', rarity: 'common', price: 5, glyph: 'ℙ', hue: 320,
@@ -137,8 +137,8 @@ const T = [
   },
   {
     id: 'high_roller', name: 'Hochstapler', rarity: 'common', price: 5, glyph: '⇑', hue: 60,
-    desc: '+20 Punkte je gewertetem Würfel mit 5 oder mehr Augen.',
-    onDie: (ctx, d) => (d.value >= 5 ? [chips(20)] : null),
+    desc: '+30 Punkte je gewertetem Würfel mit 5 oder mehr Augen.',
+    onDie: (ctx, d) => (d.value >= 5 ? [chips(30)] : null),
   },
   {
     id: 'first_throw', name: 'Erster Wurf', rarity: 'common', price: 5, glyph: '①', hue: 10,
@@ -232,8 +232,8 @@ const T = [
   },
   {
     id: 'sticky', name: 'Klebrige Finger', rarity: 'uncommon', price: 6, glyph: '⌇', hue: 310,
-    desc: 'Gehaltene Würfel geben +15 Punkte, wenn sie werten.',
-    onDie: (ctx, d) => (d.held ? [chips(15)] : null),
+    desc: 'Gehaltene Würfel geben +25 Punkte, wenn sie werten.',
+    onDie: (ctx, d) => (d.held ? [chips(25)] : null),
   },
   {
     id: 'crown', name: 'Bröckelnde Krone', rarity: 'uncommon', price: 7, glyph: '♛', hue: 48, init: { x: 3 },

@@ -23,3 +23,22 @@
 - Einstellungen: `time.speed`, `shake.strength` (0/0.5/1), `time.flashes`, `setCRT()`, `time.reducedMotion`; Tippen beim Werten: `time.skipping=true`.
 - Extras: `bigHit()`, `particles.flyCoins(x0,y0,x1,y1,{count,onArrive})`, `particles.ring`, `die.turn()` (Stupser/Wender/Aufdecken), `nope(el)` (nicht leisten können).
 - Testseite `tools/fx-test.html` (`?nogl` = CSS-Fallback).
+
+## Logik (src/game, src/core)
+- `import * as G from './game/index.js'` – Aktionen, Inhalte (G.TALISMANS, G.CONSUMABLES, G.WARDENS, G.VOUCHERS, G.PACKS,
+  G.TAGS, G.CUPS, G.STAKES, G.HANDS, G.ACHIEVEMENTS, G.MARK_INFO, G.MATERIAL_INFO, *_IDS), `G.meta`. Aktionen werfen nie.
+- Extras: `mustFizzle`, `previewCashOut`, `sellPrice`, `handTable`, `describe*` (Talisman/Consumable/Hand/Warden/Voucher/Tag/Pack/Stake/Offer),
+  `serializeRun`, `loadRun`, `isOver`, `validateTarget`, `anteBase`, `blindTarget`. `previewScore` NUR Bot/Debug.
+- Index i gleich in `run.dice` und `round.rolled`. Nach dem Werten `round.rolled = null` → nächster Wurf braucht `beginThrow`.
+- Phasen: blinds → round → cashout → shop ⇄ pack → blinds …; Sieg in Einsatz 8 → 'won'; `continueEndless` → cashout.
+- `availableHands` Einträge: handId, name, rank, dice, scoring, values, base{chips,mult}, level, allowed, reason, secret, hidden.
+- Fehlwurf: `mustFizzle(run)` true → `scoreThrow(run)` wertet 0 Punkte (`result.fizzle`), kostet Wurf.
+- Nebel/Finsternis: `hidden:true` (roll-Events liefern null für versteckte Werte, UI zeigt „?“); Fessel: `shackled:true`;
+  Wender: `flip`-Event nach Nachwurf; Dieb: `talisman.disabled`.
+- Werkzeug-Ziele: face `{die,face[,value]}` · faces `{faces:[{die,face},…]}` (Spiegel: 2, gleicher Würfel, erste = Vorlage) ·
+  die `{die}` · rolled `{rolled[,delta:±1]}` · null. Fehler verbraucht nichts.
+- Beutel: Kauf öffnet sofort (phase 'pack'); Marken-Beutel direkt nach Überspringen. Werkzeug/Mystik im Beutel:
+  `target===undefined` = behalten, sonst sofort benutzen. Würfel: `{die:i}` ersetzt. Event `packClosed` nach letzter Wahl.
+- Meta: `newProfile, migrateProfile, syncProfile(profile, run), finishRun(profile, run), isCupUnlocked, maxStake,
+  collectionSummary`; Keys `PROFILE_KEY`/`RUN_KEY` mit core/storage.js.
+- Event-Typen vollständig in ARCHITECTURE §3.

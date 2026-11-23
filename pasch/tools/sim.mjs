@@ -38,6 +38,7 @@ function handAllowed(run, handId) {
   const w = round.wardenId ? WARDENS[round.wardenId] : null;
   if (w && w.noRepeat && round.playedHands.includes(handId)) return false;
   if (w && w.fixation && round.playedHands.length && !G.contains(handId, round.playedHands[0])) return false;
+  if (w && w.fixation && !round.playedHands.length && !G.contains(handId, 'pair')) return false;
   return true;
 }
 
@@ -242,7 +243,14 @@ function fakeTalisman(id) {
 
 /** bester Gewinnfaktor, wenn Talisman id dazukommt (ggf. als Ersatz). → {gain, replace:uid|null} */
 function talismanGain(run, bot, id) {
-  const cur = run.talismans.filter((t) => !t.disabled || true);
+  const cur = run.talismans.slice();
+  if (bot.fast) {
+    // schnelle Heuristik (Tests): Preis als Stärke
+    const val = (x) => (TALISMANS[x] ? TALISMANS[x].price : 0);
+    if (cur.length < run.limits.talismans) return { gain: 1.1, replace: null };
+    const worst = cur.slice().sort((a, b) => val(a.id) - val(b.id))[0];
+    return val(id) >= val(worst.id) + 3 ? { gain: 1.2, replace: worst.uid } : { gain: 1, replace: null };
+  }
   const now = configScore(run, bot, cur);
   if (cur.length < run.limits.talismans) {
     return { gain: configScore(run, bot, [...cur, fakeTalisman(id)]) / now, replace: null };
@@ -443,7 +451,7 @@ function handleShop(run, bot) {
     s.offers.forEach((o, i) => {
       if (acted || o.sold || o.kind !== 'consumable') return;
       const def = CONSUMABLES[o.id];
-      const want = def.kind === 'star' ? def.hand === main || bot.anyStar : chooseTarget(run, o.id) !== null;
+      const want = def.kind === 'star' ? def.hand === main || bot.anyStar || (run.ante >= 2 && G.contains(main, def.hand) && run.money - o.price >= 10) : chooseTarget(run, o.id) !== null;
       if (want && run.money - o.price >= reserve && run.consumables.length < run.limits.consumables) {
         if (G.buy(run, i).ok) {
           acted = true;
@@ -482,13 +490,14 @@ export function playRun(seed, opts = {}) {
   const run = G.newRun({ seed, cup: opts.cup || 'wood', stake: opts.stake || 1 });
   const bot = {
     rng: makeStream(hashSeed(`bot:${seed}`)),
-    samples: opts.samples || 10,
+    samples: opts.samples || (opts.fast ? 4 : 10),
     reserve: opts.reserve === undefined ? 15 : opts.reserve,
     vouchers: ['v_cup', 'v_cup2', 'v_hand', 'v_slot', 'v_slot2', 'v_interest', 'v_haggle', 'v_sixth', 'v_shop'],
     anyStar: false,
     dicePacks: true,
     handBias: {},
     snapshots: [],
+    fast: !!opts.fast,
     richAt: opts.richAt === undefined ? 22 : opts.richAt,
   };
   const log = [];

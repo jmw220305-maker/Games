@@ -6,7 +6,10 @@ export function acquireTalisman(run, id) {
   const t = { uid: nextUid(run, 't'), id, state: newTalismanState(id), disabled: false };
   run.talismans.push(t);
   const def = TALISMANS[id];
-  if (def && def.onAcquire) def.onAcquire(run, t);
+  if (def && def.onAcquire) {
+    def.onAcquire(run, t);
+    syncRolledToDice(run);
+  }
   run.stats.talismansOwned = (run.stats.talismansOwned || 0) + 1;
   run.stats.maxTalismans = Math.max(run.stats.maxTalismans || 0, run.talismans.length);
   if (def && def.rarity === 'legendary') run.stats.legendaryOwned = (run.stats.legendaryOwned || 0) + 1;

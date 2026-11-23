@@ -1,18 +1,18 @@
 // Hände: Definitionen, Erkennung (inkl. Wild), Enthaltensein.
 
 export const HANDS = {
-  scatter: { id: 'scatter', name: 'Streuung', rank: 0, chips: 10, mult: 2, perLevel: { chips: 10, mult: 1 }, secret: false, desc: 'Keine Kombination – der höchste Würfel wertet.', glyph: '⁘', hue: 210 },
-  pair: { id: 'pair', name: 'Paar', rank: 1, chips: 20, mult: 3, perLevel: { chips: 15, mult: 1 }, secret: false, desc: 'Zwei gleiche Augenzahlen.', glyph: '⚁', hue: 180 },
-  twopair: { id: 'twopair', name: 'Zwei Paare', rank: 2, chips: 40, mult: 3, perLevel: { chips: 20, mult: 1 }, secret: false, desc: 'Zwei verschiedene Paare.', glyph: '⚃', hue: 160 },
-  triple: { id: 'triple', name: 'Drilling', rank: 3, chips: 60, mult: 4, perLevel: { chips: 20, mult: 2 }, secret: false, desc: 'Drei gleiche Augenzahlen.', glyph: '⚂', hue: 140 },
-  smallrun: { id: 'smallrun', name: 'Kleine Straße', rank: 4, chips: 70, mult: 4, perLevel: { chips: 25, mult: 2 }, secret: false, desc: 'Vier aufeinanderfolgende Augenzahlen.', glyph: '⋰', hue: 40 },
-  parity: { id: 'parity', name: 'Gleichklang', rank: 5, chips: 80, mult: 4, perLevel: { chips: 20, mult: 2 }, secret: false, desc: 'Fünf Würfel, alle gerade oder alle ungerade.', glyph: '≡', hue: 260 },
-  fullhouse: { id: 'fullhouse', name: 'Full House', rank: 6, chips: 80, mult: 5, perLevel: { chips: 25, mult: 2 }, secret: false, desc: 'Ein Drilling und ein Paar.', glyph: '⌂', hue: 20 },
-  bigrun: { id: 'bigrun', name: 'Große Straße', rank: 7, chips: 120, mult: 6, perLevel: { chips: 30, mult: 3 }, secret: false, desc: 'Fünf aufeinanderfolgende Augenzahlen.', glyph: '⇗', hue: 50 },
-  quad: { id: 'quad', name: 'Vierling', rank: 8, chips: 120, mult: 8, perLevel: { chips: 30, mult: 3 }, secret: false, desc: 'Vier gleiche Augenzahlen.', glyph: '⚅', hue: 330 },
-  pasch: { id: 'pasch', name: 'Pasch', rank: 9, chips: 240, mult: 13, perLevel: { chips: 35, mult: 4 }, secret: false, desc: 'Fünf gleiche Augenzahlen.', glyph: '✪', hue: 300 },
-  skyladder: { id: 'skyladder', name: 'Himmelsleiter', rank: 10, chips: 320, mult: 15, perLevel: { chips: 40, mult: 4 }, secret: true, desc: 'Sechs aufeinanderfolgende Augenzahlen.', glyph: '☈', hue: 230 },
-  sixer: { id: 'sixer', name: 'Sechsling', rank: 11, chips: 400, mult: 21, perLevel: { chips: 50, mult: 5 }, secret: true, desc: 'Sechs gleiche Augenzahlen (nur mit mindestens sechs Würfeln).', glyph: '✹', hue: 0 },
+  scatter: { id: 'scatter', name: 'Streuung', rank: 0, chips: 10, mult: 2, perLevel: { chips: 20, mult: 1 }, secret: false, desc: 'Keine Kombination – der höchste Würfel wertet.', glyph: '⁘', hue: 210 },
+  pair: { id: 'pair', name: 'Paar', rank: 1, chips: 20, mult: 3, perLevel: { chips: 30, mult: 1 }, secret: false, desc: 'Zwei gleiche Augenzahlen.', glyph: '⚁', hue: 180 },
+  twopair: { id: 'twopair', name: 'Zwei Paare', rank: 2, chips: 40, mult: 3, perLevel: { chips: 40, mult: 1 }, secret: false, desc: 'Zwei verschiedene Paare.', glyph: '⚃', hue: 160 },
+  triple: { id: 'triple', name: 'Drilling', rank: 3, chips: 60, mult: 4, perLevel: { chips: 40, mult: 2 }, secret: false, desc: 'Drei gleiche Augenzahlen.', glyph: '⚂', hue: 140 },
+  smallrun: { id: 'smallrun', name: 'Kleine Straße', rank: 4, chips: 70, mult: 4, perLevel: { chips: 50, mult: 2 }, secret: false, desc: 'Vier aufeinanderfolgende Augenzahlen.', glyph: '⋰', hue: 40 },
+  parity: { id: 'parity', name: 'Gleichklang', rank: 5, chips: 80, mult: 4, perLevel: { chips: 40, mult: 2 }, secret: false, desc: 'Fünf Würfel, alle gerade oder alle ungerade.', glyph: '≡', hue: 260 },
+  fullhouse: { id: 'fullhouse', name: 'Full House', rank: 6, chips: 80, mult: 5, perLevel: { chips: 50, mult: 2 }, secret: false, desc: 'Ein Drilling und ein Paar.', glyph: '⌂', hue: 20 },
+  bigrun: { id: 'bigrun', name: 'Große Straße', rank: 7, chips: 120, mult: 6, perLevel: { chips: 60, mult: 3 }, secret: false, desc: 'Fünf aufeinanderfolgende Augenzahlen.', glyph: '⇗', hue: 50 },
+  quad: { id: 'quad', name: 'Vierling', rank: 8, chips: 120, mult: 8, perLevel: { chips: 60, mult: 3 }, secret: false, desc: 'Vier gleiche Augenzahlen.', glyph: '⚅', hue: 330 },
+  pasch: { id: 'pasch', name: 'Pasch', rank: 9, chips: 240, mult: 13, perLevel: { chips: 70, mult: 4 }, secret: false, desc: 'Fünf gleiche Augenzahlen.', glyph: '✪', hue: 300 },
+  skyladder: { id: 'skyladder', name: 'Himmelsleiter', rank: 10, chips: 320, mult: 15, perLevel: { chips: 80, mult: 4 }, secret: true, desc: 'Sechs aufeinanderfolgende Augenzahlen.', glyph: '☈', hue: 230 },
+  sixer: { id: 'sixer', name: 'Sechsling', rank: 11, chips: 400, mult: 21, perLevel: { chips: 100, mult: 5 }, secret: true, desc: 'Sechs gleiche Augenzahlen (nur mit mindestens sechs Würfeln).', glyph: '✹', hue: 0 },
 };
 
 export const HAND_ORDER = Object.values(HANDS)

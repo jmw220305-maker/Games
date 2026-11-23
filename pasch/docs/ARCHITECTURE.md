@@ -60,131 +60,210 @@ ab 1e12 Exponent `"3,1e14"`. `formatMoney(n)` → `"$12"`. `formatMult(x)` → `
 
 ```js
 Face  = { v: int /*0 = leer*/, mark: null|'gold'|'ruby'|'azure'|'star'|'echo'|'glass'|'stone'|'clover' }
-Die   = { id: string, sides: 4|6|8, faces: Face[], material: null|'lead'|'bone'|'prism'|'crystal'|'phantom' }
-Rolled = { dieId, faceIndex, v /* angezeigter Wert inkl. Stupser */, hidden: bool, held: bool,
-           shackled: bool, nudged: int /*0 oder ±1, Werkzeug Stupser*/ }
-Talisman = { uid: string, id: string, state: {} /*z.B. {n:3} für skalierende*/, disabled: bool }
+Die   = { id: string, sides: 4|6|8, faces: Face[], material: null|'lead'|'bone'|'prism'|'crystal'|'phantom',
+          src?: uid /* Würfel gehört zu einem Talisman (Sechster Sinn) – zählt nicht gegen das Limit */ }
+Rolled = { dieId, faceIndex, v /* Logikwert inkl. Stupser – bei hidden NICHT anzeigen ("?") */, hidden: bool,
+           held: bool, shackled: bool /*Fessel: nicht haltbar*/, nudged: int /*Summe der Stupser*/ }
+Talisman = { uid: string, id: string, state: {} /*z.B. {n:3} für skalierende*/, disabled: bool /*Dieb*/ }
 Consumable = { uid, id }
 Run = {
   version: 1, seed: string, cup: string, stake: int,
-  rng: { roll, shop, chance, warden, pack, misc },       // Streams
+  rng: { roll, shop, chance, warden, pack, misc },       // Streams {s:uint32}
   ante: int, blindIndex: 0|1|2,                          // aktuelle/ nächste Partie
-  phase: 'blinds'|'round'|'cashout'|'shop'|'pack'|'won'|'lost'|'endless',
+  phase: 'blinds'|'round'|'cashout'|'shop'|'pack'|'won'|'lost',   // ('endless' wird nicht benutzt: run.endless)
   money: int, dice: Die[], talismans: Talisman[], consumables: Consumable[],
   limits: { talismans: 5, consumables: 2, dice: 5, shopSlots: 2 },
   base: { throws: 4, rerolls: 3, interestCap: 5 },
   handLevels: { [handId]: int /*1..*/ }, handPlays: { [handId]: int },
-  vouchers: string[], tags: string[],
+  vouchers: string[], tags: string[] /*gehaltene Marken (ohne Beutel-Marken)*/,
   wardens: { current: string, seen: string[] },          // Wächter des aktuellen Einsatzes
-  blinds: [ {kind:'small'|'big'|'warden', target, reward, state:'upcoming'|'current'|'skipped'|'done', tagOffer} ×3 ],
+  blinds: [ {kind:'small'|'big'|'warden', name, target, reward, state:'upcoming'|'current'|'skipped'|'done',
+             tagOffer /*Marken-ID, null beim Wächter*/, wardenId? /*nur Wächter*/} ×3 ],
   round: null | {
-    target, score, throwsLeft, rerollsLeft, rolled: Rolled[]|null, rolledThisTurn: bool,
-    rerollsUsedThisThrow: int, playedHands: string[], lastHandRank: int, flags: {}
+    kind, wardenId|null, target, score, throwsLeft, rerollsLeft, rolled: Rolled[]|null /*Index = Index in run.dice*/,
+    rolledThisTurn: bool, rerollsUsedThisThrow: int, rerollsUsed: int, throwsUsed: int,
+    playedHands: string[], lastHandRank: int, flags: { grudged: dieId[], rebate: int, secondWindUsed, thiefUid? }
   },
-  shop: null | { offers: Offer[], packs: Offer[], voucher: Offer|null, rerollCost: int, rerolls: int },
-  pack: null | { packId, choices: Offer[], picksLeft: int },
-  stats: { throws, rerolls, bestThrow, bestHand, moneyEarned, ... },
-  log: [] // optional
+  shop: null | { offers: Offer[], packs: Offer[], voucher: Offer|null, rerollCost: int, rerolls: int,
+                 freeRerolls: int /*Ausverkauf*/, sale: bool },
+  pack: null | { packId, choices: Offer[], picksLeft: int, returnPhase: 'shop'|'blinds' },
+  pendingPacks: string[],      // Gratis-Beutel aus Marken (werden automatisch nacheinander geöffnet)
+  anteVoucher: string|null, wardenRerolledAnte: int, endless: bool, won: bool, nextUid: int,
+  seen: { talismans: [], consumables: [], wardens: [] },  // für die Sammlung
+  stats: { throws, rerolls, bestThrow, bestHand, moneyEarned, hands:{id:n}, roundsWon, wardensBeaten,
+           wardensBeatenIds, skips, constellationsUsed, consumablesUsed, talismansBought, maxTalismans, maxMoney,
+           glassShattered, retriggers, maxRetriggers, legendaryOwned, wardenNoReroll, maxHandLevel, highestAnte,
+           packsOpened, shopRerolls, scoreByAnte:{ante:best}, lostTo: null|{ante, blind, wardenId, score, target} },
+  metaRecorded?: {...}         // gesetzt von meta.finishRun
+  log: []
 }
-Offer = { kind:'talisman'|'consumable'|'pack'|'voucher'|'die', id, price, sold:bool, uid?, die? }
+Offer = { kind:'talisman'|'consumable'|'pack'|'voucher'|'die', id, price, basePrice?, sold:bool, free?:bool,
+          die?: Die /*nur Würfelbeutel*/ }
 ```
+Würfel-Reihenfolge in der Schale = `run.dice`-Reihenfolge = `round.rolled`-Reihenfolge (Index `i` überall gleich).
+Wächter-Effekte im Rolled-State: **Nebel/Finsternis** → `hidden:true` (Werte zählen für Hände trotzdem; UI zeigt „?“,
+`roll`-Events liefern dafür `null`), **Fessel** → `shackled:true` (toggleHold lehnt ab), **Wender** → `flip`-Event
+nach dem Nachwurf, **Dieb** → `talisman.disabled:true` für die Partie.
 
 ### Inhaltsdefinitionen (`content/*.js`)
 ```js
 // talismans.js
 export const TALISMANS = { snake_eye: {
   id, name:'Schlangenauge', rarity:'common'|'uncommon'|'rare'|'legendary', price:5,
-  desc:'+8 Multi je gewerteter 1',      // darf {platzhalter} nutzen; describe(t) liefert fertigen Text
-  copyable: true, icon: '🐍'?  // KEINE Emojis – stattdessen `glyph`: kurzer Text/Symbol für das Kartenbild, z.B. '1·1'
-  glyph: '⚀', hue: 140,                // Kartenfarbe (HSL-Hue), UI zeichnet daraus die Karte
-  // Hooks (alle optional, rein, bekommen ctx – siehe scoring):
-  onDie(ctx, die) {}, onHand(ctx) {}, retrigger(ctx, die) -> int,
-  modifyRound(run, round) {}, onRoundEnd(run, t) -> events, onReroll(ctx) {}, onScored(ctx) {},
-  onAcquire(run, t) {}, onRemove(run, t) {},
-  describe(t, run) -> string           // aktueller Text inkl. Zustand (z.B. "derzeit ×1,4")
+  desc:'+8 Multi je gewerteter 1.', copyable: true, glyph: '⚀', hue: 140, init?: {n:0} /*Startzustand*/,
+  // Hooks (alle optional, rein). Wertungs-Hooks geben Effekte zurück:
+  //   [{type:'chips',amount}|{type:'mult',amount}|{type:'xmult',factor}|{type:'money',amount}|{type:'text'|'grow',text}]
+  onDie(ctx, d, t), retrigger(ctx, d, t) -> int, preHand(ctx, t) /*Wachstum, nicht kopiert*/, onHand(ctx, t),
+  onScored(ctx, t), modifyRules(rules, run, t), onReroll(run, t, round) -> events, onRoundEnd(run, t, info) -> events,
+  cashout(run, t) -> $, onAcquire(run, t), onRemove(run, t), describe(t, run) -> string|null
 }}
 ```
-Gleiches Muster für `CONSUMABLES` (`kind:'star'|'tool'|'mystic'`, `target: null | {type:'face'|'faces'|'die'|'rolled', count, value?:true}`,
-`usableIn: 'any'|'round'`, `use(run, target) -> events`), `WARDENS` (`minAnte`, `finale`, `targetMul`, Hooks),
-`VOUCHERS`, `PACKS`, `TAGS`, `CUPS`, `STAKES`, `ACHIEVEMENTS`.
+`CONSUMABLES` (`kind:'star'|'tool'|'mystic'`, `price`, `hand` bei Sternbildern, `target`, `usableIn: 'any'|'round'`,
+`use(run, target) -> events`, `validate?(run, target) -> Fehlertext|null`), `WARDENS` (`minAnte`, `finale`,
+`targetMul?`, Regel-Flags: `leaden, rerollsZero, throwsOne, noRepeat, fixation, fogCount, eclipse, toll, shackle,
+turner, thief, grudge, chill`), `VOUCHERS` (`price`, `requires`, `apply(run)`), `PACKS` (`price, kind, size, picks,
+weight`), `TAGS` (`timing:'now'|'shop'|'round'|'warden'|'tag'`, `pack?`), `CUPS` (`unlock` = Erfolgs-ID, `targetMul?`,
+`apply(run)`), `STAKES` (1–5), `ACHIEVEMENTS` (`check(stats)`, `unlocks:{kind:'cup', id}|null`).
+Prägungen/Materialien: `MARK_INFO`, `MATERIAL_INFO` (name, desc, glyph, hue) aus `constants.js`.
 
 Jedes Inhaltsobjekt hat `id, name, desc` und für die Darstellung `glyph` (1–3 Zeichen, Unicode-Symbole erlaubt,
 keine Emojis) und `hue` (0–360).
 
+**Werkzeug-Ziele** (`CONSUMABLES[id].target` → Form des `target`-Arguments; `die` = Index in `run.dice`,
+`face` = Flächenindex):
+| target | Argument | Beispiele |
+|---|---|---|
+| `null` | `null` | Sternbilder, Münzwurf, Seher, Phantomhauch, Doppelgänger, Seelenstein, Wunschbrunnen |
+| `{type:'face', count:1}` | `{die, face}` | Goldlack, Rubinstaub, Echo-Rune, Steinmetz, Sternenstaub |
+| `{type:'face', count:1, value:true}` | `{die, face, value}` (1 … sides) | Meißel |
+| `{type:'faces', count:2}` | `{faces:[{die, face}, …]}` (1–2 verschiedene) | Azurtinte, Glasbläser, Kleeblatt |
+| `{type:'faces', count:2, exact:true, sameDie:true}` | `{faces:[Vorlage, Ziel]}` | Spiegel |
+| `{type:'die'}` | `{die}` | Bleiguss, Former (nur W6), Prismensplitter, Kristallauge |
+| `{type:'rolled', delta:true}` | `{rolled, delta: +1\|-1}` (nur im Wurf) | Stupser |
+| `{type:'rolled'}` | `{rolled}` (nur im Wurf, nicht verdeckt) | Wende |
+
 ---
 
-## 3. game – Aktionen (`game/run.js`)
+## 3. game – Aktionen (`game/run.js`, alles gebündelt in `game/index.js`)
 
 Alle Aktionen mutieren `run` und geben `{ ok:true, events:[...] }` oder `{ ok:false, reason:'…deutscher Text…' }`
-zurück. Events sind kleine Objekte, die die UI animiert (Typen unten). Die UI liest danach den Zustand neu.
+zurück (nie Exceptions). Events sind kleine Objekte, die die UI animiert (Typen unten). Die UI liest danach den
+Zustand neu. **Import:** `import * as G from './game/index.js'` – enthält alle Aktionen, alle Inhalte
+(`G.TALISMANS`, `G.CONSUMABLES`, `G.WARDENS`, `G.VOUCHERS`, `G.PACKS`, `G.TAGS`, `G.CUPS`, `G.STAKES`, `G.HANDS`,
+`G.ACHIEVEMENTS`, `G.MARK_INFO`, `G.MATERIAL_INFO`, `*_IDS`-Listen, `G.content` als Sammelobjekt) und `G.meta`.
 
 ```js
 newRun({ seed, cup='wood', stake=1 }) -> Run
-startBlind(run)                    // phase 'blinds' → 'round' (aktuelle Partie)
-skipBlind(run)                     // kleine/große Partie überspringen → Marke; events [{type:'tag', id}]
-rerollWarden(run)                  // Privileg v_ban
-beginThrow(run)                    // Wurf beginnen: alle Würfel werfen. events [{type:'roll', dice:[i...], results}]
-toggleHold(run, i)                 // i = Index in round.rolled
-reroll(run)                        // Nachwurf; events [{type:'roll', dice:[i...]}, ggf. {type:'money'}...]
-availableHands(run) -> [{ handId, name, rank, dice:[i...], base:{chips, mult}, level }]  // ranghöchste zuerst
-previewHand(run, handId?) -> { handId, chips, mult, dice }      // nur Basis (für die Live-Anzeige)
-scoreThrow(run, handId?) -> { ok, result: ScoreResult, events }  // wertet; prüft Sieg/Niederlage
-cashOut(run) -> { ok, events, breakdown:[{label, amount}] }      // phase 'cashout' → 'shop'
-shopReroll(run) / buy(run, offerIndex | {section:'offers'|'packs'|'voucher', index})
-sell(run, {kind:'talisman'|'consumable', uid})
+startBlind(run)                    // 'blinds' → 'round' (aktuelle Partie). events [{type:'warden',id}, talismanDisabled, tagUsed]
+skipBlind(run)                     // kleine/große Partie überspringen → Marke; events [{type:'tag', id}, ggf. {type:'packOpen'}]
+                                   //   Beutel-Marken öffnen sofort (phase 'pack', danach zurück zu 'blinds')
+rerollWarden(run)                  // Privileg v_ban, 1× pro Einsatz, phase 'blinds'
+beginThrow(run)                    // Wurf beginnen: alle Würfel werfen. events [{type:'roll', dice:[i...], results:[v|null]}]
+toggleHold(run, i)                 // i = Index in round.rolled; events [{type:'hold'|'unhold', die:i}]
+reroll(run)                        // Nachwurf; events [{type:'roll',…}, ggf. money (Zöllner/Rabatt), talismanGrow, flip]
+availableHands(run) -> [{ handId, name, rank, dice:[i...] /*Hand*/, scoring:[i...] /*+ Stein*/, values:int[]
+                          /*Belegung inkl. Wild*/, base:{chips, mult} /*inkl. Stufe + Kälte*/, level, allowed:bool,
+                          reason:string|null, secret:bool, hidden:bool /*verdeckte Würfel beteiligt*/ }]  // ranghöchste zuerst
+mustFizzle(run) -> bool            // keine erlaubte Hand → nur Fehlwurf möglich (scoreThrow ohne handId)
+previewHand(run, handId?) -> { handId, name, chips, mult, dice /*wertende*/, level, allowed } | null
+previewScore(run, handId?) -> ScoreResult-artig (auf Kopie; verrät Zufall – nur Bot/Debug)
+scoreThrow(run, handId?) -> { ok, result: ScoreResult, events }  // wertet; prüft Sieg/Niederlage/Zweiter Atem
+previewCashOut(run) -> [{label, amount, kind}] | null
+cashOut(run) -> { ok, events, breakdown:[{label, amount, kind:'reward'|'throws'|'interest'|'talisman'|'tag'}], total }
+                                   // 'cashout' → 'shop' (Laden wird aufgebaut, Laden-Marken eingelöst)
+shopReroll(run)                    // nur Angebotsplätze; Ausverkauf: freeRerolls zuerst
+buy(run, offerIndex | {section:'offers'|'packs'|'voucher', index})  // Beutel öffnen sich sofort (phase 'pack')
+sell(run, {kind:'talisman'|'consumable', uid}) / sellPrice(run, {kind, uid}) -> $
 moveTalisman(run, from, to)
-useConsumable(run, uid, target) -> {ok, events}
-openPack / pickFromPack(run, choiceIndex, target?) / skipPack(run)
-leaveShop(run)                     // → nächste Partie ('blinds'), ggf. neuer Einsatz
-continueEndless(run)
-getRoundRules(run) -> { throws, rerolls, ... }  // effektive Werte inkl. Talismane/Privilegien/Wächter
-describe*(…)                       // Texte für Tooltips
+useConsumable(run, uid, target) -> {ok, events}   // target gemäß Tabelle §2; prüft Ziel, Phase, Plätze
+validateTarget(run, consumableDef, target) -> Fehlertext|null
+openPack(run)                      // öffnet den nächsten wartenden Gratis-Beutel (normalerweise automatisch)
+pickFromPack(run, choiceIndex, target?)
+   // Talisman: braucht freien Platz. Sternbild: sofort angewendet.
+   // Werkzeug/Mystik: target === undefined → behalten (freier Platz nötig);
+   //                  sonst sofort benutzen (target-Objekt wie bei useConsumable, null bei zielfreien Gütern).
+   // Würfel (Offer.die): target {die:i} ersetzt run.dice[i]; ohne target nur, wenn das Würfellimit Platz hat.
+   // Nach der letzten Wahl (picksLeft 0) schließt der Beutel: events […, {type:'packClosed'}] und phase = returnPhase.
+skipPack(run)
+leaveShop(run)                     // → nächste Partie ('blinds'), nach dem Wächter neuer Einsatz (event newAnte)
+continueEndless(run)               // 'won' → 'cashout', run.endless = true
+getRoundRules(run) -> { throws, rerolls, interestCap, talismanSlots, consumableSlots, diceLimit, target, reward,
+                        wardenId, throwsLeft?, rerollsLeft? }  // effektive Werte inkl. Talismane/Privilegien/Wächter/Stufe/Marken
+handTable(run) -> [{handId, name, level, chips, mult, plays}]   // Info-Tabelle (geheime erst nach dem ersten Werten)
+describeTalisman(t, run), describeConsumable(c, run), describeHand(id, run), describeWarden(id),
+describeVoucher(id), describeTag(id), describePack(id), describeStake(id), describeOffer(run, offer)
+serializeRun(run) -> string, loadRun(stringOrObject) -> Run|null, isOver(run) -> bool
+anteBase(ante), blindTarget(run, kind, wardenId), interest(run), priceFor(run, basePrice)
 ```
 
 ### ScoreResult (wichtigste Schnittstelle Logik → Animation)
 ```js
 ScoreResult = {
-  handId, handName, level, total, scoreBefore, scoreAfter, target, cleared: bool,
+  handId, handName, level, total, chips, mult /*Endwerte*/, scoreBefore, scoreAfter, target, cleared: bool,
+  dice: [i...] /*wertende Würfel*/, money /*in der Wertung verdient*/, fizzle: bool /*Fehlwurf: total 0*/,
   steps: Step[],   // in exakt der Reihenfolge, in der sie animiert werden
 }
 Step = {
-  type: 'hand'      // Basis gesetzt:        {chips, mult}
+  type: 'hand'      // Basis gesetzt (chips/mult = Basis; bei Fehlwurf 0/0)
       | 'chips'     // +Punkte:              {amount}
       | 'mult'      // +Multi:               {amount}
       | 'xmult'     // ×Multi:               {factor}
       | 'money'     // Geld:                 {amount}
-      | 'retrigger' // „Nochmal!“            {}
-      | 'text'      // Hinweis (z.B. „Zersprungen!“, „Gefesselt“) {text}
-      | 'shatter'   // Glasfläche zerspringt {}
+      | 'retrigger' // „Nochmal!“            {}   – steht VOR der Wiederholung des Würfels
+      | 'text'      // Hinweis (z.B. „Kein Glück“, „Groll: keine Augen“, „Kälte: …“, „Fehlwurf …“) {text}
+      | 'shatter'   // Glasfläche zerspringt {}   (in den Nachwirkungen)
       | 'grow',     // skalierender Talisman wächst {text}
-  source: { kind:'hand'|'die'|'talisman'|'warden'|'face', index:int /* Würfel- oder Talisman-Index */, uid? },
-  chips, mult,     // laufende Werte NACH diesem Schritt (UI zeigt sie direkt an)
-  dieIndex?: int,  // bei Würfelschritten: welcher Würfel (für Popup-Position)
+  source: { kind:'hand'|'die'|'talisman'|'warden'|'face', index:int /* Würfel- oder Talisman-Index, -1 sonst */, uid? },
+  chips, mult,     // laufende Werte NACH diesem Schritt (UI zeigt sie direkt an; mult kann Fließkomma sein)
+  dieIndex?: int,  // bei Würfelschritten (auch Talisman-„onDie“-Schritten): welcher Würfel
 }
 ```
-Die UI braucht nichts nachzurechnen: sie zeigt nach jedem Schritt `chips`/`mult` an.
+Die UI braucht nichts nachzurechnen: sie zeigt nach jedem Schritt `chips`/`mult` an; `total = floor(chips × mult)`.
 
 ### Event-Typen (Rückgaben der Aktionen)
-`roll {dice:[i], results:[v]}` · `money {amount, reason}` · `tag {id}` · `talismanGrow {uid, text}` ·
-`talismanBreak {uid}` · `faceShatter {dieId, faceIndex}` · `roundWon` · `roundLost` · `runWon` · `extraThrow`
-(Zweiter Atem) · `unlock {kind, id}` · `achievement {id}` · `message {text}`.
+`roll {dice:[i], results:[v|null]}` · `hold/unhold {die}` · `flip {die, v, faceIndex}` · `nudge {die, v}` ·
+`money {amount, reason}` · `tag {id}` · `tagUsed {id}` · `warden {id}` · `talismanDisabled {uid}` ·
+`talismanGrow {uid, text}` · `talismanBreak {uid}` · `faceShatter {dieId, faceIndex}` · `roundWon` · `roundLost` ·
+`runWon` · `extraThrow {uid}` (Zweiter Atem) · `newAnte {ante, wardenId}` · `shopReroll` · `packOpen {packId}` ·
+`packClosed` · `gainTalisman {uid, id}` · `gainConsumable {uid, id}` · `consumableUsed {id}` · `levelUp {handId, level}` ·
+`faceChange {dieId, faceIndex, v?, mark?}` · `dieChange {dieId, material?|sides?}` · `gainDie {dieId}` ·
+`replaceDie {index, dieId, oldDieId}` · `voucher {id}` · `sold {kind, uid}` · `move {from, to}` ·
+`message {text}` · aus `meta`: `unlock {kind:'cup'|'stake', id, stake?}` · `achievement {id}`.
 
 ### Hände (`game/hands.js`)
 ```js
-export const HANDS = { pair: {id, name, rank, chips, mult, perLevel:{chips, mult}, secret}, ... }
-export function detectHands(values:int[] /*0 = keine Augen*/, wildMask:bool[]) -> [{handId, dice:[i...]}]
-// alle enthaltenen Hände, ranghöchste zuerst; bei Wild: beste Belegung (alle Kombinationen probieren, n ≤ 7)
+export const HANDS = { pair: {id, name, rank, chips, mult, perLevel:{chips, mult}, secret, desc, glyph, hue}, ... }
+export const HAND_ORDER  // aufsteigend nach Rang
+export function detectHands(values:int[] /*0 = keine Augen*/, wildMask:bool[], {wildMax}) -> [{handId, dice:[i...], values}]
+// alle enthaltenen Hände, ranghöchste zuerst; bei Wild: beste Belegung (Multimengen-Suche, n ≤ 7)
 export function handBase(handId, level) -> {chips, mult}
-export function contains(handId, otherId) -> bool  // Enthaltensein-Relation für Talismane
+export function contains(handId, otherId) -> bool  // Enthaltensein-Relation für Talismane und Fixierung
 ```
-`smallrun` ⊂ `bigrun` ⊂ `skyladder`; `pair` ⊂ `twopair` ⊂ `fullhouse`; `pair` ⊂ `triple` ⊂ `fullhouse` ⊂ …;
+`smallrun` ⊂ `bigrun` ⊂ `skyladder`; `pair` ⊂ `twopair` ⊂ `fullhouse`; `pair` ⊂ `triple` ⊂ `fullhouse`;
 `triple` ⊂ `quad` ⊂ `pasch` ⊂ `sixer`. `parity` steht für sich. `scatter` ist immer verfügbar.
 
+### Meta (`game/meta.js`, rein; als `G.meta`)
+```js
+PROFILE_KEY = 'pasch.profile', RUN_KEY = 'pasch.run'
+newProfile() -> Profile    // {version, settings:{speed, volume:{master,sfx,music}, muted, shake, flashes, crt,
+                           //   reducedMotion, autoThrow}, stats, collection:{talismans:{id:'seen'|'owned'},
+                           //   consumables:{id:'seen'}, hands:{id:1}, wardens:{id:'seen'|'beaten'}},
+                           //   unlocks:{cups:[id], stakes:{cupId:maxStake}}, achievements:{id:true}, history:[]}
+migrateProfile(obj) -> Profile           // auch für null/alte Stände
+syncProfile(profile, run) -> events      // während des Laufs (idempotent): Sammlung + Erfolge/Freischaltungen
+finishRun(profile, run) -> events        // bei 'lost'/'won' (und erneut am Ende von Endlos: nur Zuwachs)
+isCupUnlocked(profile, cup), maxStake(profile, cup) -> 0..5, collectionSummary(profile), aggregateStats(profile, run)
+```
+Persistenz: `core/storage.js` `load(key, fallback)` / `save(key, value)` / `remove(key)`;
+z. B. `profile = G.meta.migrateProfile(load(G.meta.PROFILE_KEY, null))`, `run = G.loadRun(load(G.meta.RUN_KEY, null))`.
+
 ### Balance-Bot (`tools/sim.mjs`)
-Spielt N Läufe headless mit einfacher Strategie (halten nach Erwartungswert-Heuristik, kauft Talismane nach Preis/
-Seltenheit, levelt meistgespielte Hand) und meldet: erreichter Einsatz (Verteilung), Siegquote, Punkte je Wurf je
-Einsatz, Geld je Einsatz, Wächter-Niederlagen. Ziel (mit gutem Bot): Siegquote 15–35 %, Einsatz 1 fast immer
-geschafft, Einsatz 2–3 selten Endstation.
+`node tools/sim.mjs --runs N --seed S --cup ID --stake N [--verbose] [--samples K]`. Spielt N Läufe headless: Halten nach
+Monte-Carlo-Erwartungswert über Kandidaten (gleiche Augen, Straßenfenster, Parität …), Nachwürfe solange der
+Erwartungswert steigt, Talismankauf nach echtem Nutzen (letzte 24 Würfe des Bots mit/ohne Talisman neu gewertet),
+levelt die Haupthand, benutzt Werkzeuge mit einfacher Zielwahl. Meldet Siegquote, Endstation je Einsatz, Niederlagen
+nach Partie/Wächter, Punkte je Wurf und Geld je Einsatz. `playRun(seed, {cup, stake, fast})` ist exportiert
+(`fast:true` = Preis-Heuristik statt Neuwertung, für Tests). Ergebnisse: DESIGN §14.
 
 ---
 
