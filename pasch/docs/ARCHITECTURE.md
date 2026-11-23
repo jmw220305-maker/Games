@@ -209,39 +209,86 @@ Testseite `tools/audio-test.html` mit Knöpfen für alle Sounds und Moods.
 
 ## 5. fx (`src/fx/*`) – wiederverwendbare Effekt-Bausteine, keine Spiellogik
 
+Alle Effekte nur über `transform`/`opacity` (Ausnahmen: kurzer `filter` bei `chroma`, Canvas). Eine gemeinsame
+rAF-Schleife (`time.js`); versteckter Tab → alles pausiert. Sammel-Import: `src/fx/index.js` (re-exportiert alles).
+
 ```js
+// index.js
+export function initFx({root=#app, fxCanvas=#fx, bgCanvas=#bg, palette='menu', reducedMotion, crt, forceFallback})
+export function setCRT(on)                       // body.crt (Scanlines + Vignette)
+
 // time.js – zentrale Uhr
-export const time = { speed: 1 /*0.5|1|2|4*/, reducedMotion: false, now(), dt,
-  hitstop(ms), wait(ms) -> Promise (skaliert mit speed, Hitstop verlängert), onFrame(fn) -> unsubscribe,
-  skipping: false /* Tippen beim Werten → Rest sofort */ }
-// springs.js
-export class Spring { constructor(value, {k=220, damp=0.78}); target; value; vel; step(dt) }
-export function springTo(el, props {x,y,rot,scale}, opts) // DOM-Element per Feder an Ziel bewegen (transform)
+export const time = {
+  speed: 1 /*0.5|1|2|4*/, skipping: false /*Tippen beim Werten → Spieluhr ×skipFactor(8)*/, flashes: true,
+  reducedMotion /*get/set, setzt body.fx-reduced; Standard aus prefers-reduced-motion*/,
+  now() /*Spieluhr ms: läuft ×speed, steht bei Hitstop*/, realNow(), dt /*Spiel-s*/, realDt, rate, frozen,
+  hitstop(ms) /*Spieluhr anhalten*/, wait(ms) -> Promise /*Spieluhr ⇒ ÷speed, Hitstop verlängert*/,
+  onFrame(fn(dt, realDt)) -> unsubscribe, afterFrame(fn) -> unsubscribe,
+  tween(ms, fn(eased, raw), {ease, delay}) -> Promise (mit .cancel()), toReal(ms) }
+export const ease = { linear, inQuad, outQuad, inOutSine, outCubic, outQuart, outQuint, outExpo, outBack, outElastic }
+// springs.js – Federn + Transform-Ebenen (mehrere Effekte auf einem Element ohne Konflikt; 1 transform-Write/Frame)
+export class Spring { constructor(value, {k=220, damp=0.78}); target; value; vel; step(dt); settled; snap(v) }
+export function springTo(el, {x,y,rot,scale}, {k, damp, layer='spring', snap}) -> Promise (eingeschwungen)
+export function setLayer(el, name, {x,y,z,rot,rx,ry,scale,sx,sy}|null), getLayer, clearLayer, setPerspective(el, px)
+//   ⚠ Elemente mit fx-Effekten nicht zusätzlich per CSS transformieren (Wrapper benutzen).
 // juice.js
-export function juice(el, amount=0.3)        // juice_up: Wackel-Skalierung/Rotation 0,4 s (Formel research_feel §1)
-export function squash(el, s=0.2, ms=90)
-export function hoverTilt(el, {maxDeg=12, lift=10})  // 3D-Neigung zum Zeiger + Glanz; gibt detach() zurück
-export function idleSway(el, seed)
-export function pressable(el)                 // Knopf drücken 0,94 → Überschwinger 1,04
-// shake.js
-export const shake = { add(trauma), kick(dx, dy), strength: 1 /*Einstellung 0|0.5|1*/ } // Trauma², Rauschen, 1,2/s
-// particles.js  (ein Canvas über allem, DPR ≤ 2)
-export const particles = { burst(x, y, {count, color, speed, gravity, life, shape:'square'|'spark'|'coin'|'confetti'}),
-  confetti(n) }
-// popups.js
-export function popup(x, y, text, {kind:'chips'|'mult'|'xmult'|'money'|'info', big})  // „+30“ steigt auf
-export function banner(text, {kind, sub})   // Handname-Banner mit easeOutBack
-export function flash(color, alpha=0.25, ms=150)
-export function chroma(ms=120)              // chromatische Aberration (Text/Container)
+export function juice(el, amount=0.3, {rot, dur=0.4})   // juice_up (research_feel §1.1) → Promise
+export function squash(el, s=0.2, ms=90)  ·  nope(el, px=6, cycles=3, ms=240) /*„geht nicht“-Schütteln*/
+export function jitter(el, px=2, ms=110)  ·  popIn(el, ms=260, delay=0)  ·  pop(el, from=1.25, ms=160)
+export function hoverTilt(el, {maxDeg=12, lift=10, scale=1.05, perspective=600}) -> detach  // setzt --fx-mx/--fx-my/--fx-glare
+export function idleSway(el, seed, {deg=1.5, px=2}) -> stop
+export function pressable(el, {down=0.94}) -> detach      // Knopf 0,94 → Überschwinger
+// shake.js – Trauma² · Sinus-Rauschen, max 10 px / 2°, Abklingen 1,2/s, Echtzeit
+export const shake = { add(trauma), kick(dx, dy), strength: 1 /*0|0.5|1*/, setRoot(el), reset(), trauma }
+// particles.js  (Canvas #fx, DPR ≤ 2, läuft nur solange Partikel leben)
+export const particles = { init(canvas),
+  burst(x, y, {count=14, color /*Hex|Array|'chips'|'mult'|'xmult'|'money'|'confetti'|'dust'*/, speed=[150,500],
+         gravity=900, life=[.4,.9], size, shape:'square'|'spark'|'coin'|'confetti'|'dust', spread=2π, angle=-π/2, drag, jitter}),
+  ring(x, y, {radius=60, color, life=.35}),               // Schockwelle
+  confetti(n=40),                                         // 2 Kanonen unten + Regen
+  flyCoins(x0, y0, x1, y1, {count=5, dur=350, stagger=40, size, onArrive(i)}) -> Promise,  // Münzen zur Geldanzeige
+  count, clear() }
+// popups.js  (DOM-Layer #fx-layer, z-index 60, über allem)
+export function popup(x, y, text|number, {kind:'chips'|'mult'|'xmult'|'money'|'info', big, hold=500, rise=24, dx}) -> Promise
+//   Zahlen bekommen Präfix: chips/mult „+30“, xmult „×2“, money „$3“
+export function banner(text, {kind:'hand'|'chips'|'mult'|'xmult'|'money'|'win'|'lose'|'warden'|'info', sub, hold=900, y=0.36}) -> Promise
+export function flash(color='#fff', alpha=0.25, ms=150) -> Promise   // time.flashes=false → aus; reduziert → ×0,3
+export function chroma(ms=120, el=#app)                               // Rot/Cyan-Versatz (Klasse .fx-chroma)
+export function bigHit({hitstop=60, trauma=0.3, flashAlpha=0.12})     // ×Multi-Paket: Hitstop+Chroma+Shake+Blitz
 // ticker.js
-export function tickNumber(el, from, to, {duration, onTick(stepIndex), format})  // Hochzählen + Schluss-Pop
+export function tickNumber(el, from, to, {duration /*300+250·log10Δ*/, onTick(stepIndex, progress, value) /*≥35 ms*/,
+  format(n), pop=true, juice, easing}) -> Promise     // Schluss-Pop 1,25 → 1; neuer Aufruf bricht alten ab
 // background.js
-export const background = { init(canvas), setPalette('menu'|'round'|'warden'|'shop'|'win'|'lose'),
-  setIntensity(0..1) /*Wirbel-Tempo, beim Werten hoch*/, pulse() }  // WebGL-Wirbel, Fallback CSS-Verlauf
+export const background = { init(canvas, {resolution=0.5, forceFallback}), setPalette(name|[4 Hex], instant=false),
+  setIntensity(0..1), pulse(amount=1), palette, webgl, destroy() }   // Paletten: menu round warden shop win lose
+export const PALETTES
 // flames.js
-export function setFlames(el, intensity 0..1)   // Flammen-Overlay (Canvas/CSS) auf Punktekästen
+export function setFlames(el, intensity 0..1, {color:'chips'|'mult'|'xmult'|'money'|Hex}) // 0 = ausklingen + entfernen
+export function clearFlames(), flameIntensity(score, target) -> 0..1   // clamp(log10(score/target)+0.3)
 ```
-Testseite `tools/fx-test.html`: Würfel werfen/halten, alle Effekte per Knopf.
+
+### Würfel & Schale (`ui/components/die.js`, `tray.js`)
+```js
+createDie(dieData, {value, faceIndex, hidden}) -> {
+  el, data, value, faceIndex, hidden, held, rolling,
+  setData(die), show(value, {faceIndex, hidden}),               // sofort
+  roll(value, {delay, duration, suspense, faceIndex, hidden, anticipate=true}) -> Promise (gelandet),
+  turn(value, {faceIndex, hidden, ms=380}) -> Promise,          // kurzes Umkippen: Stupser, Wender, Aufdecken
+  setHeld(b), setScoring(b), juice(amount), resist(), setDebuffed(b), setShackled(b), rect(), destroy(),
+  onLand(impact), onBounce(impact), onLaunch() }                 // Hooks (Zuweisung)
+createTray(container, {maxSize=88, minSize=30}) -> {
+  el, count, dieSize, dice,
+  setDice(dice:Die[], rolled?:Rolled[]), roll(indices|null, values, {suspenseIndex, stagger=50}) -> Promise,
+  //   values: Zahl oder {v, faceIndex, hidden}; parallel zu indices ODER voll (values[i]) wenn values.length===Anzahl
+  //   suspenseIndex: Standard letzter geworfener Würfel (+300 ms); null = keiner
+  setHeld(i, b), onDieClick(fn(i, ev)), getDieRect(i), dieEl(i), die(i), show(i, v, o), turn(i, v, o),
+  highlight(indices, {gap=75, amount=0.3, keep=true}) -> Promise, clearHighlight(), setInteractive(b), layout(), destroy(),
+  onLand(i, impact), onBounce(i, impact), onLaunch(), onHighlight(i, k) }  // Hooks für Sounds (Zuweisung)
+```
+DOM-Zustand je Würfel: `.die[data-index][data-value][data-face][data-hidden]`, Klassen `die--held`, `die--scoring`,
+`die--rolling`, `die--debuffed`, `die--shackled`, `die--m-<material>`, `die--w<sides>`. Größe über `--die-size` (Schale setzt sie).
+
+Testseite `tools/fx-test.html` (`?nogl` = CSS-Hintergrund): Würfel werfen/halten/umdrehen, alle Effekte per Knopf.
 
 ---
 

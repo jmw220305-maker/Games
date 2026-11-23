@@ -27,7 +27,7 @@ const BASE = [[0, 0], [0, 180], [0, -90], [0, 90], [-90, 0], [90, 0]]; // (rx, r
 const NORMALS = [[0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, -1, 0], [0, 1, 0]];
 const VIEW_TX = -17; // Blickwinkel: Oberseite …
 const VIEW_TY = 19;  // … und linke Seite sichtbar
-const LIGHT = norm([-0.45, -0.8, 0.62]);
+const LIGHT = norm([-0.1, -0.4, 0.9]);
 
 function norm(v) { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
 const rotX = (v, a) => { const c = Math.cos(a), s = Math.sin(a); return [v[0], c * v[1] - s * v[2], s * v[1] + c * v[2]]; };
@@ -129,6 +129,7 @@ export function createDie(dieData, opts = {}) {
   let off = null;
   let destroyed = false;
   let resistT0 = -1e9;
+  let cancelRoll = null;
   const seed = Math.random() * 1000;
   const cache = {};
   let lastShade = '';
@@ -249,6 +250,7 @@ export function createDie(dieData, opts = {}) {
    */
   function roll(targetValue, o = {}) {
     if (destroyed) return Promise.resolve();
+    if (cancelRoll) cancelRoll(); // laufenden Wurf abbrechen (neuer Wurf übernimmt die aktuellen Winkel)
     rolling++;
     el.classList.add('die--rolling');
     const fi = findFace(targetValue, o.faceIndex);
@@ -293,6 +295,7 @@ export function createDie(dieData, opts = {}) {
     return new Promise((resolve) => {
       const t0 = time.now();
       let launched = false, b0done = false, b1done = false;
+      cancelRoll = () => { offRoll(); cancelRoll = null; rolling = Math.max(0, rolling - 1); airY = 0; dip = 0; airX = 0; resolve(); };
       const offRoll = time.onFrame(() => {
         if (destroyed) { offRoll(); resolve(); return; }
         const t = time.now() - t0;
@@ -335,6 +338,7 @@ export function createDie(dieData, opts = {}) {
         } else {
           airY = 0; rx = rx1; ry = ry1; rz = rz1;
           offRoll();
+          cancelRoll = null;
           land(suspense ? 1.15 : 1);
           resolve();
           return;
@@ -444,7 +448,7 @@ export function createDie(dieData, opts = {}) {
   function updateBadge() {
     const sh = el.classList.contains('die--shackled');
     const db = el.classList.contains('die--debuffed');
-    badgeEl.innerHTML = (sh ? '<span class="die-chain die-chain--a"></span><span class="die-chain die-chain--b"></span><span class="die-lock">⛓</span>' : '')
+    badgeEl.innerHTML = (sh ? '<span class="die-chain die-chain--a"></span><span class="die-chain die-chain--b"></span><span class="die-lock"></span>' : '')
       + (db ? '<span class="die-x">✕</span>' : '');
   }
 
@@ -560,8 +564,8 @@ export function createDie(dieData, opts = {}) {
       let n = worldN(s, rx, ry, rzv);
       n = rotX(rotY(n, ty * D2R), tx * D2R);
       const lam = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
-      const shade = Math.min(0.72, 0.62 * Math.pow(1 - lam, 1.35) + 0.02);
-      const gloss = Math.max(0, Math.min(1, (lam - 0.55) * 2.6));
+      const shade = Math.min(0.75, 0.8 * Math.pow(1 - lam, 1.7));
+      const gloss = Math.max(0, Math.min(0.7, (lam - 0.6) * 2.4));
       vals.push(shade, gloss);
       key += shade.toFixed(2) + gloss.toFixed(2);
     }

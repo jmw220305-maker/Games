@@ -260,8 +260,18 @@
 .die-chain--a { transform: rotate(32deg); }
 .die-chain--b { transform: rotate(-32deg); }
 .die-lock {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  font: 700 calc(var(--s) * 0.3)/1 var(--fx-font); color: #e8ecf4; text-shadow: 0 2px 0 #000;
+  position: absolute; left: 50%; top: 58%; width: 34%; height: 26%; transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #f2f4f8, #aab1bf); border: 2px solid var(--fx-outline); border-radius: 18%;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .5);
+}
+.die-lock::before {
+  content: ''; position: absolute; left: 50%; bottom: 100%; width: 62%; height: 78%; translate: -50% 0;
+  box-sizing: border-box; border: max(2px, calc(var(--s) * 0.045)) solid #d5dae3; border-bottom: none;
+  border-radius: 99px 99px 0 0; filter: drop-shadow(0 0 1px var(--fx-outline));
+}
+.die-lock::after {
+  content: ''; position: absolute; left: 50%; top: 30%; width: 16%; height: 36%; translate: -50% 0;
+  background: var(--fx-outline); border-radius: 99px;
 }
 
 /* ------------------------------------------------------------------ Schale */
@@ -294,6 +304,9 @@
     inset 0 calc(var(--die-size) * 0.16) calc(var(--die-size) * 0.35) rgba(0, 0, 0, .55),
     inset 0 0 calc(var(--die-size) * 0.6) rgba(0, 0, 0, .35);
 }
+@media (orientation: portrait) {
+  .tray-felt { padding-left: calc(var(--die-size) * 0.18); padding-right: calc(var(--die-size) * 0.18); }
+}
 .tray-row {
   display: flex; justify-content: center; align-items: flex-end;
   gap: var(--die-gap, 24px);
@@ -305,7 +318,7 @@
 #fx-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
 .fx-popup {
   position: absolute; translate: -50% -50%; white-space: nowrap;
-  font: 700 26px/1 var(--fx-font); font-variant-numeric: tabular-nums;
+  font: 700 30px/1 var(--fx-font); font-variant-numeric: tabular-nums;
   color: var(--text, #f4ecd8);
   text-shadow:
     3px 0 0 var(--fx-outline), -3px 0 0 var(--fx-outline), 0 3px 0 var(--fx-outline), 0 -3px 0 var(--fx-outline),
@@ -313,7 +326,7 @@
     0 6px 0 var(--fx-outline);
   will-change: transform, opacity;
 }
-.fx-popup--big { font-size: 40px; }
+.fx-popup--big { font-size: 44px; }
 .fx-popup--chips { color: var(--chips, #3ee6c4); }
 .fx-popup--mult { color: var(--mult, #ff5fa2); }
 .fx-popup--money { color: var(--money, #f9c74f); }

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="dark">
+<title>Pasch – FX-Spielwiese</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root { color-scheme: dark; --chips:#3ee6c4; --mult:#ff5fa2; --xmult:#ffd166; --money:#f9c74f; --text:#f4ecd8; --outline:#120c1e; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0b1f; color: #f4ecd8; font-family: 'Pixelify Sans', system-ui, sans-serif; }
+  body { position: fixed; inset: 0; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  #bg, #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 16px; box-sizing: border-box; overflow-y: auto; }
+  #fx { z-index: 50; }
+  h1 { margin: 0; font-size: 22px; letter-spacing: .04em; text-shadow: 0 3px 0 #120c1e; }
+  .score { display: flex; align-items: center; gap: 10px; }
+  .box { min-width: 96px; padding: 8px 14px; border-radius: 10px; font-size: 30px; font-weight: 700; text-align: center;
+         border: 3px solid #120c1e; box-shadow: 0 4px 0 #120c1e; font-variant-numeric: tabular-nums; color: #120c1e; }
+  .box.chips { background: var(--chips); }
+  .box.mult { background: var(--mult); }
+  .total { font-size: 34px; min-width: 170px; text-align: center; text-shadow: 0 3px 0 #120c1e; font-variant-numeric: tabular-nums; }
+  .x { font-size: 28px; color: #ff5fa2; text-shadow: 0 3px 0 #120c1e; }
+  #trayWrap { width: min(760px, 100%); margin-top: 18px; }
+  .panel { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(820px, 100%); }
+  .panel b { width: 100%; text-align: center; font-size: 13px; color: #9b8fb8; margin-top: 4px; }
+  button { font: 600 15px/1 'Pixelify Sans', system-ui, sans-serif; color: #f4ecd8; background: #2a1650; border: 3px solid #120c1e;
+           border-radius: 9px; padding: 9px 12px; box-shadow: 0 4px 0 #120c1e; cursor: pointer; min-height: 40px; }
+  button.on { background: #3ee6c4; color: #120c1e; }
+  button.main { background: #ff5fa2; color: #120c1e; font-size: 18px; padding: 11px 20px; }
+  label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+  #state { font: 13px/1.3 ui-monospace, monospace; color: #9b8fb8; min-height: 1.3em; text-align: center; }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="app">
+  <h1>PASCH · FX-Spielwiese</h1>
+  <div class="score">
+    <div class="box chips" id="chips">30</div><div class="x">×</div><div class="box mult" id="mult">4</div>
+    <div class="total" id="total">0</div>
+  </div>
+  <div id="trayWrap"></div>
+  <div id="state"></div>
+  <div class="panel">
+    <button class="main" id="roll">Werfen</button>
+    <button id="hold">Würfel 1+3 halten</button>
+    <button id="rollFree">Nicht gehaltene werfen</button>
+    <button id="turn">Würfel 2 umdrehen</button>
+    <button id="hl">Wertende hervorheben</button>
+    <button id="state2">Fessel/Schwäche</button>
+    <b>Effekte</b>
+    <button id="juice">juice</button>
+    <button id="shakeS">Shake klein</button>
+    <button id="shakeL">Shake groß</button>
+    <button id="kick">Kick</button>
+    <button id="hitstop">Hitstop</button>
+    <button id="pChips">+Punkte</button>
+    <button id="pMult">+Multi</button>
+    <button id="pX">×Multi</button>
+    <button id="pMoney">$ Geld</button>
+    <button id="coins">Münzflug</button>
+    <button id="banner">Banner</button>
+    <button id="flash">Blitz</button>
+    <button id="chroma">Chroma</button>
+    <button id="confetti">Konfetti</button>
+    <button id="ticker">Ticker 0→123.456</button>
+    <button id="flames">Flammen 0</button>
+    <b>Welt</b>
+    <button id="palette">Palette: menu</button>
+    <button id="intensity">Intensität 0</button>
+    <button id="pulse">Puls</button>
+    <button id="crt">CRT</button>
+    <button id="speed">Tempo 1×</button>
+    <button id="reduced">Bewegung reduzieren</button>
+  </div>
+</div>
+<canvas id="fx"></canvas>
+<script type="module">
+  import { initFx, time, shake, particles, popup, banner, flash, chroma, bigHit, tickNumber, background, setFlames, juice, pressable, setCRT } from '../src/fx/index.js';
+  import { createTray } from '../src/ui/components/tray.js';
+
+  initFx({ palette: 'round', forceFallback: location.search.includes('nogl') });
+  const $ = (id) => document.getElementById(id);
+  const F = (v, mark = null) => ({ v, mark });
+  const dice = [
+    { id: 'd1', sides: 6, material: null, faces: [F(1), F(2), F(3, 'gold'), F(4), F(5, 'ruby'), F(6)] },
+    { id: 'd2', sides: 6, material: 'lead', faces: [F(1), F(2), F(3), F(4, 'azure'), F(5), F(6, 'echo')] },
+    { id: 'd3', sides: 8, material: 'crystal', faces: [F(1), F(2), F(3), F(4), F(5, 'star'), F(6), F(7), F(8, 'glass')] },
+    { id: 'd4', sides: 6, material: 'bone', faces: [F(0), F(2, 'clover'), F(3), F(4, 'stone'), F(5), F(6, 'glass')] },
+    { id: 'd5', sides: 6, material: 'prism', faces: [F(1, 'star'), F(2), F(3), F(4, 'echo'), F(5, 'gold'), F(6, 'ruby')] },
+  ];
+  const tray = createTray($('trayWrap'));
+  tray.setDice(dice);
+  window.tray = tray; window.fxTime = time;
+  const held = new Set();
+  tray.onDieClick((i) => { held.has(i) ? held.delete(i) : held.add(i); tray.setHeld(i, held.has(i)); });
+  let lands = 0, bounces = 0, launches = 0;
+  tray.onLand = () => { lands++; };
+  tray.onBounce = () => { bounces++; };
+  tray.onLaunch = () => { launches++; };
+
+  const rollDie = (d) => { const fi = Math.floor(Math.random() * d.faces.length); return { v: d.faces[fi].v, faceIndex: fi }; };
+  let last = [];
+  function showState() { $('state').textContent = `Ergebnis: ${last.map((r) => r.v).join(' · ')}   Landungen ${lands} · Aufpraller ${bounces} · Starts ${launches}`; }
+  async function doRoll(onlyFree) {
+    const idx = dice.map((_, i) => i).filter((i) => !onlyFree || !held.has(i));
+    const vals = idx.map((i) => rollDie(dice[i]));
+    idx.forEach((i, k) => { last[i] = vals[k]; });
+    window.expected = dice.map((_, i) => last[i]);
+    await tray.roll(idx, vals);
+    showState();
+    window.rolledDone = (window.rolledDone || 0) + 1;
+  }
+  $('roll').onclick = () => doRoll(false);
+  $('rollFree').onclick = () => doRoll(true);
+  $('hold').onclick = () => { for (const i of [0, 2]) { held.add(i); tray.setHeld(i, true); } };
+  $('turn').onclick = () => { const d = dice[1]; const r = rollDie(d); last[1] = r; tray.turn(1, r.v, { faceIndex: r.faceIndex }).then(showState); };
+  $('hl').onclick = async () => { tray.clearHighlight(); await tray.highlight([0, 1, 3]); await time.wait(700); tray.clearHighlight(); };
+  let st = false;
+  $('state2').onclick = () => { st = !st; tray.die(3).setShackled(st); tray.die(4).setDebuffed(st); };
+
+  const center = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  const dieTop = (i) => { const r = tray.getDieRect(i); return [r.left + r.width / 2, r.top - 8]; };
+  $('juice').onclick = () => { for (let i = 0; i < 5; i++) tray.die(i).juice(0.3); juice($('chips'), 0.25); juice($('mult'), 0.25); };
+  $('shakeS').onclick = () => shake.add(0.25);
+  $('shakeL').onclick = () => shake.add(0.8);
+  $('kick').onclick = () => shake.kick(0, 10);
+  $('hitstop').onclick = () => { time.hitstop(120); flash('#fff', 0.2, 120); };
+  let chips = 30, mult = 4;
+  $('pChips').onclick = () => { const [x, y] = dieTop(0); tray.die(0).juice(); popup(x, y, 30, { kind: 'chips' }); chips += 30; $('chips').textContent = chips; juice($('chips'), 0.25); particles.burst(x, y + 20, { count: 10, color: 'chips', shape: 'square' }); };
+  $('pMult').onclick = () => { const [x, y] = dieTop(1); tray.die(1).juice(); popup(x, y, 4, { kind: 'mult' }); mult += 4; $('mult').textContent = mult; juice($('mult'), 0.25); shake.add(0.15); };
+  $('pX').onclick = () => { const [x, y] = center($('mult')); popup(x, y - 40, 2, { kind: 'xmult', big: true }); mult *= 2; $('mult').textContent = mult; juice($('mult'), 0.45); bigHit(); particles.burst(x, y, { count: 18, color: 'xmult', shape: 'spark', speed: [250, 600] }); particles.ring(x, y, { radius: 80, color: '#ffd166' }); };
+  $('pMoney').onclick = () => { const [x, y] = dieTop(2); popup(x, y, 3, { kind: 'money' }); particles.burst(x, y + 20, { count: 6, shape: 'coin', speed: [200, 380] }); };
+  $('coins').onclick = () => { const [x, y] = dieTop(2); particles.flyCoins(x, y + 30, 40, 40, { count: 6 }); };
+  const hands = [['Full House', 'Stufe 2 · 40 × 4'], ['Pasch!', 'Fünf Gleiche'], ['Kleine Straße', null]];
+  let hb = 0;
+  $('banner').onclick = () => { const [t, s] = hands[hb++ % hands.length]; banner(t, { kind: hb % 3 === 2 ? 'xmult' : 'hand', sub: s }); };
+  $('flash').onclick = () => flash('#ffffff', 0.3, 150);
+  $('chroma').onclick = () => chroma(160);
+  $('confetti').onclick = () => { particles.confetti(60); flash('#fff', 0.25, 150); background.pulse(); };
+  $('ticker').onclick = () => { let n = 0; tickNumber($('total'), 0, 123456, { onTick: () => { n++; } }).then(() => { $('total').dataset.ticks = n; shake.add(0.35); }); };
+  let fl = 0;
+  $('flames').onclick = () => { fl = fl >= 1 ? 0 : Math.round((fl + 0.34) * 100) / 100; if (fl > 1) fl = 1; setFlames($('chips'), fl, { color: 'chips' }); setFlames($('mult'), fl, { color: 'mult' }); $('flames').textContent = `Flammen ${fl}`; };
+  const pals = ['menu', 'round', 'warden', 'shop', 'win', 'lose'];
+  let pi = 1;
+  $('palette').textContent = `Palette: ${pals[pi]}`;
+  $('palette').onclick = () => { pi = (pi + 1) % pals.length; background.setPalette(pals[pi]); $('palette').textContent = `Palette: ${pals[pi]}`; };
+  let inten = 0;
+  $('intensity').onclick = () => { inten = inten >= 1 ? 0 : inten + 0.5; background.setIntensity(inten); $('intensity').textContent = `Intensität ${inten}`; };
+  $('pulse').onclick = () => background.pulse();
+  let crt = false;
+  $('crt').onclick = () => { crt = !crt; setCRT(crt); $('crt').classList.toggle('on', crt); };
+  const speeds = [1, 2, 4];
+  let si = 0;
+  $('speed').onclick = () => { si = (si + 1) % speeds.length; time.speed = speeds[si]; $('speed').textContent = `Tempo ${speeds[si]}×`; };
+  $('reduced').onclick = () => { time.reducedMotion = !time.reducedMotion; $('reduced').classList.toggle('on', time.reducedMotion); };
+  $('reduced').classList.toggle('on', time.reducedMotion);
+  document.querySelectorAll('button').forEach((b) => pressable(b));
+  window.addEventListener('keydown', (e) => { if (e.key === ' ') { e.preventDefault(); doRoll(true); } });
+  window.fxReady = true;
+</script>
+</body>
+</html>

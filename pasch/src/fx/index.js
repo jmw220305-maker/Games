@@ -16,14 +16,14 @@ import { background } from './background.js';
 
 /**
  * Einmal beim Start: Wurzel für Shake, Canvas #fx für Partikel, Canvas #bg für den Wirbel.
- * opts: {root=#app, fxCanvas=#fx, bgCanvas=#bg, palette='menu', reducedMotion, crt}
+ * opts: {root=#app, fxCanvas=#fx, bgCanvas=#bg, palette='menu', reducedMotion, crt, forceFallback (CSS-Hintergrund statt WebGL)}
  */
 export function initFx(opts = {}) {
   const root = opts.root || document.getElementById('app');
   if (root) shake.setRoot(root);
   const fxc = opts.fxCanvas || document.getElementById('fx');
   if (fxc) particles.init(fxc);
-  background.init(opts.bgCanvas || document.getElementById('bg'));
+  background.init(opts.bgCanvas || document.getElementById('bg'), { forceFallback: !!opts.forceFallback });
   background.setPalette(opts.palette || 'menu', true);
   if (opts.reducedMotion != null) time.reducedMotion = opts.reducedMotion;
   else time.reducedMotion = time.reducedMotion; // Body-Klasse synchronisieren

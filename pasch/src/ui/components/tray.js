@@ -15,7 +15,7 @@ export function createTray(container, opts = {}) {
   container.appendChild(el);
 
   const maxSize = opts.maxSize || 88;
-  const minSize = opts.minSize || 34;
+  const minSize = opts.minSize || 30;
   let dice = [];        // Die-Komponenten
   let clickFn = null;
   let interactive = true;
@@ -138,16 +138,17 @@ export function createTray(container, opts = {}) {
     const n = Math.max(dice.length, 5);
     const w = el.clientWidth || container.clientWidth || 360;
     const portrait = window.innerHeight > window.innerWidth;
-    const gapR = portrait ? 0.32 : 0.45;
-    const pad = Math.max(14, w * 0.05);
-    let s = (w - pad * 2) / (n + (n - 1) * gapR);
-    const hmax = portrait ? window.innerHeight * 0.11 : window.innerHeight * 0.16;
+    const gapR = portrait ? 0.24 : 0.42;
+    // Rand (Holz) + Filz-Innenabstand in Würfelgrößen (siehe CSS .tray/.tray-felt), 3D-Überstand je Würfel ≈ 12 %
+    const frame = portrait ? 0.28 + 0.36 : 0.28 + 0.6;
+    let s = (w - 6) / (n * 1.12 + (n - 1) * gapR + frame);
+    const hmax = portrait ? window.innerHeight * 0.12 : window.innerHeight * 0.17;
     s = Math.max(minSize, Math.min(maxSize, s, hmax));
-    s = Math.round(s);
+    s = Math.floor(s);
     if (s !== size || !el.style.getPropertyValue('--die-size')) {
       size = s;
       el.style.setProperty('--die-size', `${s}px`);
-      el.style.setProperty('--die-gap', `${Math.round(s * gapR)}px`);
+      el.style.setProperty('--die-gap', `${Math.round(s * gapR * 1.12 + s * 0.12)}px`);
     }
   }
   let ro = null;

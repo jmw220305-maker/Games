@@ -15,7 +15,7 @@ export const PALETTES = {
   menu:   ['#0d0a22', '#1c1245', '#2d1a66', '#0f5560'],
   round:  ['#0b0a1f', '#16143f', '#123a55', '#3a1f6e'],
   warden: ['#12050f', '#2c0a1c', '#561129', '#8a2433'],
-  shop:   ['#0a140f', '#12301f', '#2b4d1f', '#7a6a1c'],
+  shop:   ['#0a140f', '#12301f', '#2b4d1f', '#695d1a'],
   win:    ['#1a0b2e', '#3d1a6e', '#a0307a', '#e0a33c'],
   lose:   ['#09080e', '#17141f', '#2a2030', '#45242c'],
 };
@@ -32,31 +32,32 @@ float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453
 void main(){
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y);
   float t = uTime;
-  float r = length(p);
-  float a = atan(p.y, p.x);
-  // Polar-Wirbel: innen stärker verdreht, langsam rotierend
-  a += uSpin * (1.4 / (r + 0.55)) + t * 0.035;
-  vec2 q = vec2(cos(a), sin(a)) * r * 2.3;
-  // iterierter Sinus-Domain-Warp
+  // iterierter Sinus-Domain-Warp (malerisch, fließend)
+  vec2 q = p * 2.1;
   for (int i = 0; i < 5; i++) {
     float fi = float(i);
-    q += (0.62 / (1.0 + fi * 0.55)) * vec2(
-      sin(q.y * 1.31 + t * 0.21 + fi * 1.37),
-      cos(q.x * 1.17 - t * 0.16 + fi * 2.11));
+    q += (0.42 / (1.0 + fi * 0.5)) * vec2(
+      sin(q.y * 1.65 + t * 0.29 + fi * 1.37),
+      cos(q.x * 1.45 - t * 0.23 + fi * 2.11));
   }
-  float v = 0.5 + 0.5 * sin(q.x * 1.05 + q.y * 0.85 + t * 0.09);
-  float w = 0.5 + 0.5 * sin(length(q) * 1.6 - t * 0.12);
-  float f = mix(v, w, 0.38);
-  // Dithering vor der Quantisierung (weiche, körnige Bandkanten)
-  f += (hash(gl_FragCoord.xy + fract(t * 7.0)) - 0.5) * 0.045;
-  float e = 0.018;
+  // Polar-Wirbel: Spiralarme, die sich mit uSpin enger drehen
+  float r = length(q) * 0.5;
+  float a = atan(q.y, q.x);
+  float arms = a * 2.0 + r * (4.6 + 4.0 * uSpin) - t * 0.32;
+  float f = 0.5 + 0.5 * sin(arms);
+  f = mix(0.5, f, smoothstep(0.0, 0.22, r)); // Zentrum weich statt spitz
+  f = mix(f, 0.5 + 0.5 * sin(q.x * 1.2 + q.y * 0.8 + t * 0.11), 0.28);
+  float rr = length(p);
+  // Dithering vor der Quantisierung (weiche, leicht körnige Bandkanten)
+  f += (hash(gl_FragCoord.xy + fract(t * 7.0)) - 0.5) * 0.022;
+  float e = 0.02;
   vec3 col = uC0;
-  col = mix(col, uC1, smoothstep(0.34 - e, 0.34 + e, f));
-  col = mix(col, uC2, smoothstep(0.58 - e, 0.58 + e, f));
-  col = mix(col, uC3, smoothstep(0.80 - e, 0.80 + e, f));
+  col = mix(col, uC1, smoothstep(0.36 - e, 0.36 + e, f));
+  col = mix(col, uC2, smoothstep(0.56 - e, 0.56 + e, f));
+  col = mix(col, uC3, smoothstep(0.76 - e, 0.76 + e, f));
   // Vignette + Puls
-  col *= 1.0 - 0.5 * smoothstep(0.35, 1.25, r);
-  col += uPulse * 0.10 * (1.0 - r * 0.6) * (uC3 + 0.2);
+  col *= 1.0 - 0.5 * smoothstep(0.35, 1.25, rr);
+  col += uPulse * 0.10 * (1.0 - rr * 0.6) * (uC3 + 0.2);
   col += (hash(gl_FragCoord.xy * 1.37 + t) - 0.5) * 0.018;
   gl_FragColor = vec4(col, 1.0);
 }`;
