@@ -3,7 +3,7 @@
 //        chill, leaden. targetMul überschreibt den Wächter-Faktor ×2.
 
 const W = [
-  { id: 'leaden', name: 'Der Bleierne', minAnte: 1, glyph: '⚊', hue: 215, leaden: true,
+  { id: 'leaden', name: 'Der Bleierne', minAnte: 2, glyph: '⚊', hue: 215, leaden: true,
     desc: 'Einsen und Zweien zählen nicht (keine Punkte, keine Hände).' },
   { id: 'miser', name: 'Der Geizhals', minAnte: 2, glyph: '⊘', hue: 40, rerollsZero: true,
     desc: 'Keine Nachwürfe.' },
@@ -12,7 +12,7 @@ const W = [
   { id: 'echo', name: 'Das Echo', minAnte: 1, glyph: '⫶', hue: 175, noRepeat: true,
     desc: 'Keine Hand darf zweimal gewertet werden.' },
   { id: 'fixation', name: 'Die Fixierung', minAnte: 3, glyph: '⊙', hue: 0, fixation: true,
-    desc: 'Nur die zuerst gewertete Hand ist danach noch erlaubt.' },
+    desc: 'Nach dem ersten Wurf sind nur noch Hände erlaubt, die die zuerst gewertete Hand enthalten.' },
   { id: 'fog', name: 'Der Nebel', minAnte: 1, glyph: '▒', hue: 250, fogCount: 2,
     desc: '2 zufällige Würfel landen verdeckt („?“) bis zum Werten.' },
   { id: 'toll', name: 'Der Zöllner', minAnte: 1, glyph: '⊖', hue: 50, toll: true,

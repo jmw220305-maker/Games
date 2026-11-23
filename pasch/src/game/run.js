@@ -335,8 +335,14 @@ function chooseEntry(run, handId) {
     return { entry: e };
   }
   const e = hands.find((h) => h.allowed);
-  if (!e) return { error: 'Keine erlaubte Hand' };
+  if (!e) return { error: 'Keine erlaubte Hand', fizzle: true };
   return { entry: e };
+}
+
+/** Liegt keine erlaubte Hand vor (Wächter Echo/Fixierung), ist nur ein Fehlwurf möglich (0 Punkte, kostet 1 Wurf). */
+export function mustFizzle(run) {
+  if (!inRound(run) || !run.round.rolled) return false;
+  return !handsInThrow(run).some((h) => h.allowed);
 }
 
 /** Basiswerte der gewählten (oder besten erlaubten) Hand für die Live-Anzeige. */
@@ -365,22 +371,25 @@ export function scoreThrow(run, handId) {
   if (!inRound(run)) return fail('Keine laufende Partie');
   const round = run.round;
   if (!round.rolled) return fail('Erst würfeln');
-  const c = chooseEntry(run, handId);
-  if (c.error) return fail(c.error);
-  const entry = c.entry;
+  let c = chooseEntry(run, handId);
+  if (c.error && mustFizzle(run)) c = { entry: null };
+  else if (c.error) return fail(c.error);
+  const entry = c.entry || fizzleEntry(run);
   const scoreBefore = round.score;
-  const res = computeScore(run, entry);
+  const res = c.entry ? computeScore(run, entry) : fizzleScore(entry);
   run.money += res.money;
   if (res.money > 0) run.stats.moneyEarned += res.money;
   round.score += res.total;
-  round.playedHands.push(entry.handId);
-  round.lastHandRank = entry.rank;
   round.throwsUsed += 1;
   round.throwsLeft -= 1;
-  run.handPlays[entry.handId] = (run.handPlays[entry.handId] || 0) + 1;
   const st = run.stats;
   st.throws += 1;
-  st.hands[entry.handId] = (st.hands[entry.handId] || 0) + 1;
+  if (!entry.fizzle) {
+    round.playedHands.push(entry.handId);
+    round.lastHandRank = entry.rank;
+    run.handPlays[entry.handId] = (run.handPlays[entry.handId] || 0) + 1;
+    st.hands[entry.handId] = (st.hands[entry.handId] || 0) + 1;
+  }
   if (res.total > st.bestThrow) {
     st.bestThrow = res.total;
     st.bestHand = entry.handId;
@@ -400,6 +409,7 @@ export function scoreThrow(run, handId) {
 
   const cleared = round.score >= round.target;
   const result = {
+    fizzle: !!entry.fizzle,
     handId: entry.handId,
     handName: entry.name,
     level: entry.level,
@@ -429,6 +439,19 @@ export function scoreThrow(run, handId) {
     }
   }
   return { ok: true, result, events };
+}
+
+function fizzleEntry(run) {
+  const top = handsInThrow(run)[0];
+  return { handId: top.handId, name: 'Fehlwurf', rank: -1, level: top.level, scoring: [], fizzle: true };
+}
+
+function fizzleScore(entry) {
+  const steps = [
+    { type: 'hand', source: { kind: 'hand', index: -1 }, chips: 0, mult: 0 },
+    { type: 'text', text: 'Fehlwurf – keine erlaubte Hand', source: { kind: 'warden', index: -1 }, chips: 0, mult: 0 },
+  ];
+  return { handId: entry.handId, total: 0, chips: 0, mult: 0, steps, money: 0, retriggers: 0, scoring: [], events: [] };
 }
 
 function winRound(run) {

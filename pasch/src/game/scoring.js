@@ -59,9 +59,9 @@ export function handsInThrow(run) {
       allowed = false;
       reason = 'Das Echo: Diese Hand wurde schon gewertet';
     }
-    if (warden && warden.fixation && round.playedHands.length && round.playedHands[0] !== f.handId) {
+    if (warden && warden.fixation && round.playedHands.length && !contains(f.handId, round.playedHands[0])) {
       allowed = false;
-      reason = `Die Fixierung: Nur noch ${HANDS[round.playedHands[0]].name} erlaubt`;
+      reason = `Die Fixierung: Nur noch Hände mit ${HANDS[round.playedHands[0]].name} erlaubt`;
     }
     const scoring = [...new Set([...f.dice, ...stone.map((s, i) => (s ? i : -1)).filter((i) => i >= 0)])].sort((a, b) => a - b);
     return {
