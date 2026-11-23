@@ -52,7 +52,6 @@ export function createResult(app) {
     juice(totalEl, 0.3);
     btn.setDisabled(false);
     juice(btn, 0.25);
-    app.tutorial('cashout', () => null);
   }
 
   async function collect() {

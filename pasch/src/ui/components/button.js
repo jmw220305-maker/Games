@@ -37,6 +37,8 @@ export function button(label, opts = {}) {
   pressable(el, { down: 0.94 });
   if (hoverCapable()) el.addEventListener('pointerenter', () => { if (!disabled) audio.play('hover'); });
   el.addEventListener('pointerdown', () => { audio.init(); if (!disabled) audio.play('press'); });
+  // Nach Zeiger-Klick Fokus abgeben, damit die Leertaste nicht zusätzlich den Knopf auslöst
+  el.addEventListener('pointerup', () => setTimeout(() => el.blur(), 0));
   el.addEventListener('click', (e) => {
     if (disabled) {
       nope(el);

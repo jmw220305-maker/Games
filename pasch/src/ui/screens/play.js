@@ -21,7 +21,7 @@ export function createPlay(app) {
   const note = h('div.play-note');
   const el = h('section.sub.sub-play', note, trayWrap, h('div.hands', handsRow, handInfo), buttons);
 
-  const tray = createTray(trayWrap, { maxSize: 84, minSize: 34 });
+  const tray = createTray(trayWrap, { maxSize: 96, minSize: 34 });
   tray.onLand = (i, imp) => { audio.play('dice_clack', { gain: Math.min(2, imp || 0.6), pan: panOf(i) }); };
   tray.onBounce = (i, imp) => { audio.play('dice_clack', { gain: Math.min(1.2, (imp || 0.4) * 0.6), pan: panOf(i) }); };
   tray.onLaunch = () => { audio.play('dice_rattle'); };
@@ -251,8 +251,11 @@ export function createPlay(app) {
     }
     previewDice([]);
     for (let i = 0; i < tray.count; i++) tray.setHeld(i, false);
-    await playScore(app, res.result);
+    el.classList.add('play--scoring');
+    app.rv.hud.update({ keepScore: true, keepMoney: true, bump: true });
+    try { await playScore(app, res.result); } catch (err) { console.error(err); }
     handsRow.classList.remove('hands-row--used');
+    el.classList.remove('play--scoring');
     // Folge-Ereignisse
     const evs = res.events;
     for (const e of evs) {

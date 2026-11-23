@@ -14,8 +14,8 @@ export function createBelt(app) {
   const tCount = h('div.belt-count');
   const cCount = h('div.belt-count');
   const el = h('div.belt',
-    h('div.belt-group.belt-group--t', tRow, tCount),
-    h('div.belt-group.belt-group--c', cRow, cCount));
+    h('div.belt-group.belt-group--t', tRow, h('div.belt-label', 'Talismane'), tCount),
+    h('div.belt-group.belt-group--c', cRow, h('div.belt-label', 'Verbrauch'), cCount));
   const cards = new Map(); // uid → card api
   let menu = null;
   let dragging = null;

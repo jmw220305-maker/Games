@@ -30,6 +30,7 @@ export async function playScore(app, result) {
   const moneyBase = run.money - (result.money || 0);
   let moneyShown = moneyBase;
   hud.setMoney(moneyBase);
+  let n = 0;
 
   try {
     if (result.fizzle) {
@@ -37,7 +38,6 @@ export async function playScore(app, result) {
       return;
     }
     const remaining = Math.max(1, result.target - result.scoreBefore);
-    let n = 0;
     let flamesOn = false;
     const gap = () => Math.max(120, 450 * Math.pow(0.9, n));
 

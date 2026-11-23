@@ -84,7 +84,7 @@ export function createHud(app) {
         blindDesc.textContent = 'Laden';
         el.style.setProperty('--hue', '200');
       } else {
-        blindGlyph.textContent = w ? w.glyph : b.kind === 'small' ? '◔' : '◑';
+        blindGlyph.textContent = w ? w.glyph : b.kind === 'small' ? '✧' : '✦';
         blindName.textContent = w ? w.name : b.name;
         blindDesc.textContent = w ? w.desc : `Belohnung ${'$'.repeat(Math.min(6, b.reward))}`;
         el.style.setProperty('--hue', String(w ? w.hue : b.kind === 'small' ? 200 : 260));

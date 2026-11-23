@@ -29,7 +29,7 @@ export function createBlinds(app) {
       const inner = h('div.blind-in');
       inner.appendChild(h('div.blind-state', STATE[b.state] || ''));
       inner.appendChild(h('div.blind-name', b.name));
-      inner.appendChild(h('div.blind-medal', h('span', w ? w.glyph : b.kind === 'small' ? '◔' : '◑')));
+      inner.appendChild(h('div.blind-medal', h('span', w ? w.glyph : b.kind === 'small' ? '✧' : '✦')));
       if (w) {
         inner.appendChild(h('div.blind-warden', w.name));
         inner.appendChild(h('div.blind-desc', { html: rich(w.desc) }));
@@ -127,7 +127,6 @@ export function createBlinds(app) {
       const b = run.blinds[run.blindIndex];
       app.mood(b && b.kind === 'warden' ? 'warden' : 'round');
       render(true);
-      app.tutorial('blinds', () => null);
     },
     leave() {},
     refresh() { render(false); },

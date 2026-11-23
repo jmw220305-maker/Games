@@ -3,7 +3,7 @@ import { h } from '../dom.js';
 import * as G from '../../game/index.js';
 import { button } from '../components/button.js';
 import { createDie } from '../components/die.js';
-import { juice, idleSway, popIn, time, shake, particles, banner, springTo } from '../../fx/index.js';
+import { juice, idleSway, popIn, time, shake, particles } from '../../fx/index.js';
 import { audio } from '../../audio/audio.js';
 import { openModal } from '../overlay.js';
 import { attachTooltip } from '../tooltip.js';
@@ -123,9 +123,9 @@ export function newRunDialog(app) {
       const c = G.CUPS[id];
       const unlocked = G.meta.isCupUnlocked(p, id);
       const b = h(`button.cup${unlocked ? '' : '.cup--locked'}${id === cup ? '.cup--sel' : ''}`, { type: 'button', vars: { hue: c.hue } },
-        h('span.cup-glyph', unlocked ? cupGlyph(id) : '🔒︎'.replace('🔒︎', '✕')),
-        h('span.cup-name', c.name));
-      if (!unlocked) b.querySelector('.cup-glyph').textContent = '?';
+        h('span.cup-glyph', unlocked ? cupGlyph(id) : '?'),
+        h('span.cup-name', c.name),
+        !unlocked && c.unlock ? h('span.cup-req', G.ACHIEVEMENTS[c.unlock].desc) : null);
       b.addEventListener('click', () => {
         audio.init();
         if (!unlocked) { audio.play('deny'); juice(b, 0.2); showCup(id); return; }
@@ -189,7 +189,5 @@ export function newRunDialog(app) {
 }
 
 function cupGlyph(id) {
-  return { wood: '⊔', red: '⊔', blue: '⊔', gold: '⊔', black: '⊔', loaded: '⊔', tiny: '⊔', star: '⊔' }[id] || '⊔';
+  return { wood: '⊔', red: '⊔', blue: '⊔', gold: '$', black: '♠', loaded: '⚅', tiny: '▴', star: '✦' }[id] || '⊔';
 }
-
-export { banner, springTo };

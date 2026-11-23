@@ -122,6 +122,7 @@ export function openInspector(app, o = {}) {
     if (mode !== 'target') return null;
     const t = currentTarget();
     if (!t) return hintText();
+    if (spec.type === 'faces' && spec.exact && sel.faces.length < spec.count) return hintText();
     if (def) {
       const e = G.validateTarget(run, def, t) || (def.validate ? def.validate(run, t) : null);
       if (e) return e;

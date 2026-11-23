@@ -32,7 +32,7 @@ export function createPack(app) {
     const p = G.PACKS[run.pack.packId];
     head.innerHTML = '';
     head.appendChild(h('div.pack-glyph', { vars: { hue: p.hue } }, p.glyph));
-    head.appendChild(h('div.pack-titles', h('div.sub-title', p.name), h('div.sub-subtitle', { html: `Wähle <b>${run.pack.picksLeft}</b> · ${rich(p.desc)}` })));
+    head.appendChild(h('div.pack-titles', h('div.sub-title', p.name), h('div.sub-subtitle', { html: rich(p.desc) }), h('div.pack-picks', `Noch ${run.pack.picksLeft} ${run.pack.picksLeft === 1 ? 'Wahl' : 'Wahlen'}`)));
   }
 
   function actionsFor(o, i) {

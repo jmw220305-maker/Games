@@ -40,8 +40,6 @@ export function createShop(app) {
     const afford = run.money >= o.price;
     const b = button(o.kind === 'pack' ? 'Öffnen' : T.buy, { kind: 'gold', size: 's', sub: price, onClick: () => buy(section, index, c, b) });
     if (!afford) b.classList.add('btn--poor');
-    b.addEventListener('click', () => {}, { once: false });
-    wrap.appendChild(h('div.offer-price', price));
     wrap.appendChild(c.el);
     wrap.appendChild(b);
     c.el.addEventListener('click', () => { juice(c.el, 0.15); audio.play('card_pick', { gain: 0.4 }); });
@@ -77,10 +75,12 @@ export function createShop(app) {
     const free = s.freeRerolls > 0;
     bReroll.setLabel(T.shopReroll, free ? `gratis (${s.freeRerolls})` : money(s.rerollCost));
     bReroll.classList.toggle('btn--poor', !free && run.money < s.rerollCost);
-    for (const b of el.querySelectorAll('.offer .btn')) {
-      const wrap = b.closest('.offer');
-      void wrap;
-    }
+    const offers = [...s.offers, ...s.packs, s.voucher].filter(Boolean);
+    el.querySelectorAll('.offer').forEach((w, i) => {
+      const o = offers[i];
+      const b = w.querySelector('.btn');
+      if (o && b) b.classList.toggle('btn--poor', run.money < o.price);
+    });
   }
 
   async function buy(section, index, card, btn) {
