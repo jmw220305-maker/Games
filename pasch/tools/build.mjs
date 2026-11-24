@@ -111,7 +111,6 @@ body { position: fixed; inset: 0; touch-action: none; user-select: none; -webkit
 ${headStyles.replace(/:root\s*\{[^}]*\}/, '').replace(/html,\s*body\s*\{[^}]*\}/, '').replace(/body\s*\{[^}]*\}/, '')}
 ${css}`;
 const artifact = `<title>Pasch</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 ${fontLinks ? fontLinks + '\n' : ''}<style>
 ${artifactCss.trim()}
 </style>
