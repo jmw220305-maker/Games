@@ -110,8 +110,8 @@ export function makeExtraTalismans(TALISMANS) {
     },
     {
       id: 'tetra', name: 'Tetraeder', rarity: 'common', price: 4, glyph: '▲', hue: 15,
-      desc: '+5 Multi je gewertetem W4.',
-      onDie: (ctx, d) => (d.die.sides === 4 && d.value > 0 ? [mult(5)] : null),
+      desc: '+4 Multi je gewertetem W4.',
+      onDie: (ctx, d) => (d.die.sides === 4 && d.value > 0 ? [mult(4)] : null),
     },
     {
       id: 'octa', name: 'Oktaeder', rarity: 'common', price: 5, glyph: '◊', hue: 190,
@@ -269,7 +269,7 @@ export function makeExtraTalismans(TALISMANS) {
       },
     },
     {
-      id: 'regular', name: 'Stammkunde', rarity: 'uncommon', price: 5, glyph: '∮', hue: 90, copyable: false,
+      id: 'regular', name: 'Stammkunde', rarity: 'uncommon', price: 6, glyph: '∮', hue: 90, copyable: false,
       desc: 'Im Laden ist das erste Neu-mischen gratis; Talismane im Laden kosten $1 weniger.',
       onShopEnter: (run, t) => {
         run.shop.freeRerolls += 1;
@@ -318,11 +318,11 @@ export function makeExtraTalismans(TALISMANS) {
     },
     {
       id: 'conductor', name: 'Dirigent', rarity: 'rare', price: 8, glyph: '♩', hue: 300,
-      desc: '×(1 + 0,2 je anderem Talisman, der in dieser Wertung schon ausgelöst hat) Multi.',
+      desc: '×(1 + 0,15 je anderem Talisman, der in dieser Wertung schon ausgelöst hat) Multi.',
       onHand: (ctx) => {
         const seen = new Set();
         for (const s of ctx.steps) if (s.source.kind === 'talisman' && s.source.index !== ctx.currentIndex) seen.add(s.source.index);
-        return seen.size ? [xmult(1 + 0.2 * seen.size)] : null;
+        return seen.size ? [xmult(1 + 0.15 * seen.size)] : null;
       },
     },
     {

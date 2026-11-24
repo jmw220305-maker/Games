@@ -1,7 +1,7 @@
 # Pasch
 
 Ein Würfel-Roguelike für den Browser im Stil eines **Neon-Nachtmarkts**: wirf fünf Würfel, halte die guten,
-würfle nach und werte Hände wie Paar, Straße oder Pasch. Talismane, Sternbilder, Werkzeuge und besondere Würfel
+würfle nach und werte Hände wie Paar, Straße oder Pasch. 100 Talismane, Sternbilder, Werkzeuge und besondere Würfel
 lassen die Punkte explodieren – acht Einsätze mit je drei Partien und einem Wächter stehen zwischen dir und dem Sieg.
 
 Vanilla JavaScript, DOM/CSS-3D, Canvas/WebGL und WebAudio – keine Laufzeit-Abhängigkeiten, keine Bild- oder Audiodateien.

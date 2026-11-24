@@ -37,7 +37,7 @@ const CASES = [
   ['deep_sea', { values: [6, 6, 1, 2, 3], marks: ['azure'], hand: 'pair' }, (st) => { assert.deepEqual(amounts(st, 'chips'), [30]); assert.deepEqual(amounts(st, 'mult'), [3]); }],
   ['quarry', { values: [6, 6, 6, 2, 3], marks: ['stone'], hand: 'pair' }, (st) => { assert.deepEqual(amounts(st, 'chips'), [40]); assert.deepEqual(amounts(st, 'mult'), [4]); }],
   ['leadfoot', { values: [6, 6, 1, 2, 3], hand: 'pair', prep: (r) => { r.dice[0].material = 'lead'; } }, (st) => { assert.deepEqual(amounts(st, 'chips'), [40]); assert.deepEqual(amounts(st, 'mult'), [2]); }],
-  ['tetra', { values: [4, 4, 1, 2, 3], hand: 'pair', prep: (r) => toSides(r.dice[0], 4) }, (st) => assert.deepEqual(amounts(st, 'mult'), [5])],
+  ['tetra', { values: [4, 4, 1, 2, 3], hand: 'pair', prep: (r) => toSides(r.dice[0], 4) }, (st) => assert.deepEqual(amounts(st, 'mult'), [4])],
   ['octa', { values: [8, 8, 1, 2, 3], hand: 'pair', prep: (r) => toSides(r.dice[0], 8) }, (st) => assert.deepEqual(amounts(st, 'chips'), [40])],
   ['anchor', { values: [5, 5, 1, 2, 3], hand: 'pair' }, (st) => assert.deepEqual(amounts(st, 'mult'), [15])],
   ['anchor', { values: [1, 5, 5, 2, 3], hand: 'pair' }, (st) => assert.equal(st.length, 0)],
@@ -192,7 +192,7 @@ test('Dirigent zählt vorher ausgelöste Talismane, Leuchtturm verdoppelt den re
   let run = roundRun({ talismans: ['cup', 'snake_eye', 'conductor', 'prime'], values: [1, 1, 4, 5, 6], target: 1e12 });
   let res = G.scoreThrow(run, 'pair');
   assert.equal(res.result.handId, 'pair');
-  assert.deepEqual(amounts(tSteps(res, 2), 'xmult'), [1.4]);
+  assert.deepEqual(amounts(tSteps(res, 2), 'xmult'), [1.3]);
   run = roundRun({ talismans: ['conductor'], values: [1, 1, 4, 6, 6], target: 1e12 });
   res = G.scoreThrow(run, 'pair');
   assert.equal(tSteps(res).length, 0);

@@ -52,9 +52,13 @@ Reihenfolge (fest, wird 1:1 animiert):
 2. **Würfel** – jeder *wertende* Würfel von links nach rechts (Reihenfolge in der Schale):
    a. Augen als Punkte (+v). b. Material des Würfels. c. Prägung der Fläche. d. Talismane mit „wenn ein Würfel
    gewertet wird“ (links → rechts). e. Wiederholungen („Nochmal!“): Echo-Prägung, Talismane – wiederholt a–d.
+   Talismane, die auf Wiederholungen reagieren (Ewiges Echo), wirken direkt nach dem „Nochmal!“-Schritt.
 3. **Talismane** links → rechts: Effekte „auf die Hand“ (+Punkte, +Multi, ×Multi, Geld). Wachsende Talismane
-   (Kerbholz, Schwung, Kerbbrett) wachsen direkt vor ihrem eigenen Effekt („grow“-Schritt).
-4. Ergebnis = Punkte × Multi. Nachwirkungen (Glas zerspringt); Geld aus der Wertung wird gutgeschrieben.
+   (Kerbholz, Schwung, Kerbbrett, Pechvogel, Schneeball, Meilenstein) wachsen direkt vor ihrem eigenen Effekt
+   („grow“-Schritt). Steht ein Leuchtturm links daneben, folgt ein „Nochmal!“-Schritt des Leuchtturms und der
+   Talisman löst seine Hand-Effekte ein zweites Mal aus.
+4. Ergebnis = Punkte × Multi. Nachwirkungen (Glas zerspringt; Scherbensammler wächst; Zündschnur verliert eine
+   Ladung und verglüht ggf.); Geld aus der Wertung wird gutgeschrieben.
 
 Wertende Würfel = die Würfel, die die gewählte Hand bilden. Stein-Flächen werten **immer** mit.
 Wiederholungen werden je Würfel gesammelt (Echo-Prägung zuerst, dann Talismane links → rechts); jede erzeugt einen
@@ -140,15 +144,21 @@ W4 (1–4, Paare leichter), W6, W8 (1–8, mehr Punkte, Straßen 4–8 möglich)
 
 ## 4. Talismane (5 Plätze, wirken links → rechts, Reihenfolge per Drag & Drop)
 
+**100 Talismane**: 42 gewöhnlich, 32 ungewöhnlich, 18 selten, 8 legendär. Nr. 1–48 stehen in
+`src/game/content/talismans.js`, Nr. 49–100 („Teil 2“) in `src/game/content/talismans2.js`; beide landen im selben
+`TALISMANS`/`TALISMAN_IDS`-Objekt (Laden, Beutel, Seelenstein, Doppelgänger, Sammlung und Erfolge nutzen es direkt).
+
 Seltenheit im Laden 70 % gewöhnlich / 25 % ungewöhnlich / 5 % selten; legendär nur durch „Seelenstein“.
 Preise: gewöhnlich $4–5, ungewöhnlich $6–7, selten $8–10, legendär $20 (nur Verkaufswert relevant: $10).
-Verkaufswert = Hälfte des Grundpreises (abgerundet, min. $1). Keine Duplikate im Laden, solange man den Talisman
+Verkaufswert = Hälfte des Grundpreises (abgerundet, min. $1), beim Sparschwein plus sein angesparter Bonus. Keine Duplikate im Laden, solange man den Talisman
 besitzt (der Doppelgänger kann Duplikate erzeugen). Der genaue Preis jedes Talismans steht in
 `src/game/content/talismans.js`.
 
 Nicht kopierbar (Nachahmer): Sparstrumpf, Hamsterbecher, Rabatt, Würfelturm, Ausdauer, Nachahmer (kopiert aber
-einen Nachahmer weiter), Zweiter Atem, Sechster Sinn, Glücksfee, Schicksalsweber. Wachstum (Kerbholz, Schwung,
-Kerbbrett) wird vom Nachahmer nicht kopiert – er nutzt den aktuellen Stand des Nachbarn. Wachsende Talismane wachsen
+einen Nachahmer weiter), Zweiter Atem, Sechster Sinn, Glücksfee, Schicksalsweber, Goldader, Sparschwein,
+Schutzsiegel, Stammkunde, Leuchtturm, Wühltisch, Zinsfuß, Sternenthron, Zeitschleife. Wachstum (Kerbholz, Schwung,
+Kerbbrett, Pechvogel, Schneeball, Meilenstein, Scherbensammler) und Ladungsverbrauch (Zündschnur) werden vom
+Nachahmer nicht kopiert – er nutzt den aktuellen Stand des Nachbarn. Wachsende Talismane wachsen
 *vor* ihrem Effekt (die auslösende Hand zählt schon mit). Der Dieb deaktiviert einen Talisman für die ganze Partie.
 Balancing-Änderungen gegenüber dem ersten Entwurf sind mit (B) markiert.
 
@@ -208,6 +218,77 @@ Balancing-Änderungen gegenüber dem ersten Entwurf sind mit (B) markiert.
 46. `fate` **Schicksalsweber** – alle Einsen zählen als Stern (wild).
 47. `hollow_king` **Hohler König** – ×(1 + 1 je freiem Talismanplatz) Multi.
 48. `croupier` **Croupier** – ×1,25 Multi je gewerteter Fläche mit Prägung.
+
+### Teil 2 (Nr. 49–100)
+Neue Build-Richtungen: jede Augenzahl (2 Doppelnaht, 3 Dreiblatt, 4 Vierkant, 5 Handvoll, Hoch/Niedrig-Mischung
+Spannweite), je ein Talisman für jede bisher unbediente Hand, Prägungs- und Material-Builds, W4/W8, Positionen in der
+Schale (Anker links, Schlusslicht rechts, Treppe), Nachwurf-/Halten-Ökonomie (Sitzfleisch, Hasardeur, Schneeball,
+Letzte Runde, Zeitschleife), Risiko (Zündschnur verglüht, Scherbensammler lässt Glas öfter zerspringen),
+Geld/Laden (Sparschwein, Goldader, Stammkunde, Zinsfuß, Wühltisch), Verbrauchsgüter (Sterngucker, Meisterbrief),
+Wächter (Recke, Schutzsiegel) und Talisman-Zusammenspiel (Leerstelle, Dirigent, Leuchtturm, Wunderkammer, Prunksaal).
+Preis jeweils hinter dem Effekt. „Gehalten“ bei Sitzfleisch heißt: der Würfel war bei mindestens einem Nachwurf
+gehalten (`Rolled.kept`), nicht nur kurz vor dem Werten. Das Schutzsiegel senkt das Ziel beim Start der
+Wächter-Partie (die Partie-Übersicht zeigt vorher das volle Ziel). Der Sternenthron hebt beim Partiesieg die zuletzt
+gewertete Hand. Zahlen mit (B) wurden nach der Bot-Auswertung (§14) angepasst.
+**Gewöhnlich**
+49. `twofold` **Doppelnaht** – +4 Multi je gewerteter 2; gewertete 2en werden 1× wiederholt · $5.
+50. `trefoil` **Dreiblatt** – Jede gewertete 3 gibt +3 Multi je 3 unter den wertenden Würfeln · $5.
+51. `foursquare` **Vierkant** – +44 Punkte je gewerteter 4 · $4.
+52. `handful` **Handvoll** – +5 Multi und +15 Punkte je gewerteter 5 · $5.
+53. `span` **Spannweite** – +2 Multi je Auge Unterschied zwischen höchstem und niedrigstem Würfel (alle Würfel) · $4.
+54. `double_decker` **Doppeldecker** – +12 Multi, wenn die Hand Zwei Paare enthält (B, war +10) · $4.
+55. `footpath` **Trampelpfad** – ×1,5 Multi, wenn die gewählte Hand genau „Kleine Straße“ ist · $5.
+56. `cadence` **Taktgefühl** – +15 Multi, wenn die Hand Gleichklang ist · $5.
+57. `loner` **Einzelgänger** – Bei Streuung: +4 Multi und +Punkte in Höhe der doppelten Augensumme aller Würfel · $4.
+58. `deep_sea` **Tiefsee** – Gewertete Azur-Prägungen geben zusätzlich +30 Punkte und +3 Multi · $4.
+59. `quarry` **Steinbruch** – Gewertete Stein-Flächen geben zusätzlich +40 Punkte und +4 Multi · $4.
+60. `jinx` **Pechvogel** – Gewinnt dauerhaft +3 Multi, jedes Mal wenn eine Klee-Fläche kein Glück bringt · $5.
+61. `gold_vein` **Goldader** – Abrechnung: +$1 je Gold-Prägung auf deinen Würfeln (max. $4) *(nicht kopierbar)* · $5.
+62. `leadfoot` **Bleifuß** – Gewertete Blei-Würfel geben +40 Punkte und +2 Multi · $4.
+63. `tetra` **Tetraeder** – +4 Multi je gewertetem W4 (B, war +5) · $4.
+64. `octa` **Oktaeder** – Gewertete W8 geben +Punkte in Höhe ihrer fünffachen Augen · $5.
+65. `anchor` **Anker** – Wertet der linke Würfel der Schale, gibt er +Multi in Höhe seiner dreifachen Augen · $5.
+66. `stairs` **Treppe** – +3 Multi je Würfel, der mehr Augen zeigt als sein linker Nachbar · $4.
+67. `sitter` **Sitzfleisch** – Wertende Würfel, die mindestens einen Nachwurf lang gehalten wurden, geben +4 Multi · $5.
+68. `last_call` **Letzte Runde** – ×2 Multi im letzten Wurf einer Partie · $5.
+69. `piggy` **Sparschwein** – Sein Verkaufswert steigt nach jeder gewonnenen Partie um $2 *(nicht kopierbar)* · $4.
+70. `vacancy` **Leerstelle** – +3 Multi je freiem Talismanplatz · $4.
+
+**Ungewöhnlich**
+71. `topping_out` **Richtfest** – ×2 Multi, wenn die Hand ein Full House ist · $6.
+72. `highway` **Schnellstraße** – ×2,5 Multi, wenn die Hand eine Große Straße enthält (B, war ×2) · $7.
+73. `gang_of_four` **Viererbande** – Enthält die Hand einen Vierling, gibt jeder wertende Würfel +8 Multi (B, war +6) · $6.
+74. `wisp` **Irrlicht** – Gewertete Stern-Flächen geben +20 Punkte und +8 Multi · $6.
+75. `echo_well` **Brunnenecho** – Echo-Prägungen lösen eine zusätzliche Wiederholung aus · $6.
+76. `ossuary` **Beinhaus** – Gewertete Knochen-Würfel werden 1× wiederholt · $6.
+77. `burning_glass` **Brennglas** – Gewertete Prisma-Würfel geben zusätzlich ×1,5 Multi · $7.
+78. `tail_light` **Schlusslicht** – Wertet der rechte Würfel der Schale, wird er 2× wiederholt · $6.
+79. `gambler` **Hasardeur** – ×(1 + 0,25 je in diesem Wurf benutztem Nachwurf) Multi · $6.
+80. `snowball` **Schneeball** – ×(1 + 0,1·n) Multi; n wächst um 1 je Wurf, der ohne Nachwurf gewertet wird – jeder Nachwurf setzt n auf 0 · $7.
+81. `fuse` **Zündschnur** – ×3 Multi für die nächsten 6 Wertungen, dann verglüht sie · $6.
+82. `astronomer` **Sterngucker** – Gewinnt dauerhaft +3 Multi je benutztem Sternbild und +1 Multi je benutztem Werkzeug oder Mystik-Gut · $6.
+83. `champion` **Recke** – ×2 Multi in Wächter-Partien · $6.
+84. `ward_seal` **Schutzsiegel** – Zu Beginn jeder Wächter-Partie sinkt ihr Ziel um 20 % *(nicht kopierbar)* · $6.
+85. `regular` **Stammkunde** – Im Laden ist das erste Neu-mischen gratis; Talismane im Laden kosten $1 weniger *(nicht kopierbar)* · $6.
+86. `alchemist` **Alchemist** – +5 Multi je Würfel mit Material in der Schale (Phantom zählt doppelt) · $6.
+87. `master` **Meisterbrief** – +4 Multi je Stufe der gewerteten Hand über Stufe 1 · $6.
+
+**Selten**
+88. `crystal_ball` **Kristallkugel** – Gewertete Kristall-Würfel werden 1× wiederholt; nicht wertende Kristall-Würfel geben je ×1,5 Multi · $8.
+89. `milestone` **Meilenstein** – ×(1 + 0,04·n) Multi; n wächst um 1 je gewertetem Wurf · $9.
+90. `conductor` **Dirigent** – ×(1 + 0,15 je anderem Talisman, der in dieser Wertung schon ausgelöst hat) Multi (B, war 0,25) · $8.
+91. `lighthouse` **Leuchtturm** – Der Talisman rechts daneben löst seine Effekte auf die Hand 2× aus *(nicht kopierbar)* · $9.
+92. `curio` **Wunderkammer** – ×1,3 Multi je seltenem oder legendärem Talisman (auch sich selbst) · $8.
+93. `ruby_heart` **Rubinherz** – Gewertete Rubin-Prägungen geben zusätzlich ×1,5 Multi · $8.
+94. `shard_collector` **Scherbensammler** – Glas zerspringt doppelt so oft; ×(1 + 0,5 je seit dem Kauf zersprungener Glasfläche) Multi · $8.
+95. `rummage` **Wühltisch** – Beutel bieten eine Auswahl mehr; jedes Öffnen eines Beutels gibt +$1 *(nicht kopierbar)* · $8.
+96. `compound` **Zinsfuß** – Zinsen gibt es schon je $4 statt je $5, und die Zinsobergrenze steigt um $5 *(nicht kopierbar)* · $8.
+
+**Legendär (nur durch Seelenstein)**
+97. `eternal_echo` **Ewiges Echo** – Alle wertenden Würfel werden 1× wiederholt; jede Wiederholung („Nochmal!“) gibt ×1,2 Multi · $20.
+98. `star_throne` **Sternenthron** – Nach jeder gewonnenen Partie steigt die zuletzt gewertete Hand um 1 Stufe *(nicht kopierbar)* · $20.
+99. `grand_hall` **Prunksaal** – ×(1 + 0,5 je anderem Talisman) Multi · $20.
+100. `time_loop` **Zeitschleife** – Der erste Nachwurf jedes Wurfs kostet keinen Nachwurf *(nicht kopierbar)* · $20.
 
 ---
 
@@ -413,6 +494,24 @@ in Wächter-Partien.
 
 Andere Becher (150 Läufe, Seed C, nach Anpassung): Rot 31 %, Blau 34 %, Gold 33 %, Schwarz 24 %, Gezinkt 23 %,
 Vier 29 %, Stern 37 %. Stufen (Holz): 2 ≈ 7 %, 3 ≈ 3 %, 5 ≈ 1 % (bewusst steil, für Könner).
+
+**Nach Talisman-Erweiterung auf 100** (Bot kennt alle neuen Talismane: Neuwertung inkl. echter Würfe-/Nachwurf-
+Reste und Wächter-Partien, Faktoren für Lauf-/Laden-Effekte, ordnet Nachahmer/Leuchtturm/Dirigent/Prunksaal per
+Probe-Wertung an; `node tools/sim.mjs --by-talisman`):
+Holzbecher Stufe 1, je 400 Läufe: Seed A 14,3 % · B 20,3 % · C 19,5 % · D 21,3 % (Mittel ≈ 19 %; vorher Seed B
+200 Läufe 20,5 %). Einsatz 1 geschafft 96–98 %. Rot 23 %, Vier 32 % (je 150 Läufe, Seed C).
+
+| Einsatz geschafft | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Seed B (400 Läufe, 100 Talismane) | 98 % | 89 % | 78 % | 61 % | 47 % | 34 % | 27 % | 20 % |
+
+Ausreißer-Prüfung je Talisman: „Lift“ = Siegquote der Läufe, die den Talisman irgendwann besaßen, geteilt durch die
+Siegquote aller Läufe, die den Einsatz seines ersten Besitzes erreicht haben (so zählen spät gekaufte Talismane nicht
+automatisch als stark). Erste Messung (1.200 Läufe): Dirigent Lift 1,60 bei 62 % Siegen (beim Vierbecher sogar 2,2)
+→ ×(1 + 0,15 je Talisman) statt 0,25; Tetraeder +4 statt +5 (Vierbecher 36 % → 32 %). Schwächste Hand-Talismane
+gestärkt: Viererbande +8 (Lift 0,66), Schnellstraße ×2,5 (0,70), Doppeldecker +12 (0,78). Danach liegt kein neuer
+Talisman über Lift 1,6 (höchste: Dirigent ≈ 1,35–1,55, Kristallkugel/Brennglas ≈ 1,3–1,5 bei kleinen Stichproben,
+Recke/Anker/Spannweite ≈ 1,25); der Altbestand Würfelgeist (≈ 1,65) bleibt unverändert.
 
 Änderungen gegenüber dem ersten Entwurf (alle oben eingetragen):
 - Hände: Basis-Punkte und Punkte je Stufe ×2, Basis-Multi +1 (Einsatz 1 sonst nur ~55 % geschafft).

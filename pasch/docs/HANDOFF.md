@@ -65,3 +65,10 @@
 - Verdeckt (`.card--down`) zeigen Formen ihre dunkle Silhouette + „?“, Talismane die Kartenrückseite.
 - Kleine Symbole `shapeIcon(form)` in Laden-Etiketten, Tooltips, Kartenmenü; Toasts nehmen `{shape}`.
 - Animationen nur transform/opacity (Legendär-Schimmer, Goldfolie, Mystik-Nebel, Edelstein-Glimmen); `body.fx-reduced` stoppt sie.
+
+## Talismane 49–100 (talismans2.js)
+- `makeExtraTalismans(TALISMANS)` liefert die 52 neuen Definitionen; talismans.js hängt sie an `T` an → ein gemeinsames
+  `TALISMANS`/`TALISMAN_IDS` (100). Neue generische Hooks/Flags: siehe Kopf von talismans.js und ARCHITECTURE §2.
+- Karten-Zähler: `def.badge(t)` (belt.js `badgeFor` fragt ihn zuerst). Zündschnur zerbricht direkt aus `scoreThrow`
+  (`talismanBreak` → play.js `breakCard`), Leuchtturm erzeugt `retrigger`-Schritte ohne `dieIndex` (Popup an der Karte).
+- Bot-Auswertung je Talisman: `node tools/sim.mjs --runs 400 --seed B --by-talisman` (Lift-Spalte, DESIGN §14).

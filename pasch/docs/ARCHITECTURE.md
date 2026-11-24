@@ -63,7 +63,8 @@ Face  = { v: int /*0 = leer*/, mark: null|'gold'|'ruby'|'azure'|'star'|'echo'|'g
 Die   = { id: string, sides: 4|6|8, faces: Face[], material: null|'lead'|'bone'|'prism'|'crystal'|'phantom',
           src?: uid /* Würfel gehört zu einem Talisman (Sechster Sinn) – zählt nicht gegen das Limit */ }
 Rolled = { dieId, faceIndex, v /* Logikwert inkl. Stupser – bei hidden NICHT anzeigen ("?") */, hidden: bool,
-           held: bool, shackled: bool /*Fessel: nicht haltbar*/, nudged: int /*Summe der Stupser*/ }
+           held: bool, shackled: bool /*Fessel: nicht haltbar*/, nudged: int /*Summe der Stupser*/,
+           kept?: bool /*war bei mindestens einem Nachwurf dieses Wurfs gehalten (Sitzfleisch)*/ }
 Talisman = { uid: string, id: string, state: {} /*z.B. {n:3} für skalierende*/, disabled: bool /*Dieb*/ }
 Consumable = { uid, id }
 Run = {
@@ -115,9 +116,32 @@ export const TALISMANS = { snake_eye: {
   //   [{type:'chips',amount}|{type:'mult',amount}|{type:'xmult',factor}|{type:'money',amount}|{type:'text'|'grow',text}]
   onDie(ctx, d, t), retrigger(ctx, d, t) -> int, preHand(ctx, t) /*Wachstum, nicht kopiert*/, onHand(ctx, t),
   onScored(ctx, t), modifyRules(rules, run, t), onReroll(run, t, round) -> events, onRoundEnd(run, t, info) -> events,
-  cashout(run, t) -> $, onAcquire(run, t), onRemove(run, t), describe(t, run) -> string|null
+  cashout(run, t) -> $, onAcquire(run, t), onRemove(run, t), describe(t, run) -> string|null,
+  // seit der Erweiterung auf 100 Talismane (talismans2.js) zusätzlich, alle optional und generisch:
+  onRetrigger(ctx, d, t)        // Effekte direkt nach jedem „Nochmal!“-Schritt (vor der Wiederholung), z. B. Ewiges Echo
+  echoRight: true               // Flag: der rechte Nachbar löst onHand ein 2. Mal aus (retrigger-Schritt dieses Talismans)
+  glassShatterMul: k            // Flag: Glas-Zerspring-Chance ×k (nur Original, nicht Kopie)
+  onRoundStart(run, t, round) -> events      // startBlind, nach Regeln/Dieb (Schutzsiegel senkt round.target)
+  onConsumable(run, t, consumableDef) -> events   // nach jedem benutzten Verbrauchsgut (auch Sternbild aus Beuteln)
+  onPackOpen(run, t, packId) -> events       // nach dem Öffnen eines Beutels (Kauf oder Marke)
+  onShopEnter(run, t) -> events              // beim Aufbau des Ladens (nach der Abrechnung)
+  freeReroll(run, t, round) -> bool          // true: dieser Nachwurf verbraucht keinen Nachwurf (Vorrat muss > 0 sein)
+  priceMod(price, kind, run, t) -> price     // Ladenpreis (kind: 'talisman'|'consumable'|'pack'|'voucher'), min. $1
+  sellBonus(t) -> $                          // Aufschlag auf den Verkaufswert (Sparschwein)
+  modifyEconomy(eco, run, t)                 // eco = {interestCap, interestStep} → economy.interestRules/interest
+  modifyPack(p, run, t)                      // p = {size, picks} → shop.packShape/packChoices
+  badge(t) -> string|null                    // kurzer Kartentext für Zähler/Ladungen (belt.js nutzt ihn vor dem Fallback)
 }}
 ```
+Wertungs-Kontext `ctx` (scoring.js): `run, round, handId, rank, level, scoring, values, rolled, sumAll, modeValue,
+highestScoringIndex, rerollsLeft, rerollsUsedThisThrow, throwsUsed, throwsLeft` (vor dem Abzug; 1 = letzter Wurf),
+`warden, contains(h), steps` (bisherige Schritte, nur lesen), `currentIndex` (Talisman-Index des laufenden Hooks),
+`unlucky` (Klee ohne Glück), in `onScored` zusätzlich `shattered` und `total`. `d` enthält zusätzlich `kept`.
+`onScored` darf neben Geld/Text `{type:'break', text}` liefern: es entsteht ein `text`-Schritt des Talismans, das
+Event `talismanBreak {uid}` und der Talisman wird nach der Wertung entfernt (Vorschau auf einer Kopie ändert nichts).
+Punkte/Multi aus `onScored` werden ignoriert (das Ergebnis steht dann schon fest).
+Alle Run-Hooks laufen links → rechts und überspringen deaktivierte Talismane (Dieb). Run-Hook-Talismane sind
+`copyable:false`.
 `CONSUMABLES` (`kind:'star'|'tool'|'mystic'`, `price`, `hand` bei Sternbildern, `target`, `usableIn: 'any'|'round'`,
 `use(run, target) -> events`, `validate?(run, target) -> Fehlertext|null`), `WARDENS` (`minAnte`, `finale`,
 `targetMul?`, Regel-Flags: `leaden, rerollsZero, throwsOne, noRepeat, fixation, fogCount, eclipse, toll, shackle,
@@ -187,7 +211,7 @@ pickFromPack(run, choiceIndex, target?)
 skipPack(run)
 leaveShop(run)                     // → nächste Partie ('blinds'), nach dem Wächter neuer Einsatz (event newAnte)
 continueEndless(run)               // 'won' → 'cashout', run.endless = true
-getRoundRules(run) -> { throws, rerolls, interestCap, talismanSlots, consumableSlots, diceLimit, target, reward,
+getRoundRules(run) -> { throws, rerolls, interestCap, interestStep, talismanSlots, consumableSlots, diceLimit, target, reward,
                         wardenId, throwsLeft?, rerollsLeft? }  // effektive Werte inkl. Talismane/Privilegien/Wächter/Stufe/Marken
 handTable(run) -> [{handId, name, level, chips, mult, plays}]   // Info-Tabelle (geheime erst nach dem ersten Werten)
 describeTalisman(t, run), describeConsumable(c, run), describeHand(id, run), describeWarden(id),
@@ -209,7 +233,8 @@ Step = {
       | 'mult'      // +Multi:               {amount}
       | 'xmult'     // ×Multi:               {factor}
       | 'money'     // Geld:                 {amount}
-      | 'retrigger' // „Nochmal!“            {}   – steht VOR der Wiederholung des Würfels
+      | 'retrigger' // „Nochmal!“            {}   – steht VOR der Wiederholung des Würfels; ohne dieIndex (Quelle
+                    //                                     Leuchtturm): der rechte Nachbar-Talisman löst gleich noch einmal aus
       | 'text'      // Hinweis (z.B. „Kein Glück“, „Groll: keine Augen“, „Kälte: …“, „Fehlwurf …“) {text}
       | 'shatter'   // Glasfläche zerspringt {}   (in den Nachwirkungen)
       | 'grow',     // skalierender Talisman wächst {text}
@@ -223,9 +248,10 @@ Die UI braucht nichts nachzurechnen: sie zeigt nach jedem Schritt `chips`/`mult`
 ### Event-Typen (Rückgaben der Aktionen)
 `roll {dice:[i], results:[v|null]}` · `hold/unhold {die}` · `flip {die, v, faceIndex}` · `nudge {die, v}` ·
 `money {amount, reason}` · `tag {id}` · `tagUsed {id}` · `warden {id}` · `talismanDisabled {uid}` ·
-`talismanGrow {uid, text}` · `talismanBreak {uid}` · `faceShatter {dieId, faceIndex}` · `roundWon` · `roundLost` ·
-`runWon` · `extraThrow {uid}` (Zweiter Atem) · `newAnte {ante, wardenId}` · `shopReroll` · `packOpen {packId}` ·
-`packClosed` · `gainTalisman {uid, id}` · `gainConsumable {uid, id}` · `consumableUsed {id}` · `levelUp {handId, level}` ·
+`talismanGrow {uid, text}` (auch als allgemeines „Talisman hat gewirkt“ außerhalb der Wertung, z. B. Schutzsiegel,
+Sparschwein) · `talismanBreak {uid}` (Bröckelnde Krone am Partieende, Zündschnur direkt aus `scoreThrow`) · `faceShatter {dieId, faceIndex}` · `roundWon` · `roundLost` ·
+`runWon` · `extraThrow {uid}` (Zweiter Atem) · `freeReroll` (Nachwurf ohne Verbrauch, Zeitschleife) · `newAnte {ante, wardenId}` · `shopReroll` · `packOpen {packId}` ·
+`packClosed` · `gainTalisman {uid, id}` · `gainConsumable {uid, id}` · `consumableUsed {id}` · `levelUp {handId, level}` (Sternbild, Wunschbrunnen, Sternenthron am Partieende) ·
 `faceChange {dieId, faceIndex, v?, mark?}` · `dieChange {dieId, material?|sides?}` · `gainDie {dieId}` ·
 `replaceDie {index, dieId, oldDieId}` · `voucher {id}` · `sold {kind, uid}` · `move {from, to}` ·
 `message {text}` · aus `meta`: `unlock {kind:'cup'|'stake', id, stake?}` · `achievement {id}`.
@@ -264,6 +290,10 @@ Erwartungswert steigt, Talismankauf nach echtem Nutzen (letzte 24 Würfe des Bot
 levelt die Haupthand, benutzt Werkzeuge mit einfacher Zielwahl. Meldet Siegquote, Endstation je Einsatz, Niederlagen
 nach Partie/Wächter, Punkte je Wurf und Geld je Einsatz. `playRun(seed, {cup, stake, fast})` ist exportiert
 (`fast:true` = Preis-Heuristik statt Neuwertung, für Tests). Ergebnisse: DESIGN §14.
+`--by-talisman [--min-runs K]` (auch bei `--verbose`): je Talisman Läufe mit Besitz, Siegquote, Ø End-Einsatz, erwartete
+Siegquote ab dem Einsatz des ersten Besitzes und „Lift“ (Verhältnis; > 1,6 wird als möglicher Ausreißer markiert).
+Snapshots für die Neuwertung merken sich übrige Würfe/Nachwürfe und Partieart (Letzte Runde, Recke werden realistisch
+bewertet); Nachahmer, Leuchtturm, Dirigent und Prunksaal werden nach jedem Laden per Probe-Wertung umsortiert.
 
 ---
 
