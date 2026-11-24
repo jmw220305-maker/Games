@@ -10,16 +10,29 @@ const SCENARIOS = [
   { values: [1, 2, 1, 2, 1] },
   { values: [2, 2, 4, 4, 6], marks: ['gold', 'ruby'] },
   { values: [5, 5, 3, 2, 1], marks: ['clover', 'clover', 'echo'] },
+  { values: [3, 3, 3, 3, 3], marks: ['azure', 'stone', 'star', 'ruby', 'echo'] },
+  { values: [4, 4, 4, 8, 4], prep: (run) => {
+    run.dice[0].material = 'crystal';
+    run.dice[1].material = 'prism';
+    run.dice[2].material = 'bone';
+    run.dice[3] = { ...run.dice[3], sides: 8, material: 'lead', faces: [1, 2, 3, 4, 5, 6, 7, 8].map((v) => ({ v, mark: null })) };
+    run.dice[4] = { ...run.dice[4], sides: 4, faces: [1, 2, 3, 4].map((v) => ({ v, mark: null })) };
+    run.round.rolled[3].faceIndex = Math.min(run.round.rolled[3].faceIndex, 7);
+    run.round.rolled[4].faceIndex = Math.min(run.round.rolled[4].faceIndex, 3);
+  } },
 ];
 
 // Talismane, die nicht direkt in der Wertung Schritte erzeugen
-const PASSIVE = new Set(['stocking', 'hoard', 'rebate', 'tower', 'stamina', 'second_wind', 'sixth_sense', 'fate', 'fairy', 'copycat', 'spirit', 'patience']);
+const PASSIVE = new Set(['stocking', 'hoard', 'rebate', 'tower', 'stamina', 'second_wind', 'sixth_sense', 'fate', 'fairy', 'copycat', 'spirit', 'patience',
+  // Teil 2: wirken über Run-Hooks oder brauchen Vorlauf (Warden, Nachwurf, Zustand) – eigene Tests in talismans2.test.js
+  'gold_vein', 'piggy', 'ward_seal', 'regular', 'rummage', 'compound', 'star_throne', 'time_loop', 'jinx', 'shard_collector',
+  'astronomer', 'champion', 'last_call', 'gambler', 'sitter', 'master', 'conductor']);
 
 test('Sammeltest: jeder Talisman wertet in mehreren Würfen ohne Fehler und löst aus', () => {
   for (const id of G.TALISMAN_IDS) {
     let fired = 0;
     for (const sc of SCENARIOS) {
-      const run = roundRun({ talismans: [id, 'cup'], values: sc.values, marks: sc.marks });
+      const run = roundRun({ talismans: [id, 'cup'], values: sc.values, marks: sc.marks, prep: sc.prep });
       run.money = 30;
       G.toggleHold(run, 0);
       const hands = G.availableHands(run);
@@ -40,7 +53,9 @@ test('Sammeltest: jeder Talisman wertet in mehreren Würfen ohne Fehler und lös
 });
 
 test('alle Talismane haben Daten für die Darstellung', () => {
-  assert.equal(G.TALISMAN_IDS.length, 48);
+  assert.equal(G.TALISMAN_IDS.length, 100);
+  assert.equal(new Set(G.TALISMAN_IDS).size, 100);
+  assert.equal(new Set(G.TALISMAN_IDS.map((id) => G.TALISMANS[id].name)).size, 100, 'Namen eindeutig');
   for (const id of G.TALISMAN_IDS) {
     const t = G.TALISMANS[id];
     assert.ok(t.name && t.desc && t.glyph && t.glyph.length <= 3, id);
@@ -50,7 +65,7 @@ test('alle Talismane haben Daten für die Darstellung', () => {
   }
   const counts = { common: 0, uncommon: 0, rare: 0, legendary: 0 };
   for (const id of G.TALISMAN_IDS) counts[G.TALISMANS[id].rarity]++;
-  assert.deepEqual(counts, { common: 20, uncommon: 15, rare: 9, legendary: 4 });
+  assert.deepEqual(counts, { common: 42, uncommon: 32, rare: 18, legendary: 8 });
 });
 
 const mults = (res, i) => res.result.steps.filter((s) => s.source.kind === 'talisman' && s.source.index === i);

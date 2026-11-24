@@ -181,7 +181,10 @@ function playThrow(run, bot) {
   }
   const now = bestScoreNow(run);
   if (bot.snapshots) {
-    bot.snapshots.push({ rolled: JSON.parse(JSON.stringify(round.rolled)), dieIds: run.dice.map((d) => d.id), rerollsUsed: round.rerollsUsedThisThrow, throwsUsed: round.throwsUsed });
+    bot.snapshots.push({
+      rolled: JSON.parse(JSON.stringify(round.rolled)), dieIds: run.dice.map((d) => d.id), rerollsUsed: round.rerollsUsedThisThrow,
+      throwsUsed: round.throwsUsed, throwsLeft: round.throwsLeft, rerollsLeft: round.rerollsLeft, kind: round.kind,
+    });
     if (bot.snapshots.length > 24) bot.snapshots.shift();
   }
   res = G.scoreThrow(run, now ? now.handId : undefined);
@@ -202,8 +205,13 @@ function lightClone(run) {
   };
 }
 
-const PASSIVE_GAIN = { stamina: 1.22, tower: 1.08, sixth_sense: 1.18, second_wind: 1.06, hoard: 1.04, loaded: 0.94, stocking: 1.03, rebate: 1.02 };
-const GROWTH_GAIN = { tally: 1.1, spirit: 1.15, tally_board: 1.05, momentum: 1.03 };
+const PASSIVE_GAIN = {
+  stamina: 1.22, tower: 1.08, sixth_sense: 1.18, second_wind: 1.06, hoard: 1.04, loaded: 0.94, stocking: 1.03, rebate: 1.02,
+  // Teil 2: Wirkung außerhalb der Wertung bzw. begrenzte Lebensdauer
+  piggy: 1.03, gold_vein: 1.01, ward_seal: 1.08, regular: 1.03, rummage: 1.04, compound: 1.04, star_throne: 1.3,
+  time_loop: 1.2, fuse: 0.55,
+};
+const GROWTH_GAIN = { tally: 1.1, spirit: 1.15, tally_board: 1.05, momentum: 1.03, snowball: 1.12, milestone: 1.25, astronomer: 1.15, jinx: 1.03, shard_collector: 1.05 };
 
 function configScore(run, bot, talismans) {
   const snaps = bot.snapshots.filter((sn) => sn.dieIds.length === run.dice.length);
@@ -216,7 +224,7 @@ function configScore(run, bot, talismans) {
       if (base.dice[i].id !== sn.dieIds[i]) return;
     });
     base.round = {
-      kind: 'small', wardenId: null, target: 1e12, score: 0, throwsLeft: 1, rerollsLeft: 1,
+      kind: sn.kind || 'small', wardenId: null, target: 1e12, score: 0, throwsLeft: sn.throwsLeft || 1, rerollsLeft: sn.rerollsLeft === undefined ? 1 : sn.rerollsLeft,
       rolled: sn.rolled.map((r, i) => ({ ...r, faceIndex: Math.min(r.faceIndex, base.dice[i].faces.length - 1) })),
       rerollsUsedThisThrow: sn.rerollsUsed, rerollsUsed: sn.rerollsUsed, throwsUsed: sn.throwsUsed, playedHands: [], lastHandRank: -1,
       flags: { grudged: [], rebate: 0 },
@@ -263,6 +271,25 @@ function talismanGain(run, bot, id) {
     if (g > best.gain) best = { gain: g, replace: t.uid };
   });
   return best;
+}
+
+// Positionsabhängige Talismane (Nachahmer, Leuchtturm, Dirigent) an die beste Stelle schieben.
+const POSITIONAL = new Set(['copycat', 'lighthouse', 'conductor', 'grand_hall']);
+function arrangeTalismans(run, bot) {
+  if (bot.fast || !run.talismans.some((t) => POSITIONAL.has(t.id))) return;
+  for (const t of run.talismans.filter((x) => POSITIONAL.has(x.id))) {
+    const from = run.talismans.indexOf(t);
+    let best = { score: configScore(run, bot, run.talismans), to: from };
+    for (let to = 0; to < run.talismans.length; to++) {
+      if (to === from) continue;
+      const order = run.talismans.slice();
+      order.splice(from, 1);
+      order.splice(to, 0, t);
+      const sc = configScore(run, bot, order);
+      if (sc > best.score * 1.001) best = { score: sc, to };
+    }
+    if (best.to !== from) G.moveTalisman(run, from, best.to);
+  }
 }
 
 function mainHand(run) {
@@ -482,6 +509,7 @@ function handleShop(run, bot) {
     break;
   }
   useInventory(run);
+  arrangeTalismans(run, bot);
 }
 
 // ------------------------------------------------------------------ Lauf
@@ -503,13 +531,18 @@ export function playRun(seed, opts = {}) {
   const log = [];
   const trace = { anteMoney: {}, anteBest: {}, anteThrows: {} };
   let steps = 0;
+  const owned = new Map(); // id → Einsatz des ersten Besitzes
   while (steps++ < 5000) {
+    for (const t of run.talismans) if (!owned.has(t.id)) owned.set(t.id, run.ante);
     // Talisman-Vorlieben grob aktualisieren
     bot.handBias = {};
     for (const t of run.talismans) {
       if (t.id === 'ladder' || t.id === 'chain') bot.handBias.smallrun = (bot.handBias.smallrun || 0) + 3;
       if (t.id === 'triad') bot.handBias.triple = (bot.handBias.triple || 0) + 3;
       if (t.id === 'pentagram') bot.handBias.pasch = (bot.handBias.pasch || 0) + 10;
+      const BIAS = { highway: ['bigrun', 6], footpath: ['smallrun', 3], topping_out: ['fullhouse', 5], gang_of_four: ['quad', 5],
+        double_decker: ['twopair', 3], cadence: ['parity', 4], loner: ['scatter', 2] };
+      if (BIAS[t.id]) bot.handBias[BIAS[t.id][0]] = (bot.handBias[BIAS[t.id][0]] || 0) + BIAS[t.id][1];
     }
     switch (run.phase) {
       case 'blinds': {
@@ -539,7 +572,7 @@ export function playRun(seed, opts = {}) {
         break;
       case 'won':
       case 'lost':
-        return { run, won: run.phase === 'won', ante: run.ante, trace, log };
+        return { run, won: run.phase === 'won', ante: run.ante, trace, log, owned: [...owned.keys()], ownedAt: Object.fromEntries(owned) };
       default:
         throw new Error('Unbekannte Phase ' + run.phase);
     }
@@ -550,7 +583,7 @@ export function playRun(seed, opts = {}) {
 // ------------------------------------------------------------------ CLI
 
 function parseArgs(argv) {
-  const a = { runs: 200, seed: 'SIM', cup: 'wood', stake: 1, verbose: false };
+  const a = { runs: 200, seed: 'SIM', cup: 'wood', stake: 1, verbose: false, byTalisman: false, minRuns: 5 };
   for (let i = 2; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--runs') a.runs = +argv[++i];
@@ -559,6 +592,8 @@ function parseArgs(argv) {
     else if (k === '--stake') a.stake = +argv[++i];
     else if (k === '--samples') a.samples = +argv[++i];
     else if (k === '--verbose') a.verbose = true;
+    else if (k === '--by-talisman') a.byTalisman = true;
+    else if (k === '--min-runs') a.minRuns = +argv[++i];
   }
   return a;
 }
@@ -574,6 +609,11 @@ function main() {
   const anteMoney = {};
   const talismanWins = {};
   const talismanSeen = {};
+  const ownedRuns = {};
+  const ownedWins = {};
+  const ownedAnte = {};
+  const firstAnte = {};
+  const finals = [];
   for (let i = 0; i < a.runs; i++) {
     const seed = `${a.seed}-${i}`;
     const r = playRun(seed, { cup: a.cup, stake: a.stake, samples: a.samples });
@@ -590,6 +630,13 @@ function main() {
       (anteThrows[ante] = anteThrows[ante] || []).push(...list);
     }
     for (const [ante, m] of Object.entries(r.trace.anteMoney)) (anteMoney[ante] = anteMoney[ante] || []).push(m);
+    finals.push({ ante: r.ante, won: r.won });
+    for (const id of r.owned) {
+      (firstAnte[id] = firstAnte[id] || []).push(r.ownedAt[id]);
+      ownedRuns[id] = (ownedRuns[id] || 0) + 1;
+      if (r.won) ownedWins[id] = (ownedWins[id] || 0) + 1;
+      ownedAnte[id] = (ownedAnte[id] || 0) + r.ante;
+    }
     for (const t of r.run.talismans) {
       talismanSeen[t.id] = (talismanSeen[t.id] || 0) + 1;
       if (r.won) talismanWins[t.id] = (talismanWins[t.id] || 0) + 1;
@@ -622,6 +669,26 @@ function main() {
     const m = anteMoney[ante] || [];
     const mm = m.length ? m.reduce((s, x) => s + x, 0) / m.length : 0;
     console.log(`  Einsatz ${ante}: ${Math.round(med)} / ${Math.round(mean)}  (Ziel Basis ${G.anteBase(+ante)})  $${mm.toFixed(1)}`);
+  }
+  if (a.verbose || a.byTalisman) {
+    const base = wins / a.runs;
+    console.log(`Je Talisman (irgendwann besessen): Läufe / Siegquote / Ø End-Einsatz (gesamt ${(100 * base).toFixed(1)} %), min. ${a.minRuns} Läufe:`);
+    // Erwartete Siegquote eines Laufs, der Einsatz e erreicht hat (fairer Vergleich: späte Käufe überleben länger)
+    const winFrom = (e) => {
+      const reach = finals.filter((f) => f.ante >= e);
+      return reach.length ? reach.filter((f) => f.won).length / reach.length : 0;
+    };
+    const rows = Object.keys(ownedRuns).filter((id) => ownedRuns[id] >= a.minRuns)
+      .map((id) => {
+        const exp = firstAnte[id].reduce((acc, e) => acc + winFrom(e), 0) / firstAnte[id].length;
+        const wr = (ownedWins[id] || 0) / ownedRuns[id];
+        return { id, n: ownedRuns[id], wr, ante: ownedAnte[id] / ownedRuns[id], exp, lift: exp > 0 ? wr / exp : 0 };
+      })
+      .sort((x, y) => y.lift - x.lift);
+    console.log('  (Lift = Siegquote mit Talisman ÷ Siegquote aller Läufe, die den Einsatz des ersten Besitzes erreicht haben)');
+    for (const r of rows) console.log(`  ${r.id.padEnd(16)} ${String(r.n).padStart(4)}  ${(100 * r.wr).toFixed(1).padStart(5)} %  ${r.ante.toFixed(2)}  erw. ${(100 * r.exp).toFixed(1).padStart(5)} %  Lift ${r.lift.toFixed(2)}${r.lift > 1.6 && r.n >= 20 ? '  <-- Ausreißer?' : ''}`);
+    const never = G.TALISMAN_IDS.filter((id) => !ownedRuns[id]);
+    if (never.length) console.log('  nie besessen:', never.join(' '));
   }
   if (a.verbose) {
     console.log('Talismane am Ende (Anzahl / davon Siege):');

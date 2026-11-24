@@ -5,6 +5,7 @@ import * as G from '../../game/index.js';
 import { hoverTilt, idleSway } from '../../fx/index.js';
 import { attachTooltip } from '../tooltip.js';
 import { rich, KIND_NAMES, RARITY } from '../text.js';
+import { shapeOf, buildShapeFace } from './itemshapes.js';
 
 /** Darstellungsdaten aus einem Inhalt. kind: talisman|consumable|pack|voucher|tag|warden|hand|achievement|cup|stake */
 export function model(kind, id, extra = {}) {
@@ -50,7 +51,7 @@ export function tooltipFor(m, run, obj) {
     const def = G.CONSUMABLES[m.id];
     if (def && def.usableIn === 'round') kind += ' · nur im Wurf';
   }
-  const t = { title: m.name, kind, body: rich(body), hue: m.hue, rarity: m.rarity };
+  const t = { title: m.name, kind, body: rich(body), hue: m.hue, rarity: m.rarity, shape: shapeOf(m) };
   if (m.foot) t.foot = m.foot;
   return t;
 }
@@ -60,19 +61,27 @@ export function tooltipFor(m, run, obj) {
  */
 export function createCard(m, opts = {}) {
   const glyphLen = [...String(m.glyph)].length;
-  const el = h(`div.card.card--${m.kind}${m.ckind ? `.card--${m.ckind}` : ''}${m.rarity ? `.rar-${m.rarity}` : ''}`, {
+  const shape = shapeOf(m);
+  const el = h(`div.card.card--${m.kind}${m.ckind ? `.card--${m.ckind}` : ''}${m.rarity ? `.rar-${m.rarity}` : ''}${shape ? `.card--shape.shape-${shape}` : ''}${opts.unknown ? '.card--unknown' : ''}`, {
     vars: { hue: m.hue }, dataset: { id: m.id, kind: m.kind },
   });
   if (m.uid) el.dataset.uid = m.uid;
-  const face = h('div.card-face',
-    h('div.card-shine'),
-    h('div.card-top', m.sub),
-    h(`div.card-glyph${glyphLen > 2 ? '.card-glyph--long' : glyphLen > 1 ? '.card-glyph--mid' : ''}`, h('span', m.glyph)),
-    h(`div.card-name${nameCls(m.name)}`, softHyphens(m.name)),
-    h('div.card-sheen'));
-  const back = h('div.card-back', h('div.card-back-glyph', '⚄'));
+  const glyphCls = glyphLen > 2 ? '.card-glyph--long' : glyphLen > 1 ? '.card-glyph--mid' : '';
+  let face;
+  if (shape) {
+    // eigene Formsprache je Kategorie (itemshapes.js)
+    face = buildShapeFace(shape, m, { glyphCls, nameCls: nameCls(m.name), name: softHyphens(m.name) });
+  } else {
+    face = h('div.card-face',
+      h('div.card-shine'),
+      h('div.card-top', m.sub),
+      h(`div.card-glyph${glyphCls}`, h('span', m.glyph)),
+      h(`div.card-name${nameCls(m.name)}`, softHyphens(m.name)),
+      h('div.card-sheen'));
+  }
   el.appendChild(face);
-  el.appendChild(back);
+  // Rückseite: Karten (Talisman, generisch) – Formen zeigen verdeckt ihre dunkle Silhouette (CSS .card--down)
+  if (!shape || shape === 'talisman') el.appendChild(h('div.card-back', h('div.card-back-glyph', '⚄')));
   if (opts.badge) el.appendChild(h('div.card-badge', opts.badge));
   if (opts.down) el.classList.add('card--down');
   const offs = [];

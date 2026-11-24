@@ -82,14 +82,14 @@ export function confirmDialog(title, text, { yes = 'Ja', no = 'Abbrechen', dange
 
 // ---------------------------------------------------------------- Toasts
 let toastBox = null;
-/** toast(text, {title, glyph, kind:'info'|'good'|'bad'|'gold'|'ach', hue, ms}) */
+/** toast(text, {title, glyph, kind:'info'|'good'|'bad'|'gold'|'ach', hue, ms, shape?: Formkategorie (itemshapes.js)}) */
 export function toast(text, o = {}) {
   if (!toastBox || !toastBox.isConnected) {
     toastBox = h('div.toasts', { 'aria-live': 'polite' });
     document.body.appendChild(toastBox);
   }
   const el = h(`div.toast.toast--${o.kind || 'info'}`, { vars: { hue: o.hue != null ? o.hue : 270 } },
-    o.glyph ? h('div.toast-glyph', o.glyph) : null,
+    o.glyph ? h(`div.toast-glyph${o.shape ? `.toast-glyph--${o.shape}` : ''}`, h('span', o.glyph)) : null,
     h('div.toast-text', o.title ? h('div.toast-title', o.title) : null, h('div.toast-body', text)));
   // gleicher Text kurz hintereinander (z. B. mehrfach „Gerade nicht“) → nur den vorhandenen anstupsen
   const key = `${o.title || ''}|${text}`;

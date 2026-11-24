@@ -58,3 +58,10 @@
 - Querformat-Handy (`landscape and max-height:500px`): eigener kompakter Block am Ende von `style.css`; der
   Hochformat-Block greift bei `max-width:760px` nur noch ab 501 px Höhe.
 - Laden-Palette (background.js `shop`) Petrol/Violett statt Gelb-Grün. Zähler zählen mit outQuart (kein toter Auslauf).
+
+## Formsprache der Gegenstände (ui/components/itemshapes.js)
+- `createCard` wählt per `shapeOf(model)` die Form; neue Inhalte brauchen nur `glyph`/`hue`/`rarity`/`kind`.
+- Talisman-Zustandsabzeichen weiter über `.card-badge` (belt.js `badgeFor`, inkl. `def.badge`).
+- Verdeckt (`.card--down`) zeigen Formen ihre dunkle Silhouette + „?“, Talismane die Kartenrückseite.
+- Kleine Symbole `shapeIcon(form)` in Laden-Etiketten, Tooltips, Kartenmenü; Toasts nehmen `{shape}`.
+- Animationen nur transform/opacity (Legendär-Schimmer, Goldfolie, Mystik-Nebel, Edelstein-Glimmen); `body.fx-reduced` stoppt sie.

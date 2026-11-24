@@ -17,11 +17,21 @@ import { TAGS, TAG_IDS } from './content/tags.js';
 import { CUPS } from './content/cups.js';
 import { STAKES } from './content/stakes.js';
 import { handsInThrow, computeScore, currentWarden } from './scoring.js';
-import { blindTarget, blindReward, cashoutBreakdown, interest, anteBase, priceFor } from './economy.js';
-import { enterShop, rerollOffers, pickAnteVoucher, packChoices, randomOffer } from './shop.js';
+import { blindTarget, blindReward, cashoutBreakdown, interest, interestRules, anteBase, priceFor } from './economy.js';
+import { enterShop, rerollOffers, pickAnteVoucher, packChoices, randomOffer, packShape } from './shop.js';
 import { acquireTalisman, removeTalisman, addConsumable, syncRolledToDice, markSeen } from './inventory.js';
 
 const fail = (reason) => ({ ok: false, reason });
+
+/** Ruft einen Run-Hook aller aktiven Talismane auf (links → rechts) und sammelt die Events. */
+function talismanHook(run, hook, ...args) {
+  const events = [];
+  for (const t of [...run.talismans]) {
+    const def = TALISMANS[t.id];
+    if (def && def[hook] && !t.disabled && run.talismans.includes(t)) events.push(...(def[hook](run, t, ...args) || []));
+  }
+  return events;
+}
 const ok = (events = [], extra = {}) => ({ ok: true, events, ...extra });
 
 const STREAMS = ['roll', 'shop', 'chance', 'warden', 'pack', 'misc'];
@@ -124,7 +134,8 @@ export function getRoundRules(run) {
   const rules = {
     throws: run.base.throws,
     rerolls: run.base.rerolls,
-    interestCap: run.base.interestCap,
+    interestCap: interestRules(run).interestCap,
+    interestStep: interestRules(run).interestStep,
     talismanSlots: run.limits.talismans,
     consumableSlots: run.limits.consumables,
     diceLimit: run.limits.dice,
@@ -190,6 +201,7 @@ export function startBlind(run) {
     for (let k = 0; k < n; k++) events.push({ type: 'tagUsed', id: 'tag_throw' });
   }
   for (const t of run.talismans) if (t.id === 'hoard') t.state.carry = 0;
+  events.push(...talismanHook(run, 'onRoundStart', round));
   run.phase = 'round';
   if (w) events.push({ type: 'warden', id: w.id });
   return ok(events);
@@ -290,6 +302,11 @@ export function reroll(run) {
   });
   if (!idx.length) return fail('Alle Würfel sind gehalten');
   const w = currentWarden(run);
+  for (const r of round.rolled) if (r.held) r.kept = true;
+  const free = run.talismans.some((t) => {
+    const def = TALISMANS[t.id];
+    return def && def.freeReroll && !t.disabled && def.freeReroll(run, t, round);
+  });
   for (const i of idx) {
     const r = round.rolled[i];
     const d = run.dice[i];
@@ -298,11 +315,12 @@ export function reroll(run) {
     r.nudged = 0;
     if (w && w.eclipse) r.hidden = false;
   }
-  round.rerollsLeft -= 1;
+  if (!free) round.rerollsLeft -= 1;
   round.rerollsUsedThisThrow += 1;
   round.rerollsUsed += 1;
   run.stats.rerolls += 1;
   const events = [{ type: 'roll', dice: idx, results: idx.map((i) => (round.rolled[i].hidden ? null : round.rolled[i].v)) }];
+  if (free) events.push({ type: 'freeReroll' });
   if (w && w.toll && run.money > 0) {
     run.money -= 1;
     events.push({ type: 'money', amount: -1, reason: 'Der Zöllner' });
@@ -469,7 +487,7 @@ function winRound(run) {
   for (const t of [...run.talismans]) {
     const def = TALISMANS[t.id];
     if (def && def.onRoundEnd) {
-      const evs = def.onRoundEnd(run, t, { won: true, rerollsLeft: round.rerollsLeft }) || [];
+      const evs = def.onRoundEnd(run, t, { won: true, rerollsLeft: round.rerollsLeft, kind: round.kind }) || [];
       for (const e of evs) {
         events.push(e);
         if (e.type === 'talismanBreak') removeTalisman(run, t.uid);
@@ -650,10 +668,10 @@ export function continueEndless(run) {
 
 function openPackInternal(run, packId, returnPhase) {
   const choices = packChoices(run, packId);
-  run.pack = { packId, choices, picksLeft: PACKS[packId].picks, returnPhase };
+  run.pack = { packId, choices, picksLeft: packShape(run, packId).picks, returnPhase };
   run.phase = 'pack';
   run.stats.packsOpened += 1;
-  return [{ type: 'packOpen', packId }];
+  return [{ type: 'packOpen', packId }, ...talismanHook(run, 'onPackOpen', packId)];
 }
 
 function openNextPending(run, returnPhase) {
@@ -788,8 +806,9 @@ function applyConsumable(run, def, target) {
   run.stats.consumablesUsed += 1;
   if (def.kind === 'star') run.stats.constellationsUsed += 1;
   run.stats.maxHandLevel = Math.max(run.stats.maxHandLevel || 1, ...Object.values(run.handLevels));
+  const tEvents = talismanHook(run, 'onConsumable', def);
   trackMoney(run);
-  return [{ type: 'consumableUsed', id: def.id }, ...events];
+  return [{ type: 'consumableUsed', id: def.id }, ...events, ...tEvents];
 }
 
 export function useConsumable(run, uid, target) {

@@ -7,13 +7,22 @@
 //   preHand(ctx, t)       – Wachstum vor Schritt 3 (wird von Nachahmer NICHT kopiert)
 //   onHand(ctx, t)        – Effekte „auf die Hand“
 //   onScored(ctx, t)      – Nachwirkungen nach der Wertung (nicht kopiert)
+//   onRetrigger(ctx, d, t) – nach jedem „Nochmal!“-Schritt (vor der Wiederholung des Würfels)
+//   onScored darf zusätzlich {type:'break', text} liefern: der Talisman zerbricht nach der Wertung.
+//   Flags: echoRight (rechter Nachbar löst onHand 2× aus), glassShatterMul (Glas-Zerspring-Chance ×k).
 // Run-Hooks: modifyRules(rules, run, t), onReroll(run, t, round) -> events, onRoundEnd(run, t, info) -> events,
-//   cashout(run, t) -> $ , onAcquire(run, t), onRemove(run, t), describe(t, run) -> string.
-// d = { index, value, face, die, rolled, held, mark, material }
+//   cashout(run, t) -> $ , onAcquire(run, t), onRemove(run, t), describe(t, run) -> string,
+//   onRoundStart(run, t, round) -> events, onConsumable(run, t, def) -> events, onPackOpen(run, t, packId) -> events,
+//   onShopEnter(run, t) -> events, freeReroll(run, t, round) -> bool, priceMod(price, kind, run, t) -> price,
+//   sellBonus(t) -> $, modifyEconomy(eco, run, t) (eco = {interestCap, interestStep}), modifyPack(p, run, t) (p = {size, picks}).
+// Anzeige: badge(t) -> kurzer Kartentext (Zähler/Ladungen) oder null.
+// d = { index, value, face, die, rolled, held, kept, mark, material }
+// Teil 2 (52 weitere Talismane) steht in talismans2.js.
 
 import { HANDS } from '../hands.js';
 import { makeDie } from '../dice.js';
 import { formatMult } from '../../core/format.js';
+import { makeExtraTalismans } from './talismans2.js';
 
 const mult = (amount) => ({ type: 'mult', amount });
 const chips = (amount) => ({ type: 'chips', amount });
@@ -365,6 +374,7 @@ const T = [
 ];
 
 export const TALISMANS = {};
+T.push(...makeExtraTalismans(TALISMANS));
 for (const t of T) {
   if (t.copyable === undefined) t.copyable = true;
   TALISMANS[t.id] = t;
@@ -378,7 +388,8 @@ export function talismansByRarity(rarity) {
 
 export function sellValue(t) {
   const def = TALISMANS[t.id];
-  return Math.max(1, Math.floor((def ? def.price : 2) / 2));
+  const bonus = def && def.sellBonus ? def.sellBonus(t) || 0 : 0;
+  return Math.max(1, Math.floor((def ? def.price : 2) / 2)) + bonus;
 }
 
 export const RARITY_NAMES = { common: 'Gewöhnlich', uncommon: 'Ungewöhnlich', rare: 'Selten', legendary: 'Legendär' };

@@ -20,6 +20,7 @@ export function roundRun(opts = {}) {
   if (!r.ok) throw new Error(r.reason);
   r = G.beginThrow(run);
   if (!r.ok) throw new Error(r.reason);
+  if (opts.prep) opts.prep(run);
   if (opts.values) setRolled(run, opts.values, opts.marks);
   return run;
 }

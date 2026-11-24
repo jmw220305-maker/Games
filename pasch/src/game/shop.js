@@ -35,7 +35,7 @@ function offerFor(run, kind, id, opts = {}) {
   else if (kind === 'pack') base = PACKS[id].price;
   else if (kind === 'voucher') base = VOUCHERS[id].price;
   else base = 0;
-  const o = { kind, id, price: priceFor(run, base, opts), basePrice: base, sold: false };
+  const o = { kind, id, price: priceFor(run, base, { ...opts, kind }), basePrice: base, sold: false };
   if (opts.free) o.free = true;
   return o;
 }
@@ -103,6 +103,10 @@ export function enterShop(run) {
       events.push({ type: 'tagUsed', id: 'tag_charm' });
     }
   }
+  for (const t of run.talismans) {
+    const def = TALISMANS[t.id];
+    if (def && def.onShopEnter && !t.disabled) events.push(...(def.onShopEnter(run, t) || []));
+  }
   for (let k = 0; k < 2; k++) run.shop.packs.push(offerFor(run, 'pack', weighted(run.rng.shop, PACK_WEIGHTS)));
   if (run.anteVoucher && !run.vouchers.includes(run.anteVoucher)) run.shop.voucher = offerFor(run, 'voucher', run.anteVoucher);
   return events;
@@ -120,9 +124,20 @@ export function pickAnteVoucher(run) {
   run.anteVoucher = pool.length ? pick(run.rng.shop, pool) : null;
 }
 
+/** Größe/Wahlen eines Beutels inkl. Talisman-Hook modifyPack → {size, picks}. */
+export function packShape(run, packId) {
+  const p = { size: PACKS[packId].size, picks: PACKS[packId].picks };
+  for (const t of run.talismans) {
+    const def = TALISMANS[t.id];
+    if (def && def.modifyPack && !t.disabled) def.modifyPack(p, run, t);
+  }
+  p.picks = Math.max(1, Math.min(p.picks, p.size));
+  return p;
+}
+
 /** Inhalt eines Beutels erzeugen → Offer[] (kind 'talisman' | 'consumable' | 'die'). */
 export function packChoices(run, packId) {
-  const pack = PACKS[packId];
+  const pack = { ...PACKS[packId], ...packShape(run, packId) };
   const s = run.rng.pack;
   const out = [];
   const mkC = (id) => ({ kind: 'consumable', id, price: 0, sold: false });

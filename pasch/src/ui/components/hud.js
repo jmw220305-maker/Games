@@ -56,8 +56,8 @@ export function createHud(app) {
   attachTooltip(cMoney, () => {
     const run = app.run;
     if (!run) return null;
-    const cap = G.getRoundRules(run).interestCap;
-    return { title: 'Geld', kind: 'Zinsen', hue: 48, body: rich(`Bei der Abrechnung: $1 Zinsen je $5 (höchstens $${cap}).`) };
+    const rules = G.getRoundRules(run);
+    return { title: 'Geld', kind: 'Zinsen', hue: 48, body: rich(`Bei der Abrechnung: $1 Zinsen je $${rules.interestStep} (höchstens $${rules.interestCap}).`) };
   }, { below: true });
   attachTooltip(cRerolls, () => ({ title: T.rerolls, kind: 'Vorrat der Partie', hue: 200, body: 'Ein Nachwurf wirft alle nicht gehaltenen Würfel neu. Der Vorrat gilt für die ganze Partie.' }), { below: true });
   attachTooltip(cThrows, () => ({ title: T.throws, kind: 'Partie', hue: 330, body: 'Jedes Werten kostet einen Wurf. Ziel nicht erreicht und keine Würfe mehr: der Lauf ist verloren.' }), { below: true });

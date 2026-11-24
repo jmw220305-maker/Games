@@ -261,8 +261,8 @@ export function createApp(root, opts = {}) {
       banner(`${hd.name} Stufe ${lv[0].level}`, { kind: 'chips', sub: `${b.chips} Punkte × ${b.mult} Multi`, hold: 600 });
     } else if (lv.length > 1) banner('Alle Hände +1 Stufe', { kind: 'chips', hold: 600 });
     for (const e of r.events) {
-      if (e.type === 'faceChange' || e.type === 'dieChange' || e.type === 'gainDie') { app.toast(def.desc, { title: def.name, glyph: def.glyph, hue: def.hue }); break; }
-      if (e.type === 'gainTalisman') { app.toast(G.TALISMANS[e.id].name, { title: 'Neuer Talisman', glyph: G.TALISMANS[e.id].glyph, hue: G.TALISMANS[e.id].hue, kind: 'gold' }); }
+      if (e.type === 'faceChange' || e.type === 'dieChange' || e.type === 'gainDie') { app.toast(def.desc, { title: def.name, glyph: def.glyph, hue: def.hue, shape: def.kind }); break; }
+      if (e.type === 'gainTalisman') { app.toast(G.TALISMANS[e.id].name, { title: 'Neuer Talisman', glyph: G.TALISMANS[e.id].glyph, hue: G.TALISMANS[e.id].hue, kind: 'gold', shape: 'talisman' }); }
     }
   };
 

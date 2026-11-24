@@ -399,6 +399,13 @@ fliegenden Münzen) → `shop` (↔ `pack`) → `blinds` … → `gameover` (Sie
   auch als reine Ansicht („Deine Würfel“).
 - Talismane: Karten mit `glyph` + Farbe aus `hue`, Seltenheitsrand, Tooltip mit `describe()`, Drag & Drop zum
   Umsortieren, Verkaufen über Tooltip-Knopf.
+- Formsprache (`components/itemshapes.js`, von `createCard` genutzt): jede Kategorie eigene Silhouette (inline SVG
+  100×140, gleiche Trefferfläche `--cw × 1,4`): Talisman = gerahmte Karte (Rahmen = Seltenheitsfarbe, Edelstein
+  ● gewöhnlich / ◆ ungewöhnlich / ⬢ selten / ✦ legendär + Schimmer, Amulett an Kette, Namensband) · Sternbild =
+  achteckige Sternenkarte (Sternbild deterministisch aus der ID, Handname + „+1 Stufe“) · Werkzeug = Hängeetikett ·
+  Mystik = Kristall-Raute mit Nebel · Beutel = Stoffbeutel mit Aufnäher · Privileg = perforierter Coupon mit Stempel ·
+  Würfelbeutel-Würfel = echter Würfel auf Samtkissen (verdeckt unter Glocke). Klassen `.card--shape.shape-<form>`,
+  Glyphe `.sg`, Name `.sn`. Leisten: Talismane in Samt-Vitrine, Verbrauchsgüter in Leder-Tasche.
 
 ### Scoreplayer (`ui/scoreplayer.js`)
 Spielt `ScoreResult.steps` ab:

@@ -4,6 +4,7 @@ import * as G from '../../game/index.js';
 import { button } from '../components/button.js';
 import { createCard, model, dieSummary } from '../components/card.js';
 import { createDie } from '../components/die.js';
+import { shapeOf, shapeIcon, cushionArt } from '../components/itemshapes.js';
 import { openInspector, dieNet } from '../components/inspector.js';
 import { attachTooltip } from '../tooltip.js';
 import { popIn, juice, nope, time, ease, setLayer, springTo, particles, shake, jitter, background, banner } from '../../fx/index.js';
@@ -20,8 +21,10 @@ export function createPack(app) {
   let items = [];
   let busy = false;
   let packId = null;
+  let headBag = null;
 
   function cleanup() {
+    if (headBag) { headBag.destroy(); headBag = null; }
     items.forEach((it) => it.destroy && it.destroy());
     items = [];
     row.innerHTML = '';
@@ -31,7 +34,9 @@ export function createPack(app) {
     const run = app.run;
     const p = G.PACKS[run.pack.packId];
     head.innerHTML = '';
-    head.appendChild(h('div.pack-glyph', { vars: { hue: p.hue } }, p.glyph));
+    if (headBag) headBag.destroy();
+    headBag = createCard(model('pack', run.pack.packId), { tilt: false, sway: false, tooltip: false });
+    head.appendChild(h('div.pack-glyph', headBag.el));
     head.appendChild(h('div.pack-titles', h('div.sub-title', p.name), h('div.sub-subtitle', { html: rich(p.desc) }), h('div.pack-picks', `Noch ${run.pack.picksLeft} ${run.pack.picksLeft === 1 ? 'Wahl' : 'Wahlen'}`)));
   }
 
@@ -60,28 +65,32 @@ export function createPack(app) {
     const wrap = h('div.pack-item');
     let api;
     if (o.kind === 'die') {
-      const box = h('div.card.card--die', { vars: { hue: 40 } });
-      const face = h('div.card-face');
+      // echter kleiner Würfel auf einem Samtkissen (verdeckt: unter einer Glocke) – keine Karte
+      const box = h('div.card.card--die.card--shape.shape-die', { vars: { hue: 40 } });
+      const face = h('div.card-face.shape-face.face-die');
+      face.innerHTML = cushionArt();
       const dieHolder = h('div.pack-die3d');
-      const d = createDie(o.die, { value: bestFace(o.die).v, faceIndex: bestFace(o.die).i });
-      d.el.style.setProperty('--die-size', '54px');
+      const bf = bestFace(o.die);
+      const d = createDie(o.die, { value: bf.v, faceIndex: bf.i });
       dieHolder.appendChild(d.el);
-      face.appendChild(h('div.card-top', 'Würfel'));
       face.appendChild(dieHolder);
-      face.appendChild(h('div.card-name', `W${o.die.sides}${o.die.material ? ` · ${G.MATERIAL_INFO[o.die.material].name}` : ''}`));
+      face.appendChild(h('div.card-name.sn', `W${o.die.sides}${o.die.material ? ` · ${G.MATERIAL_INFO[o.die.material].name}` : ''}`));
+      face.appendChild(h('div.card-qm', '?'));
       box.appendChild(face);
-      box.appendChild(h('div.card-back', h('div.card-back-glyph', '⚄')));
       box.classList.add('card--down');
       attachTooltip(box, () => {
         if (box.classList.contains('card--down')) return null;
         const net = dieNet(o.die, { size: 26 }).el;
         return { title: 'Besonderer Würfel', kind: dieSummary(o.die), hue: 40, body: `<div class="tt-net">${net.outerHTML}</div>${o.die.faces.filter((f) => f.mark).map((f) => `<div>${G.MARK_INFO[f.mark].name}: ${rich(G.MARK_INFO[f.mark].desc)}</div>`).join('')}${o.die.material ? `<div>${G.MATERIAL_INFO[o.die.material].name}: ${rich(G.MATERIAL_INFO[o.die.material].desc)}</div>` : ''}` };
       });
-      api = { el: box, setDown: (b) => box.classList.toggle('card--down', b), destroy: () => { d.destroy(); box.remove(); }, die: d };
+      api = { el: box, m: { sub: 'Würfel' }, setDown: (b) => box.classList.toggle('card--down', b), destroy: () => { d.destroy(); box.remove(); }, die: d };
     } else {
       const kind = o.kind === 'consumable' ? 'consumable' : 'talisman';
       api = createCard(model(kind, o.id), { run: () => app.run, obj: kind === 'consumable' ? { id: o.id } : { id: o.id, state: {} }, down: true });
     }
+    const shape = o.kind === 'die' ? 'die' : shapeOf(api.m);
+    wrap.classList.add(`pack-item--${shape || 'card'}`);
+    wrap.appendChild(h(`div.offer-cap${shape ? `.offer-cap--${shape}` : ''}`, shape && shape !== 'die' ? shapeIcon(shape) : null, api.m.sub));
     wrap.appendChild(api.el);
     const acts = h('div.pack-acts');
     for (const a of actionsFor(o, i)) {

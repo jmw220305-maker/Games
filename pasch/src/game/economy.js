@@ -37,8 +37,20 @@ export function blindReward(run, kind) {
   return BLIND_REWARD[kind];
 }
 
+/** Zinsregeln inkl. Talisman-Hook modifyEconomy → {interestCap, interestStep}. */
+export function interestRules(run) {
+  const eco = { interestCap: run.base.interestCap, interestStep: INTEREST_STEP };
+  for (const t of run.talismans || []) {
+    const def = TALISMANS[t.id];
+    if (def && def.modifyEconomy && !t.disabled) def.modifyEconomy(eco, run, t);
+  }
+  eco.interestStep = Math.max(1, eco.interestStep);
+  return eco;
+}
+
 export function interest(run, money = run.money) {
-  return Math.max(0, Math.min(Math.floor(Math.max(0, money) / INTEREST_STEP), run.base.interestCap));
+  const eco = interestRules(run);
+  return Math.max(0, Math.min(Math.floor(Math.max(0, money) / eco.interestStep), eco.interestCap));
 }
 
 /** Ladenpreis inkl. Feilscher (−25 %) und Ausverkauf (−50 %), mind. $1. */
@@ -47,6 +59,10 @@ export function priceFor(run, base, opts = {}) {
   let p = base;
   if (run.vouchers.includes('v_haggle')) p = Math.floor(p * 0.75);
   if (opts.sale || (run.shop && run.shop.sale)) p = Math.floor(p * 0.5);
+  for (const t of run.talismans || []) {
+    const def = TALISMANS[t.id];
+    if (def && def.priceMod && !t.disabled) p = def.priceMod(p, opts.kind || null, run, t);
+  }
   return Math.max(1, p);
 }
 
@@ -60,7 +76,8 @@ export function cashoutBreakdown(run) {
   const left = round ? Math.max(0, round.throwsLeft) : 0;
   if (left > 0) out.push({ label: `Übrige Würfe (${left})`, amount: left * MONEY_PER_THROW_LEFT, kind: 'throws' });
   const zins = interest(run);
-  if (zins > 0) out.push({ label: `Zinsen ($1 je $${INTEREST_STEP}, max. $${run.base.interestCap})`, amount: zins, kind: 'interest' });
+  const eco = interestRules(run);
+  if (zins > 0) out.push({ label: `Zinsen ($1 je $${eco.interestStep}, max. $${eco.interestCap})`, amount: zins, kind: 'interest' });
   for (const t of run.talismans) {
     const def = TALISMANS[t.id];
     if (def && def.cashout && !t.disabled) {

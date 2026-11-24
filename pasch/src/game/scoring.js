@@ -4,6 +4,7 @@ import { TALISMANS } from './content/talismans.js';
 import { WARDENS } from './content/wardens.js';
 import { chance } from '../core/rng.js';
 import { MARK_RNG } from './constants.js';
+import { removeTalisman } from './inventory.js';
 
 export function currentWarden(run) {
   const round = run.round;
@@ -209,7 +210,14 @@ export function computeScore(run, entry) {
     rerollsLeft: round.rerollsLeft,
     rerollsUsedThisThrow: round.rerollsUsedThisThrow,
     throwsUsed: round.throwsUsed,
+    throwsLeft: round.throwsLeft, // vor dem Abzug: 1 = letzter Wurf der Partie
+    warden,
     contains: (h) => contains(handId, h),
+    steps, // bisherige Schritte (nur lesen)
+    currentIndex: -1, // Talisman-Index, dessen Hook gerade läuft
+    unlucky: 0, // Klee-Flächen ohne Glück in dieser Wertung
+    shattered: 0, // in dieser Wertung zersprungene Glasflächen (für onScored)
+    total: 0, // Ergebnis (für onScored)
   };
   const active = [];
   run.talismans.forEach((t, i) => {
@@ -218,6 +226,7 @@ export function computeScore(run, entry) {
   });
   const tSource = (a) => ({ kind: 'talisman', index: a.index, uid: a.uid });
   const fairy = active.find((a) => a.def.id === 'fairy' && !a.copy);
+  const glassMul = active.reduce((m, a) => (!a.copy && a.def.glassShatterMul ? m * a.def.glassShatterMul : m), 1);
   const grudged = round.flags.grudged || [];
   const glassHits = [];
 
@@ -225,7 +234,7 @@ export function computeScore(run, entry) {
     const r = rolled[i];
     const die = run.dice[i];
     const face = die.faces[r.faceIndex];
-    return { index: i, value: values[i], face, die, rolled: r, held: !!r.held, mark: face.mark, material: die.material, faceIndex: r.faceIndex };
+    return { index: i, value: values[i], face, die, rolled: r, held: !!r.held, kept: !!r.kept, mark: face.mark, material: die.material, faceIndex: r.faceIndex };
   };
 
   const scoreDie = (d) => {
@@ -272,14 +281,21 @@ export function computeScore(run, entry) {
           lucky = true;
           if (fairy) apply({ type: 'xmult', factor: 1.5 }, tSource(fairy), i);
         }
-        if (!lucky) push('text', { text: 'Kein Glück' }, faceSrc, i);
+        if (!lucky) {
+          ctx.unlucky++;
+          push('text', { text: 'Kein Glück' }, faceSrc, i);
+        }
         break;
       }
       default:
         break;
     }
     // d. Talismane „wenn ein Würfel gewertet wird“
-    for (const a of active) if (a.def.onDie) applyAll(a.def.onDie(ctx, d, a.t), tSource(a), i);
+    for (const a of active) {
+      if (!a.def.onDie) continue;
+      ctx.currentIndex = a.index;
+      applyAll(a.def.onDie(ctx, d, a.t), tSource(a), i);
+    }
   };
 
   // 2. Würfel
@@ -296,14 +312,30 @@ export function computeScore(run, entry) {
     for (const src of reps) {
       retriggers++;
       push('retrigger', {}, src, i);
+      for (const a of active) {
+        if (!a.def.onRetrigger) continue;
+        ctx.currentIndex = a.index;
+        applyAll(a.def.onRetrigger(ctx, d, a.t), tSource(a), i);
+      }
       scoreDie(dieInfo(i));
     }
   }
 
   // 3. Talismane auf die Hand
   for (const a of active) {
+    ctx.currentIndex = a.index;
     if (!a.copy && a.def.preHand) applyAll(a.def.preHand(ctx, a.t), tSource(a));
-    if (a.def.onHand) applyAll(a.def.onHand(ctx, a.t), tSource(a));
+    if (!a.def.onHand) continue;
+    applyAll(a.def.onHand(ctx, a.t), tSource(a));
+    // Leuchtturm & Co. (echoRight): der rechte Nachbar löst seine Hand-Effekte ein weiteres Mal aus
+    const left = run.talismans[a.index - 1];
+    const ldef = left && !left.disabled ? TALISMANS[left.id] : null;
+    if (ldef && ldef.echoRight) {
+      const n0 = steps.length;
+      push('retrigger', {}, { kind: 'talisman', index: a.index - 1, uid: left.uid });
+      applyAll(a.def.onHand(ctx, a.t), tSource(a));
+      if (steps.length === n0 + 1) steps.pop();
+    }
   }
 
   // 4. Ergebnis
@@ -313,7 +345,8 @@ export function computeScore(run, entry) {
   // Nachwirkungen
   const events = [];
   for (const g of glassHits) {
-    if (chance(run.rng.chance, MARK_RNG.glassShatter)) {
+    if (chance(run.rng.chance, Math.min(1, MARK_RNG.glassShatter * glassMul))) {
+      ctx.shattered++;
       const die = run.dice[g.i];
       die.faces[g.faceIndex] = { v: 0, mark: null };
       push('shatter', {}, { kind: 'face', index: g.i }, g.i);
@@ -321,10 +354,25 @@ export function computeScore(run, entry) {
       run.stats.glassShattered = (run.stats.glassShattered || 0) + 1;
     }
   }
+  ctx.total = total;
+  const broken = [];
   for (const a of active) {
     if (a.copy || !a.def.onScored) continue;
-    const effs = a.def.onScored(ctx, a.t);
-    applyAll(effs, tSource(a));
+    ctx.currentIndex = a.index;
+    let effs = a.def.onScored(ctx, a.t) || [];
+    if (!Array.isArray(effs)) effs = [effs];
+    for (const e of effs) {
+      if (e.type === 'break') {
+        push('text', { text: e.text || 'Zerbrochen!' }, tSource(a));
+        if (!broken.includes(a.uid)) broken.push(a.uid);
+      } else if (e.type === 'chips' || e.type === 'mult' || e.type === 'xmult') {
+        // Nachwirkungen ändern das Ergebnis nicht mehr
+      } else apply(e, tSource(a));
+    }
+  }
+  for (const uid of broken) {
+    events.push({ type: 'talismanBreak', uid });
+    removeTalisman(run, uid);
   }
   if (warden && warden.grudge) {
     round.flags.grudged = [...new Set([...grudged, ...scoring.map((i) => run.dice[i].id)])];

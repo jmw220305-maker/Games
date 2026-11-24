@@ -4,6 +4,7 @@ import * as G from '../../game/index.js';
 import { juice, springTo, setLayer, popIn, time, ease, nope, particles } from '../../fx/index.js';
 import { audio } from '../../audio/audio.js';
 import { createCard, model, tooltipFor } from './card.js';
+import { shapeIcon } from './itemshapes.js';
 import { suppressTooltips, hideTooltip } from '../tooltip.js';
 import { button } from './button.js';
 import { money } from '../text.js';
@@ -57,8 +58,8 @@ export function createBelt(app) {
       buttons.appendChild(b);
       bDenied(b);
     }
-    const mEl = h(`div.cardmenu${tt.rarity ? `.rar-${tt.rarity}` : ''}`, { vars: { hue: tt.hue } },
-      h('div.tt-kind', tt.kind), h('div.tt-title', tt.title), h('div.tt-body', { html: tt.body }), buttons);
+    const mEl = h(`div.cardmenu${tt.rarity ? `.rar-${tt.rarity}` : ''}${tt.shape ? `.tt--${tt.shape}` : ''}`, { vars: { hue: tt.hue } },
+      h('div.tt-kind', tt.shape ? shapeIcon(tt.shape) : null, tt.kind), h('div.tt-title', tt.title), h('div.tt-body', { html: tt.body }), buttons);
     document.body.appendChild(mEl);
     const r = card.el.getBoundingClientRect();
     const mr = mEl.getBoundingClientRect();
@@ -281,7 +282,7 @@ function getLayerVals(el, n) { return getLayer(el, n); }
 
 /** Kartennamen auf kleinen Karten (Handy) einzeilig einpassen statt abschneiden. */
 function fitNames(root) {
-  for (const n of root.querySelectorAll('.card-name')) {
+  for (const n of root.querySelectorAll('.card-name, .card-fit')) {
     n.style.fontSize = '';
     if (getComputedStyle(n).whiteSpace !== 'nowrap') continue;
     const cw = n.clientWidth;
@@ -305,6 +306,8 @@ function hashUid(uid) {
 
 function badgeFor(t) {
   const s = t.state || {};
+  const def = G.TALISMANS[t.id];
+  if (def && def.badge) return def.badge({ ...t, state: s });
   switch (t.id) {
     case 'tally': return s.n ? `+${s.n}` : null;
     case 'spirit': return s.n ? `+${s.n}` : null;

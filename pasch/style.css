@@ -1354,3 +1354,345 @@ body.fx-reduced .lantern { animation: none; }
 }
 /* Knopfleiste in Dialogen bleibt sichtbar, auch wenn der Inhalt scrollt */
 .modal-buttons { position: sticky; bottom: 0; z-index: 2; padding: 8px 0 4px; background: linear-gradient(180deg, rgba(23, 15, 46, 0), #170f2e 30%); }
+
+/* ================================================================== Formsprache der Gegenstände (itemshapes.js)
+   Jede Kategorie hat eine eigene Silhouette (inline SVG 100×140) – gleiche Trefferfläche (--cw × 1,4).
+   Talisman = gerahmte Karte · Sternbild = achteckige Sternenkarte · Werkzeug = Hängeetikett ·
+   Mystik = Kristall · Beutel = Stoffbeutel · Privileg = Coupon · Würfel = Würfel auf Samtkissen.
+   Die Wurzel .card bekommt fx-Ebenen – Transformationen hier nur auf inneren Elementen. */
+.card--shape .shape-face {
+  position: absolute; inset: 0; display: block; padding: 0; border: 0; border-radius: 0; overflow: visible;
+  background: none; box-shadow: none;
+}
+.card--shape .card-face::after { content: none; }
+.card-art { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; --sw: 3px; }
+.card-art .o { stroke: var(--outline); stroke-width: var(--sw); vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.card-art .sh { fill: var(--outline); }
+.card--shape .card-glyph.sg {
+  position: absolute; left: 50%; top: 50%; width: auto; height: auto; border: 0; border-radius: 0; background: none; box-shadow: none;
+  transform: translate(-50%, -50%); display: block; line-height: 1; white-space: nowrap; pointer-events: none;
+  font-size: calc(var(--cw0) * 0.25); font-weight: 700; color: #fff; text-shadow: var(--ol);
+}
+.card--shape .card-glyph--mid.sg { font-size: calc(var(--cw0) * 0.18); }
+.card--shape .card-glyph--long.sg { font-size: calc(var(--cw0) * 0.13); letter-spacing: -.04em; }
+.card--shape .card-name.sn {
+  position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; min-height: 0;
+  -webkit-line-clamp: unset; overflow: hidden; line-height: 1; pointer-events: none; white-space: normal; letter-spacing: -.01em;
+  font-size: max(9px, calc(var(--cw0) * 0.115)); font-weight: 700; color: #fff; text-shadow: var(--ol);
+  hyphens: manual; overflow-wrap: normal;
+}
+.card--shape .card-name--l.sn { font-size: max(8px, calc(var(--cw0) * 0.1)); letter-spacing: -.03em; }
+.card--shape .card-name--xl.sn { font-size: max(8px, calc(var(--cw0) * 0.09)); letter-spacing: -.04em; }
+.card--shape .card-sheen { position: absolute; inset: 0; z-index: 1; }
+.card-qm {
+  --qy: 45%;
+  display: none; position: absolute; left: 50%; top: var(--qy); transform: translate(-50%, -50%); place-items: center; pointer-events: none; line-height: 1;
+  font-size: calc(var(--cw0) * 0.42); font-weight: 700; color: #ffd166; text-shadow: var(--ol3);
+}
+/* verdeckt (Beutel) / unentdeckt (Sammlung): dunkle Silhouette + „?“ – die Form bleibt erkennbar */
+.card--shape:not(.shape-talisman).card--down .card-face { visibility: visible; }
+.card--shape.card--down:not(.shape-talisman) .card-art,
+.card--shape.card--unknown .card-art { filter: grayscale(.7) brightness(.42); }
+.card--shape.card--down:not(.shape-talisman) .card-qm, .card--shape.card--unknown .card-qm { display: grid; }
+.card--shape.card--down .shape-face > :not(.card-art):not(.card-qm),
+.card--shape.card--unknown .shape-face > .sg, .card--shape.card--unknown .s-up, .card--shape.card--unknown .s-plaque,
+.card--shape.card--unknown .b-big, .card--shape.card--unknown .b-size, .card--shape.card--unknown .m-neb,
+.card--shape.card--unknown .v-foil, .card--shape.card--unknown .t-foil { display: none; }
+.card--shape.card--unknown .card-name.sn { color: var(--muted); }
+.shape-talisman .card-qm { --qy: 47.9%; } .shape-star .card-qm { --qy: 39.3%; } .shape-tool .card-qm { --qy: 50%; }
+.shape-mystic .card-qm { --qy: 40.7%; } .shape-pack .card-qm { --qy: 59.3%; } .shape-voucher .card-qm { --qy: 37.9%; }
+.card--shape.card--unknown .card-face { filter: none; }
+/* Zustände */
+.card--shape.card--selected .card-face { box-shadow: none; }
+.card--shape.card--selected .card-art { filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 7px var(--rc)); }
+.card--shape.card--drag .card-face { box-shadow: none; }
+.card--shape.card--drag .card-art { filter: drop-shadow(0 12px 0 rgba(0, 0, 0, .35)); }
+.card--shape .card-badge { z-index: 3; }
+
+/* ---------------------------------------------------------- Talisman: gerahmte Karte, Edelstein, Amulett, Band */
+.shape-talisman .card-back { border-radius: calc(var(--cw0) * 0.1); }
+.art-talisman .t-frame { fill: var(--rc); }
+.art-talisman .t-bevel { fill: none; stroke: rgba(255, 255, 255, .45); stroke-width: 1.2; }
+.art-talisman .t-panel { fill: hsl(var(--hue) 42% 14%); }
+.art-talisman .t-panel-ol { fill: none; }
+.art-talisman .t-ray { fill: hsl(var(--hue) 75% 62% / .1); }
+.art-talisman .t-rivet { fill: rgba(255, 255, 255, .6); stroke: var(--outline); stroke-width: .8; }
+.art-talisman .t-inner { fill: none; stroke: var(--rc); stroke-width: 1; opacity: .55; }
+.art-talisman .t-notch { fill: var(--rc); stroke: var(--outline); stroke-width: .8; }
+.art-talisman .t-orn-ol { fill: none; stroke: var(--outline); stroke-width: 5.2; stroke-linecap: round; stroke-linejoin: round; }
+.art-talisman .t-orn { fill: none; stroke: #ffd166; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.art-talisman .t-orn-dot { fill: #ffd166; }
+.art-talisman .t-twinkle { fill: #fff; opacity: .85; }
+.art-talisman .t-halo { fill: hsl(var(--hue) 85% 60% / .2); }
+.art-talisman .t-chain-ol { fill: none; stroke: var(--outline); stroke-width: 4.8; stroke-linecap: round; }
+.art-talisman .t-chain { fill: none; stroke: #ecc96a; stroke-width: 2.4; stroke-dasharray: 3.4 1.7; }
+.art-talisman .t-bail-ol { fill: none; stroke: var(--outline); stroke-width: 5; }
+.art-talisman .t-bail { fill: none; stroke: #ecc96a; stroke-width: 2.2; }
+.art-talisman .t-bezel { fill: #e3ae47; }
+.art-talisman .t-bezel-dots { fill: none; stroke: #7d5212; stroke-width: 1.4; stroke-dasharray: 1.3 2.1; }
+.art-talisman .t-stone { fill: hsl(var(--hue) 72% 46%); }
+.art-talisman .t-stone-hi { fill: rgba(255, 255, 255, .38); }
+.art-talisman .t-gem { fill: var(--rc); }
+.art-talisman .t-gem-hi { fill: rgba(255, 255, 255, .7); }
+.art-talisman .t-gem-glow { fill: var(--legendary); opacity: .35; animation: tgem 1.8s ease-in-out infinite alternate; }
+@keyframes tgem { from { opacity: .12; } to { opacity: .5; } }
+.art-talisman .t-tail { fill: hsl(var(--hue) 40% 19%); }
+.art-talisman .t-ribbon { fill: hsl(var(--hue) 50% 30%); }
+.art-talisman .t-ribbon-hi { fill: rgba(255, 255, 255, .16); }
+.rar-legendary .art-talisman .t-panel { fill: hsl(var(--hue) 48% 12%); }
+.card--shape.shape-talisman .sg { top: 47.86%; font-size: calc(var(--cw0) * 0.24); }
+.card--shape.shape-talisman .card-glyph--mid.sg { font-size: calc(var(--cw0) * 0.17); }
+.card--shape.shape-talisman .card-glyph--long.sg { font-size: calc(var(--cw0) * 0.12); }
+.card--shape.shape-talisman .sn { left: 8%; right: 8%; top: 70.7%; height: 19.3%; }
+.shape-talisman .card-sheen { clip-path: inset(2% 3% 3% 3% round 9%); }
+.t-foil { position: absolute; left: 4%; right: 4%; top: 3%; bottom: 5%; border-radius: 8%; overflow: hidden; pointer-events: none; z-index: 1; }
+.t-foil-band {
+  position: absolute; top: -10%; bottom: -10%; left: -40%; width: 22%; opacity: .5;
+  background: linear-gradient(90deg, transparent, rgba(255, 240, 255, .8) 40%, rgba(220, 180, 255, .6) 60%, transparent);
+  transform: translateX(0) skewX(-16deg); animation: tfoil 3.4s ease-in-out infinite;
+}
+@keyframes tfoil { 0% { transform: translateX(0) skewX(-16deg); } 45%, 100% { transform: translateX(720%) skewX(-16deg); } }
+.shape-talisman.card--disabled .card-face { filter: grayscale(1) brightness(.55); }
+
+/* ---------------------------------------------------------- Sternbild: achteckige Sternenkarte (Siegel) */
+.art-star .s-rim { fill: #aebcf0; }
+.art-star .s-rim-hi { fill: rgba(10, 16, 60, .28); }
+.art-star .s-band { fill: #1f2b6a; }
+.art-star .s-tick { fill: none; stroke: #c9d4ff; stroke-width: 1; opacity: .75; }
+.art-star .s-sky { fill: #0a1136; }
+.art-star .s-neb { fill: hsl(var(--hue) 85% 60% / .22); }
+.art-star .s-neb2 { fill: hsl(calc(var(--hue) + 70) 85% 60% / .14); }
+.art-star .s-dust { fill: #fff; }
+.art-star .s-line-ol { fill: none; stroke: hsl(var(--hue) 95% 72% / .32); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.art-star .s-line { fill: none; stroke: #eaf2ff; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.art-star .s-glow { fill: hsl(var(--hue) 95% 72% / .45); }
+.art-star .s-star { fill: #fff; }
+.s-up {
+  position: absolute; left: 50%; top: 7.6%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; white-space: nowrap;
+  padding: 0 .45em; border-radius: 99px; border: 2px solid var(--outline); background: var(--chips); color: var(--outline);
+  font-size: max(8px, calc(var(--cw0) * 0.09)); font-weight: 700; line-height: 1.25; box-shadow: 0 2px 0 var(--outline);
+}
+.s-plaque {
+  position: absolute; left: 50%; top: 70.6%; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; white-space: nowrap;
+  max-width: 94%; box-sizing: border-box; overflow: hidden; padding: .1em .5em; border-radius: 5px; border: 2px solid var(--outline);
+  background: linear-gradient(180deg, #ffe39a, #e8b04a); color: #2a1a05; box-shadow: 0 2px 0 var(--outline);
+  font-size: max(8px, calc(var(--cw0) * 0.1)); font-weight: 700; line-height: 1.1;
+}
+.card--shape.shape-star .sn { left: 2%; right: 2%; top: 79%; bottom: 0; }
+.shape-star .card-sheen { clip-path: circle(calc(var(--cw0) * 0.47) at 50% 39.3%); }
+
+/* ---------------------------------------------------------- Werkzeug: Hängeetikett mit Öse und Schnur */
+.art-tool .tl-body { fill: #d2a062; }
+.art-tool .tl-grain { fill: none; stroke: #8a5a2b; stroke-width: .9; opacity: .35; }
+.art-tool .tl-shade { fill: rgba(90, 45, 10, .25); }
+.art-tool .tl-stitch { fill: none; stroke: #6b4320; stroke-width: .9; stroke-dasharray: 2.4 1.8; opacity: .55; }
+.art-tool .tl-ring { fill: #e9bb4e; }
+.art-tool .tl-ring-hi { fill: none; stroke: #fff6c8; stroke-width: 1.3; opacity: .8; }
+.art-tool .tl-string-ol { fill: none; stroke: var(--outline); stroke-width: 4.4; stroke-linecap: round; }
+.art-tool .tl-string { fill: none; stroke: #f3e7c9; stroke-width: 2; stroke-linecap: round; }
+.art-tool .tl-badge { fill: hsl(var(--hue) 55% 40%); }
+.art-tool .tl-badge-ring { fill: none; stroke: rgba(255, 255, 255, .35); stroke-width: 1; }
+.art-tool .tl-badge-hi { fill: rgba(255, 255, 255, .25); }
+.card--shape.shape-tool .sg { top: 50%; font-size: calc(var(--cw0) * 0.21); }
+.card--shape.shape-tool .card-glyph--mid.sg { font-size: calc(var(--cw0) * 0.16); }
+.card--shape.shape-tool .sn { left: 15%; right: 15%; top: 64%; height: 23%; color: #3b2210; text-shadow: none; }
+.shape-tool .card-sheen { clip-path: polygon(32% 14.3%, 68% 14.3%, 90% 29.3%, 90% 91.4%, 10% 91.4%, 10% 29.3%); }
+
+/* ---------------------------------------------------------- Mystik: facettierter Kristall mit Nebel */
+.art-mystic .m-f1 { fill: hsl(var(--hue) 78% 68%); }
+.art-mystic .m-f2 { fill: hsl(var(--hue) 66% 53%); }
+.art-mystic .m-f3 { fill: hsl(var(--hue) 60% 28%); }
+.art-mystic .m-f4 { fill: hsl(var(--hue) 62% 39%); }
+.art-mystic .m-table { fill: hsl(var(--hue) 68% 45%); }
+.art-mystic .m-edge { fill: none; stroke: rgba(255, 255, 255, .38); stroke-width: .9; }
+.art-mystic .m-glint { fill: rgba(255, 255, 255, .55); }
+.art-mystic .m-outline { fill: none; }
+.m-neb { position: absolute; inset: 0; clip-path: polygon(50% 2.2%, 97% 40.7%, 50% 79.3%, 3% 40.7%); pointer-events: none; overflow: hidden; }
+.m-neb-in {
+  position: absolute; left: -25%; top: -10%; width: 150%; height: 90%; opacity: .7;
+  background:
+    radial-gradient(closest-side at 34% 42%, rgba(255, 120, 225, .55), transparent),
+    radial-gradient(closest-side at 66% 58%, rgba(110, 230, 255, .45), transparent),
+    radial-gradient(closest-side at 52% 28%, rgba(255, 255, 255, .3), transparent);
+  animation: mneb 6s ease-in-out infinite alternate;
+}
+@keyframes mneb { from { transform: rotate(-14deg) scale(.95); } to { transform: rotate(16deg) scale(1.15) translateX(5%); } }
+.card--shape.shape-mystic .sg { top: 40.7%; font-size: calc(var(--cw0) * 0.25); }
+.card--shape.shape-mystic .sn {
+  left: 13%; right: 13%; top: 76.5%; height: 16.5%; border-radius: 6px; border: 2px solid var(--outline); box-sizing: border-box;
+  background: linear-gradient(180deg, hsl(var(--hue) 45% 30%), hsl(var(--hue) 50% 18%)); box-shadow: 0 3px 0 var(--outline); padding: 0 2px;
+}
+.shape-mystic .card-sheen { clip-path: polygon(50% 2.2%, 97% 40.7%, 50% 79.3%, 3% 40.7%); }
+
+/* ---------------------------------------------------------- Beutel: zugebundener Stoffbeutel mit Aufnäher */
+.art-pack .b-ruffle { fill: hsl(var(--hue) 48% 50%); }
+.art-pack .b-fold { fill: none; stroke: rgba(0, 0, 0, .28); stroke-width: 1; }
+.art-pack .b-body { fill: hsl(var(--hue) 46% 41%); }
+.art-pack .b-shade { fill: rgba(0, 0, 0, .22); }
+.art-pack .b-hi { fill: rgba(255, 255, 255, .2); }
+.art-pack .b-seam { display: none; }
+.art-pack .b-tie, .art-pack .b-knot { fill: #ead6a6; }
+.art-pack .b-tie-twist { fill: none; stroke: #9c7a3c; stroke-width: 1.1; }
+.art-pack .b-cord-ol { fill: none; stroke: var(--outline); stroke-width: 4.4; stroke-linecap: round; }
+.art-pack .b-cord { fill: none; stroke: #ead6a6; stroke-width: 2.2; stroke-linecap: round; }
+.art-pack .b-patch { fill: #f3e4c3; }
+.art-pack .b-stitch { fill: none; stroke: hsl(var(--hue) 45% 35%); stroke-width: 1.1; stroke-dasharray: 2.2 1.6; }
+.card--shape.shape-pack .sg { top: 59.3%; font-size: calc(var(--cw0) * 0.22); color: hsl(var(--hue) 62% 32%); text-shadow: none; }
+.card--shape.shape-pack .sn { left: 11%; right: 11%; top: 76%; height: 16%; }
+.shape-pack .card-sheen { clip-path: ellipse(46% 36% at 50% 62%); }
+.b-big {
+  position: absolute; right: 0; top: 23%; z-index: 2; pointer-events: none; display: grid; place-items: center;
+  width: calc(var(--cw0) * 0.25); height: calc(var(--cw0) * 0.25); border-radius: 50%; border: 2px solid var(--outline);
+  background: var(--xmult); color: var(--outline); font-size: max(8px, calc(var(--cw0) * 0.1)); font-weight: 700; box-shadow: 0 2px 0 var(--outline);
+}
+.b-size {
+  position: absolute; left: -2%; top: 10%; z-index: 2; pointer-events: none; white-space: nowrap; transform: rotate(-9deg);
+  padding: 0 .35em; border-radius: 3px; border: 2px solid var(--outline); background: #f3e4c3; color: #3b2210;
+  font-size: max(7px, calc(var(--cw0) * 0.08)); font-weight: 700; line-height: 1.2;
+}
+.pack-bag .b-size, .pack-glyph .b-size, .pack-glyph .b-big, .pack-glyph .card--shape .sn { display: none; }
+
+/* ---------------------------------------------------------- Privileg: Coupon mit Perforation, Stempel, Goldfolie */
+.art-voucher .v-body { fill: #ecbd4f; }
+.art-voucher .v-band { fill: rgba(255, 250, 220, .35); }
+.art-voucher .v-band2 { fill: rgba(255, 250, 220, .2); }
+.art-voucher .v-frame { fill: none; stroke: #9a6a12; stroke-width: 1; opacity: .75; }
+.art-voucher .v-tear { fill: none; stroke: #7a5210; stroke-width: 1.3; stroke-dasharray: 2.6 2; }
+.art-voucher .v-no { font: 700 7px var(--font); fill: #7a5210; }
+.art-voucher .v-star { fill: #fff8d6; }
+.art-voucher .v-stamp { fill: rgba(160, 20, 60, .1); stroke: #a3203f; stroke-width: 2.6; }
+.art-voucher .v-stamp-in { fill: none; stroke: #a3203f; stroke-width: 1; stroke-dasharray: 1.6 1.4; }
+.card--shape.shape-voucher .sg { top: 37.9%; font-size: calc(var(--cw0) * 0.27); color: #a3203f; text-shadow: none; transform: translate(-50%, -50%) rotate(-11deg); }
+.card--shape.shape-voucher .sn { left: 14%; right: 14%; top: 74.3%; height: 15.7%; color: #452a04; text-shadow: none; }
+.shape-voucher .card-sheen { clip-path: inset(4.3% 8% 5.7% 8%); }
+.v-foil { position: absolute; left: 8%; right: 8%; top: 4.3%; bottom: 5.7%; overflow: hidden; pointer-events: none; z-index: 1; }
+.v-foil-band {
+  position: absolute; top: -10%; bottom: -10%; left: -40%; width: 20%; opacity: .55;
+  background: linear-gradient(90deg, transparent, rgba(255, 252, 225, .85) 50%, transparent);
+  transform: translateX(0) skewX(-18deg); animation: tfoil 4.6s ease-in-out infinite 1s;
+}
+
+/* ---------------------------------------------------------- Würfel (Würfelbeutel): auf Samtkissen, verdeckt unter Glocke */
+.art-die .d-cushion { fill: #6b2a5e; }
+.art-die .d-cushion-top { fill: #8a3a7a; }
+.art-die .d-seam { fill: none; stroke: #e9c766; stroke-width: 1.2; stroke-dasharray: 2 1.6; }
+.art-die .d-tassel-ol { fill: none; stroke: var(--outline); stroke-width: 4.5; stroke-linecap: round; }
+.art-die .d-tassel { fill: none; stroke: #e9c766; stroke-width: 2.2; stroke-linecap: round; }
+.art-die .d-cloche { display: none; }
+.art-die .d-dome { fill: #b9c2d6; }
+.art-die .d-dome-hi { fill: rgba(255, 255, 255, .55); }
+.art-die .d-rim, .art-die .d-knob { fill: #8d97ad; }
+.shape-die.card--down .art-die .d-cloche { display: inline; }
+.shape-die.card--down .card-art { filter: none; }
+.shape-die.card--down .card-qm { display: grid; --qy: 50%; font-size: calc(var(--cw0) * 0.3); }
+.shape-die .pack-die3d { position: absolute; left: 50%; top: 46%; height: auto; transform: translate(-50%, -50%); --die-size: calc(var(--cw0) * 0.52); }
+.card--shape.shape-die .sn { left: 0; right: 0; top: 82%; bottom: 0; }
+
+/* ---------------------------------------------------------- Kategorie-Etikett über Angeboten + Mini-Formsymbole */
+.offer-cap {
+  display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); text-shadow: 0 1px 0 var(--outline); white-space: nowrap; line-height: 1;
+}
+.offer-cap--talisman { color: #ffd98a; }
+.offer-cap--star { color: #a9b8ff; }
+.offer-cap--tool { color: #e7b67c; }
+.offer-cap--mystic { color: #d7a2ff; }
+.offer-cap--pack { color: #8fe6c8; }
+.offer-cap--voucher { color: #ffe08a; }
+.offer-cap--die { color: #f0c6e6; }
+.shape-ico { display: inline-block; flex: none; width: 9px; height: 12px; vertical-align: -1px; margin-right: 4px; background: currentColor; }
+.tt-kind .shape-ico { margin-right: 5px; }
+.shape-ico--talisman { border-radius: 2px; box-shadow: inset 0 0 0 2px #ffd166; background: #3b2470; }
+.shape-ico--star { width: 12px; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); background: #8fa6ff; }
+.shape-ico--tool { clip-path: polygon(30% 0, 70% 0, 100% 25%, 100% 100%, 0 100%, 0 25%); background: #d2a062; }
+.shape-ico--mystic { width: 11px; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); background: #c07dff; }
+.shape-ico--pack { width: 11px; border-radius: 35% 35% 50% 50% / 25% 25% 75% 75%; background: #5fc9a6; }
+.shape-ico--voucher { width: 10px; clip-path: polygon(0 0, 100% 0, 100% 38%, 75% 50%, 100% 62%, 100% 100%, 0 100%, 0 62%, 25% 50%, 0 38%); background: #ecbd4f; }
+
+/* Toast-Symbol in Kategorieform */
+.toast-glyph--talisman { border-radius: 5px; width: 24px; height: 30px; background: hsl(var(--hue) 42% 18%); box-shadow: inset 0 0 0 2px #ffd166; }
+.toast-glyph--star { border: 0; border-radius: 0; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); background: #0f1a4a; box-shadow: inset 0 0 0 3px #aebcf0; }
+.toast-glyph--tool { border: 0; border-radius: 0 0 4px 4px; clip-path: polygon(28% 0, 72% 0, 100% 24%, 100% 100%, 0 100%, 0 24%); background: #d2a062; color: #3b2210; text-shadow: none; }
+.toast-glyph--mystic { border: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border-radius: 0; background: hsl(var(--hue) 65% 50%); }
+.toast-glyph--voucher { border: 0; border-radius: 2px; clip-path: polygon(0 0, 100% 0, 100% 38%, 82% 50%, 100% 62%, 100% 100%, 0 100%, 0 62%, 18% 50%, 0 38%); background: #ecbd4f; color: hsl(var(--hue) 72% 30%); text-shadow: none; }
+
+/* Tooltip/Kartenmenü: Akzentfarbe der Kategorie statt nur Farbton */
+.tooltip.tt--star .tt-kind, .cardmenu.tt--star .tt-kind { color: #a9b8ff; }
+.tooltip.tt--tool .tt-kind, .cardmenu.tt--tool .tt-kind { color: #e7b67c; }
+.tooltip.tt--mystic .tt-kind, .cardmenu.tt--mystic .tt-kind { color: #d7a2ff; }
+.tooltip.tt--voucher .tt-kind { color: #ffe08a; }
+.tooltip.tt--pack .tt-kind { color: #8fe6c8; }
+.tooltip.tt--talisman .tt-kind, .cardmenu.tt--talisman .tt-kind { color: #ffd98a; }
+
+/* ---------------------------------------------------------- Leisten: Talisman-Vitrine (Samt, Messing, Glas) vs. Verbrauchs-Tasche (Leder, Naht) */
+.belt-group--t {
+  border: 3px solid var(--outline); border-radius: 14px;
+  background:
+    linear-gradient(162deg, rgba(255, 255, 255, .07) 0 14%, transparent 14% 22%, rgba(255, 255, 255, .035) 22% 26%, transparent 26%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .018) 0 2px, transparent 2px 5px),
+    radial-gradient(130% 150% at 50% 0%, #5a1d3c 0%, #33102a 55%, #1d0818 100%);
+  box-shadow: var(--hard), inset 0 0 0 3px #c4943f, inset 0 0 0 5px #5c3a12, inset 0 12px 22px rgba(0, 0, 0, .55);
+}
+.belt-group--c {
+  border: 3px solid var(--outline); border-radius: 14px 14px 24px 24px;
+  background:
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, .06) 0 3px, transparent 3px 6px),
+    radial-gradient(120% 110% at 50% 0%, #7d5434, #553420 65%, #3b2316);
+  box-shadow: var(--hard), inset 0 2px 0 rgba(255, 230, 190, .18), inset 0 -6px 12px rgba(0, 0, 0, .35);
+}
+.belt-group--c::before {
+  content: ''; position: absolute; inset: 4px; pointer-events: none; border: 2px dashed rgba(243, 220, 175, .5);
+  border-radius: 10px 10px 20px 20px;
+}
+.belt-group--t .belt-label {
+  bottom: -9px; left: 14px; z-index: 2; padding: 1px 7px; border-radius: 3px; border: 2px solid var(--outline); line-height: 1.1;
+  background: linear-gradient(180deg, #f0c766, #b98633); color: #2a1805; font-weight: 700; letter-spacing: .12em; box-shadow: 0 2px 0 var(--outline);
+}
+.belt-group--c .belt-label {
+  bottom: -9px; left: 12px; z-index: 2; padding: 1px 7px; border-radius: 3px; border: 2px solid var(--outline); line-height: 1.1;
+  background: #2e1b10; color: #f3dcaf; font-weight: 700; letter-spacing: .12em; box-shadow: 0 2px 0 var(--outline);
+}
+.belt-group .belt-count { bottom: 2px; color: rgba(255, 236, 200, .55); }
+.belt-group--t .slot-empty {
+  border: 2px dashed rgba(232, 184, 76, .22); border-radius: 9px; background: rgba(0, 0, 0, .28);
+  box-shadow: inset 0 4px 9px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .06);
+}
+.belt-group--c .slot-empty {
+  border: 2px dashed rgba(243, 220, 175, .4); border-radius: 8px 8px 45% 45% / 8px 8px 28% 28%; background: rgba(0, 0, 0, .2);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, .4);
+}
+/* Verbrauchsgüter in der Tasche: Formen etwas kleiner, Text nur Kernaussage */
+
+.belt .card--shape .sn, .belt .s-plaque { white-space: nowrap; display: block; text-overflow: clip; line-height: 1.15; }
+.belt .card--shape .sn { display: flex; justify-content: safe center; }
+.belt .card--shape.shape-talisman .sn { font-size: max(8px, calc(var(--cw0) * 0.105)); }
+.belt .shape-star .s-plaque { top: 84%; }
+.belt .shape-star .card-art { transform: translateY(6%); }
+.belt .card--shape .s-up, .belt .card--shape.shape-star .sn { display: none; }
+
+/* Pack-Kopf: Mini-Beutel statt Medaille */
+.pack-glyph { --cw: 46px; width: 46px; height: 64px; border: 0; border-radius: 0; background: none; box-shadow: none; display: block; position: relative; }
+.pack-glyph .card { --cw: 46px; }
+.pack-glyph .sg { font-size: 12px; }
+
+body.fx-reduced .t-foil-band, body.fx-reduced .v-foil-band, body.fx-reduced .m-neb-in, body.fx-reduced .art-talisman .t-gem-glow { animation: none; }
+body.fx-reduced .t-foil-band, body.fx-reduced .v-foil-band { opacity: 0; }
+
+/* kleine Formen (Handy-Leisten): dünnere Konturen */
+@media (orientation: portrait), (max-width: 760px) and (min-height: 501px), (orientation: landscape) and (max-height: 500px) {
+  .belt .card-art { --sw: 2px; }
+  .belt .card--shape .sg { text-shadow: 1px 0 0 var(--outline), -1px 0 0 var(--outline), 0 1px 0 var(--outline), 0 -1px 0 var(--outline), 0 2px 0 var(--outline); }
+  .belt .card--shape .sn, .belt .s-plaque { font-size: max(7px, calc(var(--cw0) * 0.15)); letter-spacing: -.03em; }
+  .belt .card--shape.shape-talisman .sn { font-size: max(6px, calc(var(--cw0) * 0.13)); white-space: normal; line-height: .95; left: 3%; right: 3%; letter-spacing: -.04em; hyphens: manual; }
+  .belt .card--shape .sn { text-shadow: 1px 0 0 var(--outline), -1px 0 0 var(--outline), 0 1px 0 var(--outline), 0 -1px 0 var(--outline); }
+  .belt .card--shape.shape-tool .sn, .belt .card--shape.shape-voucher .sn { text-shadow: none; }
+  .belt .s-plaque { border-width: 1px; padding: 0 .3em; border-radius: 3px; }
+  .belt .card--shape.shape-mystic .sn { border-width: 1px; border-radius: 3px; }
+  .belt-group--t .belt-label, .belt-group--c .belt-label { bottom: -7px; padding: 0 4px; border-width: 1px; }
+  .shop-row .offer-cap, .pack-row .offer-cap { font-size: 9px; letter-spacing: .03em; }
+  .shop-row .card-art, .pack-row .card-art { --sw: 2.5px; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .shop-row .offer-cap, .pack-row .offer-cap { font-size: 8px; letter-spacing: 0; max-width: calc(var(--cw) + 10px); overflow: hidden; }
+  .offer-cap .shape-ico { margin-right: 2px; width: 7px; height: 9px; }
+}

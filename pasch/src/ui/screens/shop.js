@@ -3,6 +3,7 @@ import { h } from '../dom.js';
 import * as G from '../../game/index.js';
 import { button } from '../components/button.js';
 import { createCard, model } from '../components/card.js';
+import { shapeOf, shapeIcon } from '../components/itemshapes.js';
 import { popIn, juice, nope, time, ease, setLayer, particles, background } from '../../fx/index.js';
 import { audio } from '../../audio/audio.js';
 import { T, money } from '../text.js';
@@ -40,6 +41,9 @@ export function createShop(app) {
     const afford = run.money >= o.price;
     const b = button(o.kind === 'pack' ? 'Öffnen' : T.buy, { kind: 'gold', size: 's', sub: price, onClick: () => buy(section, index, c, b) });
     if (!afford) b.classList.add('btn--poor');
+    const shape = shapeOf(c.m);
+    wrap.classList.add(`offer--${shape || 'card'}`);
+    wrap.appendChild(h(`div.offer-cap${shape ? `.offer-cap--${shape}` : ''}`, shape ? shapeIcon(shape) : null, c.m.sub));
     wrap.appendChild(c.el);
     wrap.appendChild(b);
     c.el.addEventListener('click', () => { juice(c.el, 0.15); audio.play('card_pick', { gain: 0.4 }); });
@@ -118,7 +122,7 @@ export function createShop(app) {
       particles.burst(from.left + from.width / 2, from.top + from.height / 2, { count: 26, color: 'confetti', shape: 'confetti', speed: [200, 500] });
       await time.tween(320, (e) => setLayer(card.el, 'buy', { scale: 1 + 0.4 * e, rot: e * -10 }), { ease: ease.outBack });
       card.el.style.opacity = '0';
-      app.toast(v.desc, { title: `Privileg: ${v.name}`, glyph: v.glyph, hue: v.hue, kind: 'gold' });
+      app.toast(v.desc, { title: `Privileg: ${v.name}`, glyph: v.glyph, hue: v.hue, kind: 'gold', shape: 'voucher' });
       app.afterAction(r.events.filter((e) => e.type !== 'money' && e.type !== 'voucher'), { keepMoney: true });
       busy = false;
       render(false);

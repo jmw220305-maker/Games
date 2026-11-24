@@ -6,7 +6,9 @@ import { createCard, model } from '../components/card.js';
 import { attachTooltip } from '../tooltip.js';
 import { popIn, juice } from '../../fx/index.js';
 import { audio } from '../../audio/audio.js';
-import { rich, fmt, money } from '../text.js';
+import { rich, fmt, money, RARITY } from '../text.js';
+
+const GROUP = { star: 'Sternbilder · Hand +1 Stufe', tool: 'Werkzeuge · verändern Würfel', mystic: 'Mystik · seltene Kräfte' };
 
 const TABS = [
   ['talismans', 'Talismane'], ['consumables', 'Verbrauchsgüter'], ['wardens', 'Wächter'], ['hands', 'Hände'],
@@ -47,15 +49,31 @@ export function createCollection(app) {
         cards.push(cd);
         wrap.appendChild(cd.el);
       } else {
-        const ph = h('div.card.card--unknown', h('div.card-face', h('div.card-glyph', h('span', '?')), h('div.card-name', '???')));
-        attachTooltip(ph, () => ({ title: 'Noch nicht entdeckt', kind: 'Sammlung', hue: 270, body: 'Begegne diesem Inhalt in einem Lauf, um ihn freizuschalten.' }));
-        wrap.appendChild(ph);
+        // Unentdeckt: Silhouette der Kategorie (Form verrät die Art, nicht den Inhalt)
+        const cd = createCard({ ...model(kind, id), name: '???', glyph: '?', rarity: null, hue: 260 }, { unknown: true, tilt: false, sway: false, tooltip: false });
+        cards.push(cd);
+        attachTooltip(cd.el, () => ({ title: 'Noch nicht entdeckt', kind: 'Sammlung', hue: 270, body: 'Begegne diesem Inhalt in einem Lauf, um ihn freizuschalten.' }));
+        wrap.appendChild(cd.el);
       }
       grid.appendChild(wrap);
       popIn(wrap, 200, Math.min(600, total * 12));
     };
-    if (tab === 'talismans') for (const id of G.TALISMAN_IDS) addCard('talisman', id, c.talismans[id]);
-    else if (tab === 'consumables') for (const id of G.CONSUMABLE_IDS) addCard('consumable', id, c.consumables[id]);
+    const sub = (t) => grid.appendChild(h('div.coll-sub', t));
+    if (tab === 'talismans') {
+      for (const [rar, label] of Object.entries(RARITY)) {
+        const ids = G.TALISMAN_IDS.filter((id) => G.TALISMANS[id].rarity === rar);
+        if (!ids.length) continue;
+        sub(label);
+        for (const id of ids) addCard('talisman', id, c.talismans[id]);
+      }
+    } else if (tab === 'consumables') {
+      for (const k of ['star', 'tool', 'mystic']) {
+        const ids = G.CONSUMABLE_IDS.filter((id) => G.CONSUMABLES[id].kind === k);
+        if (!ids.length) continue;
+        sub(GROUP[k]);
+        for (const id of ids) addCard('consumable', id, c.consumables[id]);
+      }
+    }
     else if (tab === 'wardens') for (const id of G.WARDEN_IDS) addCard('warden', id, c.wardens[id]);
     else if (tab === 'hands') {
       for (const id of G.HAND_ORDER) {

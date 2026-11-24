@@ -2,6 +2,7 @@
 import { h } from './dom.js';
 import { longPress } from './input.js';
 import { audio } from '../audio/audio.js';
+import { shapeIcon } from './components/itemshapes.js';
 
 let tip = null;
 let owner = null;
@@ -27,10 +28,10 @@ export function showTooltip(el, content, opts = {}) {
   if (!content || suppressed > 0) return;
   const t = ensure();
   owner = el;
-  t.className = `tooltip${content.rarity ? ` rar-${content.rarity}` : ''}`;
+  t.className = `tooltip${content.rarity ? ` rar-${content.rarity}` : ''}${content.shape ? ` tt--${content.shape}` : ''}`;
   t.style.setProperty('--hue', String(content.hue != null ? content.hue : 270));
   t.innerHTML = '';
-  if (content.kind) t.appendChild(h('div.tt-kind', content.kind));
+  if (content.kind) t.appendChild(h('div.tt-kind', content.shape ? shapeIcon(content.shape) : null, content.kind));
   if (content.title) t.appendChild(h('div.tt-title', content.title));
   if (content.body) t.appendChild(h('div.tt-body', { html: content.body }));
   if (content.foot) t.appendChild(h('div.tt-foot', { html: content.foot }));
